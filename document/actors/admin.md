@@ -10,14 +10,17 @@ Admin là người quản lý hệ thống, giám sát toàn bộ quy trình s�
 - Xác nhận hoàn thành và tính toán chi phí
 - Quản lý nhân sự và phê duyệt thành viên mới
 - Giám sát các chỉ số hiệu suất và doanh thu
+- Quản lý hệ thống điểm thưởng và quy tắc tích điểm
+- Xác nhận hóa đơn và tích điểm tự động khi hoàn thành phiếu
 
 ## Quyền hạn và truy cập
 - Quyền truy cập đầy đủ tất cả module hệ thống
 - Quyền phê duyệt và phân công phiếu
 - Quyền quản lý nhân sự (phê duyệt, kích hoạt/vô hiệu hóa)
 - Quyền truy cập báo cáo và thống kê
-- Quyền cấu hình hệ thống và quy tắc điểm
+- Quyền cấu hình hệ thống và quy tắc điểm thưởng
 - Quyền quản lý danh mục dịch vụ và mã giảm giá
+- Quyền quản lý hóa đơn và xác nhận thanh toán
 
 ## Tham gia quy trình
 - **P1-P5 toàn bộ**: Giám sát và điều phối tất cả giai đoạn

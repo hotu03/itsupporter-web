@@ -22,10 +22,11 @@ Admin hoặc Tester (phê duyệt đăng ký trực tuyến)
 ## Luồng chính
 1. Khách hàng/Tester nhập thông tin cá nhân (tên, số điện thoại)
 2. Nhập thông tin thiết bị (loại máy, tình trạng, vấn đề)
-3. Chọn dịch vụ sửa chữa bổ sung nếu có
-4. Xác nhận thông tin và tạo phiếu
-5. Hệ thống tạo mã phiếu duy nhất
-6. Hiển thị thông tin phiếu cho khách hàng
+3. Chọn dịch vụ sửa chữa bổ sung và tính toán chi phí
+4. Tester chọn trạng thái thanh toán (đã thanh toán/chưa thanh toán/miễn phí)
+5. Xác nhận thông tin và tạo phiếu
+6. Hệ thống tạo mã phiếu duy nhất
+7. Hiển thị thông tin phiếu và ước tính điểm thưởng cho khách hàng
 
 ## Luồng thay thế
 ### Đăng ký trực tuyến

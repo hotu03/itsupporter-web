@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   DollarSign,
+  FileText,
 } from "lucide-react";
 import { useState } from "react";
 import logo from "figma:asset/03d926f626d30f5cc53efd5d264b289f5b285002.png";
@@ -18,6 +19,7 @@ const navItems = [
   { label: "Personnel", icon: Users, to: "/dashboard/nhan-su" },
   { label: "Customers", icon: UserCircle, to: "/dashboard/customers" },
   { label: "Finance", icon: DollarSign, to: "/dashboard/finance" },
+  { label: "Invoices", icon: FileText, to: "/dashboard/invoices" },
 ];
 
 export function Sidebar() {

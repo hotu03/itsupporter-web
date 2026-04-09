@@ -16,7 +16,9 @@ Khách hàng là người dùng bên ngoài mang thiết bị đến cửa hàng
 - Xem trạng thái đơn hàng của mình (nếu có hệ thống tra cứu)
 - Nhận thông báo SMS về tiến độ
 - Thanh toán hóa đơn tại quầy
+- Xem số điểm thưởng tích lũy
 - Đổi điểm thưởng lấy mã giảm giá
+- Xem lịch sử điểm và giao dịch
 
 ## Tham gia quy trình
 - **Quy trình đăng ký trực tuyến**: Khởi tạo yêu cầu sửa chữa từ xa

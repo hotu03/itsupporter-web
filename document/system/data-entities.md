@@ -118,6 +118,52 @@ interface DiscountCode {
 }
 ```
 
+## Invoice (Hóa đơn)
+
+```typescript
+interface Invoice {
+  id: string;                    // ID duy nhất
+  invoiceNumber: string;         // Mã hóa đơn (HD-XXXX)
+  machineId?: number;            // ID máy liên kết
+  customerName: string;          // Tên khách hàng
+  phone: string;                 // Số điện thoại
+  registrationType: "online" | "in-person"; // Loại đăng ký
+
+  // Thông tin dịch vụ
+  services: {
+    name: string;
+    price: number;
+  }[];
+  machineCondition?: string;
+  needs?: string;
+  category: string;
+  warranty: "con" | "het";
+
+  // Thông tin thời gian
+  createdAt: string;             // Ngày tạo
+  createdTime: string;           // Giờ tạo
+  dropOffTime?: string;          // Thời gian nhận máy
+  appointmentTime?: string;      // Thời gian hẹn
+
+  // Thông tin thanh toán
+  serviceAmount: number;         // Tổng tiền dịch vụ
+  discountCode?: string;
+  discountAmount: number;
+  finalAmount: number;           // Thành tiền
+  paymentStatus: "paid" | "pending" | "free";
+
+  // Thông tin điểm thưởng
+  pointsEarned?: number;
+
+  // Thông tin nhân viên
+  tester?: string;               // Tester tạo hóa đơn
+  createdBy?: string;            // Người tạo hóa đơn
+
+  // Ghi chú
+  notes?: string;
+}
+```
+
 ## Transaction (Giao dịch)
 
 ```typescript
@@ -180,6 +226,10 @@ interface PointHistory {
 - Machine.discountCode → DiscountCode.code (lookup)
 - DiscountCode.usageCount tăng khi áp dụng
 
+### Machine ↔ Invoice
+- Invoice.machineId → Machine.id
+- Invoice được tạo khi Machine.status = "COMPLETE" | "RETURNED"
+
 ### Customer ↔ PointHistory
 - PointHistory.customerPhone → Customer.phone
 - Customer.points = sum(PointHistory.points)
@@ -196,6 +246,7 @@ interface PointHistory {
 - `"its_services"`: Array<ServiceData>
 - `"its_discounts"`: Array<DiscountCode>
 - `"its_transactions"`: Array<Transaction>
+- `"its_invoices"`: Array<Invoice>
 - `"its_point_rules"`: Array<PointRule>
 - `"its_point_history"`: Array<PointHistory>
 

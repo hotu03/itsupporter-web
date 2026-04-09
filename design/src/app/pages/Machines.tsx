@@ -24,6 +24,9 @@ import { getServices, getServicePrice, formatCurrency as formatCurr } from "../d
 import { validateDiscount, useDiscount } from "../data/discounts";
 import { calculatePoints, addPointHistory, getPointsExplanation } from "../data/points";
 import { getMachines, saveMachines, type Machine, type Status } from "../data/machines";
+import { addInvoice } from "../data/invoices";
+import { addOrUpdateCustomer } from "../data/customers";
+import { addTransaction } from "../data/finance";
 
 // ─── Member data ──────────────────────────────────────────────────────────────
 const MEMBERS = [
@@ -1034,7 +1037,7 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-gray-600">Thời gian đưa máy đến</label>
                   <input
-                    type="time"
+                    type="datetime-local"
                     className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
                     value={form.dropOffTime}
                     onChange={(e) => set("dropOffTime", e.target.value)}
@@ -1043,7 +1046,7 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-gray-600">Thời gian hẹn nhận máy</label>
                   <input
-                    type="time"
+                    type="datetime-local"
                     className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
                     value={form.appointmentTime}
                     onChange={(e) => set("appointmentTime", e.target.value)}
@@ -1757,10 +1760,68 @@ export default function Machines() {
   });
 
   const handleSave = (form: FormState, id?: number) => {
-    const next: Machine = formToMachine(form, id ? machines.find(m => m.id === id) : null);
+    const existingMachine = id ? machines.find(m => m.id === id) : null;
+    const next: Machine = formToMachine(form, existingMachine);
     const updatedMachines = id ? machines.map(m => m.id === id ? next : m) : [next, ...machines];
     setMachines(updatedMachines);
     saveMachines(updatedMachines);
+
+    // Create invoice for new in-person registration (not editing)
+    if (!id && next.registrationType === "in-person") {
+      const now = new Date();
+      const currentDate = now.toLocaleDateString("vi-VN");
+      const currentTime = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+      // Create invoice
+      addInvoice({
+        machineId: next.id,
+        customerName: next.customerName,
+        phone: next.phone,
+        registrationType: "in-person",
+        services: (next.additionalServices || []).map(serviceName => ({
+          name: serviceName,
+          price: getServicePrice(serviceName),
+        })),
+        machineCondition: next.machineCondition,
+        needs: next.needs,
+        category: next.category,
+        warranty: next.warranty,
+        charger: next.charger,
+        password: next.password,
+        createdAt: currentDate,
+        createdTime: currentTime,
+        dropOffTime: next.dropOffTime,
+        appointmentTime: next.appointmentTime,
+        serviceAmount: next.serviceAmount || 0,
+        discountCode: next.discountCode,
+        discountAmount: next.discountAmount || 0,
+        finalAmount: next.finalAmount || 0,
+        paymentStatus: next.paymentStatus || "pending",
+        pointsEarned: next.pointsEarned,
+        tester: next.testerBefore || next.tester,
+        createdBy: `Tester (${next.testerBefore || next.tester})`,
+      });
+
+      // Add/update customer
+      if (next.phone !== "—" && next.customerName !== "Khách hàng") {
+        addOrUpdateCustomer(next.customerName, next.phone, next.pointsEarned || 0);
+      }
+
+      // Add transaction to finance
+      if (next.finalAmount && next.finalAmount > 0) {
+        addTransaction({
+          machineId: next.id,
+          customerName: next.customerName,
+          phone: next.phone,
+          service: next.description,
+          amount: next.finalAmount,
+          paymentStatus: next.paymentStatus || "pending",
+          date: currentDate,
+          discountCode: next.discountCode,
+          discountAmount: next.discountAmount,
+        });
+      }
+    }
   };
 
   const handleApproveMachine = (id: number) => {

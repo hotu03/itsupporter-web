@@ -16,14 +16,14 @@ export interface PointHistory {
   id: string;
   customerPhone: string;
   customerName: string;
-  type: "earn" | "redeem"; // Tích điểm hoặc đổi điểm
+  type: "earn" | "redeem" | "spend"; // Tích điểm, đổi điểm, hoặc tiêu điểm
   points: number; // Số điểm (+ tích, - đổi)
   date: string; // ISO date string
   description: string; // Mô tả: "Đơn hàng #123 - 150K" hoặc "Đổi mã SAVE20"
   relatedId?: string; // ID đơn hàng hoặc mã giảm giá
 }
 
-// ─── Default Data ───────────���─────────────────────────────────────────────────
+// ─── Default Data ────────────────────────────────────────────────────────────
 
 export const DEFAULT_POINT_RULES: PointRule[] = [
   {

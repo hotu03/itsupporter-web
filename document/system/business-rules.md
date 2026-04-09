@@ -93,6 +93,7 @@ finalAmount = (serviceAmount + additionalServices) - discountAmount
 **Tự động cập nhật:**
 - machinesDone: +1 mỗi khi hoàn thành phiếu (technician)
 - testsRun: +1 mỗi khi hoàn thành test (tester)
+- pointsEarned: Tự động cộng điểm thưởng cho khách hàng
 **Thưởng:** Dựa trên số lượng và chất lượng công việc
 
 ## Quy tắc khách hàng
@@ -196,3 +197,69 @@ finalAmount = (serviceAmount + additionalServices) - discountAmount
 - P5: 15 phút
 
 **Monitoring:** Dashboard hiển thị phiếu quá hạn
+
+### BR-WORKFLOW-004: Tạo hóa đơn
+**Trigger:** Khi admin nhấn "COMPLETE" hoặc "RETURNED" trong P5
+**Tự động:**
+- Tính toán finalAmount
+- Tính điểm tích lũy
+- Tạo và lưu hóa đơn
+- Cập nhật lịch sử điểm
+- Hiển thị thông báo cho admin
+
+**Validation:** Chỉ tạo hóa đơn khi finalAmount > 0 và paymentStatus hợp lệ
+
+## Quy tắc thanh toán và điểm thưởng
+
+### BR-PAYMENT-001: Trạng thái thanh toán
+**Các trạng thái:**
+- **"paid"**: Đã thanh toán đầy đủ → Cho phép bàn giao
+- **"pending"**: Chưa thanh toán hoặc thanh toán một phần → Không cho bàn giao
+- **"free"**: Miễn phí (dịch vụ tư vấn, bảo hành) → Không tính tiền
+
+**Validation:** Không cho phép bàn giao phiếu nếu paymentStatus = "pending"
+
+### BR-PAYMENT-002: Tính toán thành tiền
+**Công thức:**
+```
+finalAmount = serviceAmount + additionalServices - discountAmount
+```
+
+**Ràng buộc:**
+- serviceAmount: Giá dịch vụ chính (bắt buộc)
+- additionalServices: Tổng giá dịch vụ bổ sung
+- discountAmount: Giảm giá từ mã hoặc đổi điểm
+- finalAmount ≥ 0 (không âm)
+
+### BR-POINTS-001: Tích điểm tự động
+**Trigger:** Khi phiếu chuyển sang trạng thái "COMPLETE" hoặc "RETURNED"
+**Điều kiện:**
+- finalAmount > 0
+- paymentStatus = "paid"
+- Khách hàng có thông tin hợp lệ
+
+**Quy tắc tích điểm:**
+- Áp dụng tất cả quy tắc per_order
+- Áp dụng quy tắc amount_threshold cao nhất (nếu đủ điều kiện)
+- Lưu lịch sử điểm với mô tả chi tiết
+
+### BR-POINTS-002: Đổi điểm lấy giảm giá
+**Điều kiện:**
+- discountCode có isRedeemable = true
+- pointsRequired ≤ điểm hiện có của khách hàng
+- Trong thời hạn sử dụng của mã
+
+**Quy tắc:**
+- Trừ điểm tương ứng khi áp dụng
+- Lưu lịch sử điểm với type = "redeem"
+- Không thể hoàn lại điểm sau khi đổi
+
+### BR-INVOICE-001: Tự động tạo hóa đơn
+**Trigger:** Khi admin xác nhận hoàn thành (P5)
+**Thông tin bắt buộc:**
+- Thông tin khách hàng (name, phone)
+- Danh sách dịch vụ và giá
+- Thành tiền và trạng thái thanh toán
+- Điểm tích lũy (nếu có)
+
+**Lưu trữ:** Tự động lưu vào cơ sở dữ liệu hóa đơn với mã HD duy nhất

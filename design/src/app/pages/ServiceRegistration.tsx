@@ -18,6 +18,7 @@ import { addMachine } from "../data/machines";
 import { addOrUpdateCustomer } from "../data/customers";
 import { addTransaction } from "../data/finance";
 import { calculatePoints } from "../data/points";
+import { addInvoice } from "../data/invoices";
 
 // ─── SearchableSelect Component ───────────────────────────────────────────────
 interface SearchableSelectProps {
@@ -277,6 +278,38 @@ export default function ServiceRegistration() {
       date: currentDate,
       discountCode: form.discountCode || undefined,
       discountAmount: form.discountAmount > 0 ? form.discountAmount : undefined,
+    });
+
+    // Create invoice for online registration
+    addInvoice({
+      machineId: newMachine.id,
+      customerName: form.customerName,
+      phone: form.phone,
+      registrationType: "online",
+      services: form.additionalServices.map(serviceName => {
+        const service = availableServices.find(s => s.name === serviceName);
+        return {
+          name: serviceName,
+          price: service?.price || 0,
+        };
+      }),
+      machineCondition: form.machineCondition,
+      needs: form.needs,
+      category: form.category,
+      warranty: form.warranty,
+      charger: form.charger === "co",
+      password: form.password,
+      createdAt: currentDate,
+      createdTime: currentTime,
+      dropOffTime: form.dropOffTime,
+      appointmentTime: form.appointmentTime,
+      serviceAmount: form.serviceAmount,
+      discountCode: form.discountCode,
+      discountAmount: form.discountAmount,
+      finalAmount: form.finalAmount,
+      paymentStatus: form.finalAmount === 0 ? "free" : "pending",
+      pointsEarned: pointsEarned,
+      createdBy: "Khách hàng (Online)",
     });
 
     // Generate receipt ID
@@ -632,7 +665,7 @@ export default function ServiceRegistration() {
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600">Thời gian đưa máy đến</label>
                 <input
-                  type="time"
+                  type="datetime-local"
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
                   value={form.dropOffTime}
                   onChange={(e) => set("dropOffTime", e.target.value)}
@@ -641,7 +674,7 @@ export default function ServiceRegistration() {
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600">Thời gian hẹn nhận máy</label>
                 <input
-                  type="time"
+                  type="datetime-local"
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
                   value={form.appointmentTime}
                   onChange={(e) => set("appointmentTime", e.target.value)}
@@ -816,6 +849,23 @@ export default function ServiceRegistration() {
                 Đặt dịch vụ
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Customer Portal Link */}
+        <div className="mt-6 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl shadow-sm border-2 border-blue-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-1">Đã đăng ký dịch vụ?</h3>
+              <p className="text-sm text-gray-600">Tra cứu trạng thái máy đã gửi sửa chữa</p>
+            </div>
+            <button
+              onClick={() => window.location.href = "/customer/login"}
+              className="px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg flex items-center gap-2"
+            >
+              <QrCode className="w-4 h-4" />
+              Tra cứu ngay
+            </button>
           </div>
         </div>
       </div>

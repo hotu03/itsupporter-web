@@ -538,8 +538,8 @@ export default function Dashboard() {
                     dataKey="value"
                     isAnimationActive={false}
                   >
-                    {machinePie.map((entry, index) => (
-                      <Cell key={`pie-cell-${index}`} fill={entry.color} />
+                    {machinePie.map((entry) => (
+                      <Cell key={`pie-cell-${entry.name}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip

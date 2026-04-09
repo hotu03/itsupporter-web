@@ -6,10 +6,14 @@ import Machines from "./pages/Machines";
 import Personnel from "./pages/Personnel";
 import Customers from "./pages/Customers";
 import Finance from "./pages/Finance";
+import Invoices from "./pages/Invoices";
 import DashboardLayout from "./components/DashboardLayout";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import SignPage from "./pages/SignPage";
 import ServiceRegistration from "./pages/ServiceRegistration";
+import CustomerLogin from "./pages/CustomerLogin";
+import CustomerOTP from "./pages/CustomerOTP";
+import CustomerPortal from "./pages/CustomerPortal";
 
 export const router = createBrowserRouter([
   {
@@ -29,6 +33,18 @@ export const router = createBrowserRouter([
     Component: ServiceRegistration,
   },
   {
+    path: "/customer/login",
+    Component: CustomerLogin,
+  },
+  {
+    path: "/customer/otp",
+    Component: CustomerOTP,
+  },
+  {
+    path: "/customer/portal",
+    Component: CustomerPortal,
+  },
+  {
     path: "/dashboard",
     Component: DashboardLayout,
     children: [
@@ -36,6 +52,7 @@ export const router = createBrowserRouter([
       { path: "machines", Component: Machines },
       { path: "customers", Component: Customers },
       { path: "finance", Component: Finance },
+      { path: "invoices", Component: Invoices },
       { path: "nhan-su", Component: Personnel },
     ],
   },

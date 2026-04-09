@@ -81,16 +81,18 @@ Hệ thống quản lý dịch vụ sửa chữa thiết bị công nghệ với
 ## Luồng dữ liệu
 
 ### Quy trình sửa chữa tiêu chuẩn
-1. **Input**: Khách hàng → Tester (P1)
+1. **Input**: Khách hàng → Tester (P1 - chọn thanh toán)
 2. **Processing**: Tester (P2) → Kỹ thuật viên (P3) → Tester (P4)
-3. **Output**: Admin (P5) → Khách hàng
-4. **Feedback**: Điểm thưởng → Customer database
+3. **Output**: Admin (P5 - tạo hóa đơn, tích điểm) → Khách hàng
+4. **Feedback**: Điểm thưởng + Hóa đơn → Customer/Finance database
 
 ### Quản lý dữ liệu
 - **LocalStorage**: Persistent storage cho tất cả entities
 - **Real-time sync**: State management giữa components
 - **Validation**: Input validation tại boundary
 - **Backup**: JSON export/import capabilities
+- **Invoice generation**: Tự động tạo và lưu hóa đơn khi hoàn thành
+- **Points tracking**: Lưu trữ lịch sử điểm thưởng và đổi điểm
 
 ## Tích hợp bên ngoài
 

@@ -17,15 +17,16 @@ Khách hàng (cung cấp thông tin và xác nhận)
 ## Điều kiện hậu quả
 - Thiết bị được sửa chữa hoàn chỉnh
 - Tất cả checklist được hoàn thành
+- Hóa đơn chi tiết được tạo và lưu trữ
 - Khách hàng đã thanh toán và nhận máy
-- Điểm thưởng được tích tự động
+- Điểm thưởng được tích tự động vào tài khoản khách hàng
 
 ## Luồng chính
 1. **P1**: Tester thu thập thông tin và tạo phiếu chi tiết
 2. **P2**: Tester thực hiện test sơ bộ và tạo checklist ban đầu
 3. **P3**: Admin phân công → Kỹ thuật viên thực hiện sửa chữa
 4. **P4**: Admin phân công → Tester kiểm tra chất lượng
-5. **P5**: Admin xác nhận hoàn thành, tính tiền và trao trả thiết bị
+5. **P5**: Admin xác nhận hoàn thành, tạo hóa đơn chi tiết, tích điểm tự động và trao trả thiết bị
 
 ## Luồng thay thế
 ### Phiếu từ đăng ký trực tuyến
@@ -42,6 +43,14 @@ Khách hàng (cung cấp thông tin và xác nhận)
 1. Tester từ chối phiếu với lý do cụ thể
 2. Admin phân công lại cho Kỹ thuật viên sửa lỗi
 3. Quay lại P3 với ghi chú bổ sung
+
+### Tạo hóa đơn và tích điểm
+1. Admin xem xét tất cả báo cáo từ P1-P4
+2. Hệ thống tự động tính toán thành tiền và điểm thưởng
+3. Hiển thị hóa đơn chi tiết với danh sách dịch vụ
+4. Admin xác nhận thanh toán và bàn giao
+5. Hệ thống tự động cộng điểm cho khách hàng
+6. Lưu hóa đơn và lịch sử điểm
 
 ## Luồng ngoại lệ
 ### Thiếu nhân sự
