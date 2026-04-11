@@ -197,3 +197,6 @@ dist/
 # Development
 # .vscode/settings.json
 # .vscode/launch.json
+
+# Claude Code worktrees (temporary isolated environments)
+.claude/worktrees/
