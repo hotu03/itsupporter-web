@@ -30,6 +30,8 @@ Thiết lập design system và design tokens trước khi phát triển UI đ�
 - [x] Spacing system & layout tokens
 - [x] Text constants & reusable strings
 - [x] Component tokens & variants
+- [x] Icon system & mapping
+- [x] Custom SVG icons
 - [x] Responsive breakpoints
 - [x] Design system documentation
 
@@ -43,11 +45,20 @@ Thiết lập design system và design tokens trước khi phát triển UI đ�
   ├── text-constants.ts      # UI text strings
   ├── component-tokens.ts    # Component styles
   ├── breakpoints.ts         # Responsive design
+  ├── icons.ts               # Icon system mapping
   └── index.ts               # Main exports
 
-# 2. Integration Setup
+# 2. Icon System
+- assets/icons/
+  ├── index.ts               # Icon mapping & types
+  ├── Icon.tsx               # Universal Icon component
+  ├── custom-icons.ts        # Custom SVG icons
+  └── README.md              # Icon usage guide
+
+# 3. Integration Setup
 - Tailwind config với custom colors
 - CSS custom properties
+- Icon lazy loading setup
 - Theme provider setup
 ```
 

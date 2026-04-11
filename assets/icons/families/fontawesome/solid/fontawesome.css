@@ -1,0 +1,29 @@
+/* Font Awesome Solid - CSS Import */
+/* This assumes fontawesome.woff2 is available in the same directory */
+
+@font-face {
+  font-family: 'Font Awesome 6 Solid';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('fontawesome.woff2') format('woff2');
+}
+
+/* Font Awesome classes */
+.fas {
+  font-family: 'Font Awesome 6 Solid';
+  font-weight: 900;
+  font-style: normal;
+  font-variant: normal;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom IT Support icons */
+.custom-repair::before { content: "\f0ad"; } /* wrench */
+.custom-qr::before { content: "\f029"; } /* qrcode */
+
+/* Import this CSS file in your application:
+ * import './assets/icons/families/fontawesome/solid/fontawesome.css';
+ */

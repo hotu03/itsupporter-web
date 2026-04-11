@@ -14,7 +14,14 @@ design-system/
 ├── text-constants.ts      # Reusable text strings
 ├── component-tokens.ts    # Component-specific tokens
 ├── breakpoints.ts         # Responsive breakpoints
+├── icons.ts               # Icon system & mapping
 └── index.ts               # Main exports
+
+assets/
+└── icons/
+    ├── index.ts           # Icon mapping & types
+    ├── Icon.tsx           # Main Icon component
+    └── custom-icons.ts    # Custom SVG icons
 ```
 
 ---
@@ -711,5 +718,220 @@ export type Theme = keyof typeof themes;
 
 ---
 
-This design system ensures consistency, maintainability, and scalability across the entire IT Supporter application. All components, colors, typography, and text should reference these tokens to maintain visual coherence.</content>
+## 🎨 Icon System
+
+### Icon Architecture
+
+#### **Lucide React Integration**
+- **Primary Icon Library**: Lucide React (modern, consistent)
+- **Icon Mapping**: Centralized mapping system với type safety
+- **Lazy Loading**: Dynamic imports cho tree shaking
+- **Fallback System**: Graceful degradation khi icon không tồn tại
+
+#### **Custom Icons**
+- **SVG-based**: Custom icons cho IT Support specific use cases
+- **Inline SVG**: Optimized cho performance
+- **Consistent Styling**: Follow design system colors
+
+### Icon Categories
+
+#### **Navigation & UI**
+```typescript
+dashboard, home, menu, close, search, filter, settings,
+user, users, logout
+```
+
+#### **Actions**
+```typescript
+add, edit, delete, save, cancel, confirm, back, forward,
+upload, download, refresh, loading
+```
+
+#### **Status**
+```typescript
+success, error, warning, info, pending, completed
+```
+
+#### **Business Specific**
+```typescript
+repair, technician, customer, invoice, payment, receipt,
+calendar, clock, location, star, award, gift
+```
+
+#### **Devices**
+```typescript
+laptop, desktop, phone, tablet, printer, router, server,
+hardDrive, usb, battery
+```
+
+### Icon Usage Examples
+
+#### **Basic Usage**
+```typescript
+import { Icon } from '../assets/icons/Icon';
+
+// Simple icon
+<Icon name="dashboard" size="md" />
+
+// With custom styling
+<Icon name="success" size="lg" color="success" className="mr-2" />
+```
+
+#### **Specialized Components**
+```typescript
+import { StatusIcon, ActionIcon, MachineIcon } from '../assets/icons/Icon';
+
+// Status icons
+<StatusIcon status="success" />
+<StatusIcon status="error" size="lg" />
+
+// Action icons
+<ActionIcon action="add" />
+<ActionIcon action="edit" color="primary" />
+
+// Machine icons
+<MachineIcon type="laptop" />
+<MachineIcon type="printer" size="xl" />
+```
+
+#### **Custom Icons**
+```typescript
+import { CustomIcon } from '../assets/icons/custom-icons';
+
+// IT Support specific icons
+<CustomIcon name="repair-tools" size={24} />
+<CustomIcon name="warranty-badge" size={20} />
+<CustomIcon name="qr-scan" size={16} />
+```
+
+### Icon Implementation
+
+#### **Icon Component Features**
+- **Type Safety**: Full TypeScript support
+- **Lazy Loading**: Automatic code splitting
+- **Error Handling**: Fallback icons
+- **Performance**: Optimized re-renders
+- **Accessibility**: Proper ARIA support
+
+#### **Icon Mapping System**
+```typescript
+// Type-safe icon names
+type IconName = 'dashboard' | 'search' | 'user' | ...;
+
+// Icon value mapping
+const ICONS = {
+  dashboard: 'dashboard',
+  search: 'search',
+  user: 'user',
+  // ...
+} as const;
+
+// Lucide React mapping
+const LUCIDE_ICON_MAP = {
+  dashboard: 'LayoutDashboard',
+  search: 'Search',
+  user: 'User',
+  // ...
+};
+```
+
+### Icon Design Guidelines
+
+#### **Size Scale**
+```typescript
+const ICON_SIZES = {
+  xs: 12,  // 12px - Small indicators
+  sm: 16,  // 16px - Button icons
+  md: 20,  // 20px - Standard icons
+  lg: 24,  // 24px - Large icons
+  xl: 32,  // 32px - Hero icons
+  '2xl': 40, // 40px - Extra large
+};
+```
+
+#### **Color Usage**
+- **Default**: `currentColor` - Inherit from parent text color
+- **Semantic**: Use design system colors cho status
+- **Interactive**: Hover states cho buttons
+
+#### **Stroke Width**
+- **Thin**: 1.5 - Subtle icons
+- **Normal**: 2 - Standard icons
+- **Bold**: 2.5 - Emphasized icons
+
+### Icon Organization
+
+#### **File Structure**
+```
+assets/icons/
+├── index.ts           # Main exports & mappings
+├── Icon.tsx           # Universal Icon component
+├── custom-icons.ts    # Custom SVG icons
+└── README.md          # Icon usage guide
+```
+
+#### **Adding New Icons**
+1. **Choose Icon**: Select từ Lucide React hoặc tạo custom
+2. **Add Mapping**: Update `ICONS` và `LUCIDE_ICON_MAP`
+3. **Type Safety**: Add to `IconName` type
+4. **Documentation**: Update usage examples
+
+#### **Custom Icon Creation**
+```typescript
+// Add to custom-icons.ts
+export const CUSTOM_ICONS = {
+  'new-icon': `<svg>...</svg>`,
+} as const;
+
+// Use in components
+<CustomIcon name="new-icon" />
+```
+
+### Performance Optimization
+
+#### **Tree Shaking**
+- Dynamic imports cho từng icon
+- Only load icons khi cần thiết
+- Automatic code splitting
+
+#### **Caching**
+- Icon components được cache
+- Reuse instances khi possible
+- Memory optimization
+
+#### **Bundle Size**
+- Lucide React: ~50KB gzipped
+- Custom icons: Minimal additional size
+- Lazy loading: Reduce initial bundle
+
+### Accessibility
+
+#### **Screen Readers**
+```typescript
+// Icon with aria-label
+<Icon name="search" aria-label="Search" />
+
+// Decorative icons
+<Icon name="chevron-right" aria-hidden="true" />
+```
+
+#### **Keyboard Navigation**
+- Icons trong interactive elements kế thừa accessibility
+- Focus states cho icon buttons
+
+### Maintenance & Updates
+
+#### **Icon Audit**
+- Regular review của icon usage
+- Remove unused icons
+- Update outdated icons
+
+#### **Version Control**
+- Icon changes tracked với semantic versioning
+- Breaking changes cho icon name changes
+- Migration guide cho icon updates
+
+---
+
+This design system ensures consistency, maintainability, and scalability across the entire IT Supporter application. All components, colors, typography, text, and icons should reference these tokens to maintain visual coherence.</content>
 </xai:function_call">Create comprehensive design system documentation with all the design tokens, text constants, and usage guidelines
