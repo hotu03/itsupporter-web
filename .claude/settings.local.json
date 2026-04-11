@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.fontawesome.com)",
+      "Bash(rm -rf /tmp/everything-claude-code)",
+      "Bash(git clone:*)",
+      "Bash(mkdir -p ~/.claude/skills ~/.claude/rules)",
+      "Bash(cp -r /tmp/everything-claude-code/.agents/skills/* ~/.claude/skills/)",
+      "Bash(cp -r /tmp/everything-claude-code/skills/search-first ~/.claude/skills/)",
+      "Bash(cp -r /tmp/everything-claude-code/rules/common/* ~/.claude/rules/)",
+      "Bash(git status:*)",
+      "Bash(python -)",
+      "Bash(bash -lc 'exit 42')",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(xxd)",
+      "WebFetch(domain:fonts.google.com)",
+      "Bash(curl -L -o \"d:\\\\itsupporter\\\\assets\\\\icons\\\\families\\\\fontawesome\\\\solid\\\\fontawesome.woff2\" \"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/webfonts/fa-solid-900.woff2\")",
+      "Bash(xargs grep:*)",
+      "Bash(pnpm add:*)",
+      "Bash(npm install:*)",
+      "Bash(git -C \"/d/itsupporter/.claude/worktrees/agent-ae9bd0a1\" diff --staged)",
+      "Bash(git -C \"/d/itsupporter/.claude/worktrees/agent-ae9bd0a1\" diff)",
+      "Bash(git -C \"/d/itsupporter/.claude/worktrees/agent-ae9bd0a1\" log --oneline -5)",
+      "Bash(git -C \"/d/itsupporter/.claude/worktrees/agent-ae9bd0a1\" ls-tree -r --name-only HEAD)",
+      "Bash(git -C \"/d/itsupporter/.claude/worktrees/agent-ae9bd0a1\" rev-list --all -- \"assets/colors/color-mapping.ts\")",
+      "Bash(git -C \"/d/itsupporter/.claude/worktrees/agent-ae9bd0a1\" rev-list --all -- \"tsconfig.json\")",
+      "Bash(find d:\\\\itsupporter\\\\design\\\\src\\\\app\\\\data -name \"*.ts\" -exec wc -l {} \\\\;)",
+      "Bash(wc -l d:/itsupporter/design/src/app/data/*.ts)",
+      "Bash(git add:*)"
+    ]
+  }
+}
