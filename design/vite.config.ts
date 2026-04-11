@@ -17,6 +17,31 @@ export default defineConfig({
     },
   },
 
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Heavy charting library - only loaded on dashboard
+          recharts: ['recharts'],
+          // UI primitives
+          radix: [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-tooltip',
+          ],
+          // Dashboard heavy pages
+          dashboard: [
+            './src/app/pages/Dashboard',
+            './src/app/pages/Finance',
+            './src/app/pages/Machines',
+          ],
+        },
+      },
+    },
+  },
+
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
 })

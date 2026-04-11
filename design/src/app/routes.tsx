@@ -1,49 +1,36 @@
 import { createBrowserRouter } from "react-router";
-import SignIn from "./pages/SignIn";
-import SignUp from "./pages/SignUp";
-import Dashboard from "./pages/Dashboard";
-import Machines from "./pages/Machines";
-import Personnel from "./pages/Personnel";
-import Customers from "./pages/Customers";
-import Finance from "./pages/Finance";
-import Invoices from "./pages/Invoices";
-import DashboardLayout from "./components/DashboardLayout";
-import PlaceholderPage from "./pages/PlaceholderPage";
-import SignPage from "./pages/SignPage";
-import ServiceRegistration from "./pages/ServiceRegistration";
-import CustomerLogin from "./pages/CustomerLogin";
-import CustomerOTP from "./pages/CustomerOTP";
-import CustomerPortal from "./pages/CustomerPortal";
+import { lazy } from "react";
+
+// Authentication & critical pages (loaded early)
+const SignIn = lazy(() => import("./pages/SignIn"));
+const SignUp = lazy(() => import("./pages/SignUp"));
+const SignPage = lazy(() => import("./pages/SignPage"));
+const ServiceRegistration = lazy(() => import("./pages/ServiceRegistration"));
+const CustomerLogin = lazy(() => import("./pages/CustomerLogin"));
+const CustomerOTP = lazy(() => import("./pages/CustomerOTP"));
+const CustomerPortal = lazy(() => import("./pages/CustomerPortal"));
+
+// Dashboard pages (heavy - lazy loaded after auth)
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Machines = lazy(() => import("./pages/Machines"));
+const Personnel = lazy(() => import("./pages/Personnel"));
+const Customers = lazy(() => import("./pages/Customers"));
+const Finance = lazy(() => import("./pages/Finance"));
+const Invoices = lazy(() => import("./pages/Invoices"));
+const DashboardLayout = lazy(() => import("./components/DashboardLayout"));
+const PlaceholderPage = lazy(() => import("./pages/PlaceholderPage"));
 
 export const router = createBrowserRouter([
-  {
-    path: "/",
-    Component: SignIn,
-  },
-  {
-    path: "/signup",
-    Component: SignUp,
-  },
-  {
-    path: "/sign",
-    Component: SignPage,
-  },
-  {
-    path: "/dang-ky-dich-vu",
-    Component: ServiceRegistration,
-  },
-  {
-    path: "/customer/login",
-    Component: CustomerLogin,
-  },
-  {
-    path: "/customer/otp",
-    Component: CustomerOTP,
-  },
-  {
-    path: "/customer/portal",
-    Component: CustomerPortal,
-  },
+  // Critical auth routes
+  { path: "/", Component: SignIn },
+  { path: "/signup", Component: SignUp },
+  { path: "/sign", Component: SignPage },
+  { path: "/dang-ky-dich-vu", Component: ServiceRegistration },
+  { path: "/customer/login", Component: CustomerLogin },
+  { path: "/customer/otp", Component: CustomerOTP },
+  { path: "/customer/portal", Component: CustomerPortal },
+
+  // Dashboard routes (lazy loaded)
   {
     path: "/dashboard",
     Component: DashboardLayout,

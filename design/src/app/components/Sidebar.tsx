@@ -11,7 +11,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useState } from "react";
-import logo from "figma:asset/03d926f626d30f5cc53efd5d264b289f5b285002.png";
+import logo from "../../assets/images/logo.png";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard" },

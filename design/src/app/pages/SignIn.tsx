@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Users, UserCircle } from "lucide-react";
-import backgroundImage from "figma:asset/e4f287b4c4a65b75c8f520ba5982d1eba0fae14d.png";
-import logo from "figma:asset/03d926f626d30f5cc53efd5d264b289f5b285002.png";
+import backgroundImage from "../../assets/images/background.jpg";
+import logo from "../../assets/images/logo.png";
 
 export default function SignIn() {
   const navigate = useNavigate();
@@ -30,6 +30,7 @@ export default function SignIn() {
   return (
     <div className="min-h-screen w-full flex flex-col relative overflow-hidden">
       {/* Background image */}
+      {/* Background image */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${backgroundImage})` }}
@@ -40,9 +41,9 @@ export default function SignIn() {
       {/* Header */}
       <div className="relative z-10 flex items-center px-8 py-5">
         <div className="flex items-center gap-2">
-          <img 
-            src={logo} 
-            alt="IT Supporter" 
+          <img
+            src={logo}
+            alt="IT Supporter"
             className="w-10 h-10 rounded-xl shadow-lg object-cover"
           />
           <span className="text-white font-bold text-lg tracking-wide drop-shadow">IT SUPPORTER</span>

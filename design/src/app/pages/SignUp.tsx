@@ -1,8 +1,8 @@
 import { useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Camera, ChevronDown, X, ArrowLeft, Eye, EyeOff } from "lucide-react";
-import backgroundImage from "figma:asset/e4f287b4c4a65b75c8f520ba5982d1eba0fae14d.png";
-import logo from "figma:asset/03d926f626d30f5cc53efd5d264b289f5b285002.png";
+import backgroundImage from "../../assets/images/background.jpg";
+import logo from "../../assets/images/logo.png";
 
 // ─── Custom Select ────────────────────────────────────────────────────────────
 function FormSelect({
@@ -192,9 +192,9 @@ export default function SignUp() {
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between px-8 py-5">
         <div className="flex items-center gap-2">
-          <img 
-            src={logo} 
-            alt="IT Supporter" 
+          <img
+            src={logo}
+            alt="IT Supporter"
             className="w-10 h-10 rounded-xl shadow-lg object-cover"
           />
           <span className="text-white font-bold text-lg tracking-wide drop-shadow">IT SUPPORTER</span>
