@@ -201,3 +201,6 @@ dist/
 # Claude Code configuration, plans, memory, and temporary files
 # (should not be committed to repository)
 .claude/
+
+design/playwright-report
+design/test-results

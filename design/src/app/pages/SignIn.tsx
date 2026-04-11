@@ -1,29 +1,38 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Users, UserCircle } from "lucide-react";
+import { Users, UserCircle, AlertCircle } from "lucide-react";
 import backgroundImage from "../../assets/images/background.jpg";
 import logo from "../../assets/images/logo.png";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function SignIn() {
   const navigate = useNavigate();
+  const { login: authLogin, googleLogin } = useAuth();
   const [activeTab, setActiveTab] = useState<"member" | "customer">("member");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string>("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate("/dashboard");
-  };
-
-  const handleGoogleLogin = () => {
-    // Check if this "Google user" has completed registration before
-    const googleRegistered = localStorage.getItem("its_google_registered");
-    if (googleRegistered) {
+    setError("");
+    const success = await authLogin(username.trim(), password);
+    if (success) {
       navigate("/dashboard");
     } else {
-      navigate("/signup?from=google");
+      setError("Invalid credentials. Use: root@itsupporter.com or registered email");
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError("");
+    const success = await googleLogin();
+    if (success) {
+      navigate("/dashboard");
+    } else {
+      setError("Google login failed. Check console or try again.");
     }
   };
 
@@ -170,6 +179,14 @@ export default function SignIn() {
                       Remember me
                     </span>
                   </div>
+
+                  {/* Error message for tests and UX */}
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 rounded-2xl p-3 text-sm flex items-start gap-2">
+                      <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+                      <span>{error}</span>
+                    </div>
+                  )}
 
                   {/* Login button */}
                   <button

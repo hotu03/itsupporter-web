@@ -1,6 +1,7 @@
 import { RouterProvider } from "react-router";
 import { Suspense } from "react";
 import { router } from "./routes";
+import { AuthProvider } from "./contexts/AuthContext";
 import Loading from "./components/Loading";
 
 const AppLoading = () => (
@@ -11,8 +12,10 @@ const AppLoading = () => (
 
 export default function App() {
   return (
-    <Suspense fallback={<AppLoading />}>
-      <RouterProvider router={router} />
-    </Suspense>
+    <AuthProvider>
+      <Suspense fallback={<AppLoading />}>
+        <RouterProvider router={router} />
+      </Suspense>
+    </AuthProvider>
   );
 }

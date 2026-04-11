@@ -11,20 +11,27 @@ import {
   FileText,
 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import logo from "../../assets/images/logo.png";
 
 const navItems = [
-  { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard" },
-  { label: "Machines", icon: Monitor, to: "/dashboard/machines" },
-  { label: "Personnel", icon: Users, to: "/dashboard/nhan-su" },
-  { label: "Customers", icon: UserCircle, to: "/dashboard/customers" },
-  { label: "Finance", icon: DollarSign, to: "/dashboard/finance" },
-  { label: "Invoices", icon: FileText, to: "/dashboard/invoices" },
+  { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard", permission: null },
+  { label: "Machines", icon: Monitor, to: "/dashboard/machines", permission: null },
+  { label: "Personnel", icon: Users, to: "/dashboard/nhan-su", permission: "manage:personnel" },
+  { label: "Customers", icon: UserCircle, to: "/dashboard/customers", permission: null },
+  { label: "Finance", icon: DollarSign, to: "/dashboard/finance", permission: "view:finance" },
+  { label: "Invoices", icon: FileText, to: "/dashboard/invoices", permission: null },
 ];
 
 export function Sidebar() {
   const navigate = useNavigate();
+  const { logout, user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   return (
     <aside
@@ -95,7 +102,7 @@ export function Sidebar() {
       {/* Logout */}
       <div className="border-t border-white/20 p-2">
         <button
-          onClick={() => navigate("/")}
+          onClick={handleLogout}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/80 hover:bg-white/15 hover:text-white transition-all ${
             collapsed ? "justify-center" : ""
           }`}
