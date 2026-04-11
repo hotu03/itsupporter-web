@@ -198,5 +198,6 @@ dist/
 # .vscode/settings.json
 # .vscode/launch.json
 
-# Claude Code worktrees (temporary isolated environments)
-.claude/worktrees/
+# Claude Code configuration, plans, memory, and temporary files
+# (should not be committed to repository)
+.claude/
