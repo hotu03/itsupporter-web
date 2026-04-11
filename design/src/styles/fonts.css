@@ -1,0 +1,21 @@
+/* Montserrat Variable Font - imported from centralized assets (no modifications to assets/) */
+@import url('../../../assets/fonts/families/montserrat/montserrat.css');
+
+:root {
+  --font-sans: 'Montserrat', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+}
+
+/* Ensure font-display and Vietnamese support via the imported variable font */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../../../assets/fonts/families/montserrat/Montserrat-VariableFont_wght.woff2') format('woff2');
+}
