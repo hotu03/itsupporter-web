@@ -23,7 +23,8 @@ import { SignatureCanvas, SignatureCanvasHandle } from "../components/SignatureC
 import { getServices, getServicePrice, formatCurrency as formatCurr } from "../data/services";
 import { validateDiscount, useDiscount } from "../data/discounts";
 import { calculatePoints, addPointHistory, getPointsExplanation } from "../data/points";
-import { getMachines, saveMachines, type Machine, type Status } from "../data/machines";
+import { getMachines, saveMachines, type Machine, type Status, STATUS_STYLES, ensureSequentialId } from "../data/machines";
+import { MachineRow } from "../components/machines/MachineRow";
 import { addInvoice } from "../data/invoices";
 import { addOrUpdateCustomer } from "../data/customers";
 import { addTransaction } from "../data/finance";
@@ -98,11 +99,10 @@ function SearchableSelect({ value, onChange, options, placeholder = "Select Item
         <button
           type="button"
           onClick={() => { setOpen((p) => !p); setQuery(""); }}
-          className={`w-full flex items-center justify-between border rounded-lg px-3 py-2 text-sm outline-none transition-all ${
-            open
-              ? "border-orange-400 ring-2 ring-orange-200 bg-white"
-              : "border-gray-200 bg-white hover:border-gray-300"
-          }`}
+          className={`w-full flex items-center justify-between border rounded-lg px-3 py-2 text-sm outline-none transition-all ${open
+            ? "border-orange-400 ring-2 ring-orange-200 bg-white"
+            : "border-gray-200 bg-white hover:border-gray-300"
+            }`}
         >
           <span className={value ? "text-gray-800" : "text-gray-400"}>
             {value || placeholder}
@@ -149,9 +149,8 @@ function SearchableSelect({ value, onChange, options, placeholder = "Select Item
                   <li
                     key={opt}
                     onClick={() => handleSelect(opt)}
-                    className={`px-3 py-2.5 text-sm cursor-pointer transition-colors hover:bg-orange-50 hover:text-orange-700 ${
-                      opt === value ? "bg-orange-50 text-orange-600 font-medium" : "text-gray-700"
-                    }`}
+                    className={`px-3 py-2.5 text-sm cursor-pointer transition-colors hover:bg-orange-50 hover:text-orange-700 ${opt === value ? "bg-orange-50 text-orange-600 font-medium" : "text-gray-700"
+                      }`}
                   >
                     {opt}
                   </li>
@@ -164,74 +163,6 @@ function SearchableSelect({ value, onChange, options, placeholder = "Select Item
     </div>
   );
 }
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const INITIAL_MACHINES: Machine[] = [
-  {
-    id: 1, status: "COMPLETE", customerName: "Bùi Hữu Hoạt", phone: "0226376736",
-    time: "08:10", description: "Vs trong, ngoài", expired: "12:00",
-    category: "Hardware", tester: "Nguyễn Minh Hiếu", technician: "Nguyễn Công Sáng",
-    warranty: "het", password: "", charger: true, appointmentTime: "12:00",
-    registrationType: "in-person", isApproved: true,
-    testerBefore: "Nguyễn Minh Hiếu", testerAfter: "",
-  },
-  {
-    id: 2, status: "COMPLETE", customerName: "Thanh Thư", phone: "0956466477",
-    time: "08:12", description: "Vệ sinh trong, ngoài", expired: "12:00",
-    category: "Hardware", tester: "Nguyễn Minh Hiếu", technician: "Nguyễn Minh Hiếu",
-    warranty: "het", password: "", charger: false, appointmentTime: "12:00",
-    registrationType: "in-person", isApproved: true,
-    testerBefore: "Nguyễn Minh Hiếu", testerAfter: "",
-  },
-  {
-    id: 3, status: "COMPLETE", customerName: "Phạm Thị Mai Liên", phone: "0984847747",
-    time: "08:29", description: "Vệ sinh trong, ngoài, keo thường, cài win 10(khi nào cài win gọi chị)",
-    expired: "15:30", category: "Hardware", tester: "Nguyễn Ngọc Anh", technician: "Nguyễn Minh Hiếu",
-    warranty: "het", password: "", charger: true, appointmentTime: "15:30",
-    registrationType: "in-person", isApproved: true,
-    testerBefore: "Nguyễn Ngọc Anh", testerAfter: "",
-  },
-  {
-    id: 4, status: "COMPLETE", customerName: "Hồ Nam Tú", phone: "0933937448",
-    time: "08:46", description: "Vệ sinh trong, ngoài, tra keo xịn", expired: "11:30",
-    category: "Hardware", tester: "Nguyễn Ngọc Anh", technician: "Nguyễn Bá Mạnh",
-    warranty: "het", password: "", charger: true, appointmentTime: "11:30",
-    registrationType: "in-person", isApproved: true,
-    testerBefore: "Nguyễn Ngọc Anh", testerAfter: "",
-  },
-  {
-    id: 5, status: "COMPLETE", customerName: "Tú Anh", phone: "0338388918",
-    time: "08:56", description: "Vệ sinh ngoài", expired: "09:30",
-    category: "Hardware", tester: "Nguyễn Ngọc Anh", technician: "Phạm Ngọc Tú Anh",
-    warranty: "het", password: "", charger: false, appointmentTime: "09:30",
-    registrationType: "in-person", isApproved: true,
-    testerBefore: "Nguyễn Ngọc Anh", testerAfter: "",
-  },
-  {
-    id: 6, status: "COMPLETE", customerName: "Nguyễn Hoàng Hùng", phone: "0355254763",
-    time: "09:49", description: "Vệ sinh trong ngoài + tra keo xịn", expired: "12:49",
-    category: "Hardware", tester: "Nguyễn Ngọc Anh", technician: "Nguyễn Công Sáng",
-    warranty: "het", password: "", charger: true, appointmentTime: "12:49",
-    registrationType: "in-person", isApproved: true,
-    testerBefore: "Nguyễn Ngọc Anh", testerAfter: "",
-  },
-  {
-    id: 7, status: "RUNNING", customerName: "Hoàng Minh Khôi", phone: "0971252805",
-    time: "09:49", description: "Vệ sinh trong ngoài + keo thường", expired: "23:50",
-    category: "Hardware", tester: "Phạm Ngọc Tú Anh", technician: "Hoàng Minh Khôi",
-    warranty: "het", password: "", charger: false, appointmentTime: "23:50",
-    registrationType: "in-person", isApproved: true,
-    testerBefore: "Phạm Ngọc Tú Anh", testerAfter: "",
-  },
-  {
-    id: 8, status: "COMPLETE", customerName: "Khả Trọng Nghĩa", phone: "0346616520",
-    time: "09:50", description: "Cài lại win (ảnh -> backup)", expired: "15:30",
-    category: "Hardware", tester: "Nguyễn Ngọc Anh", technician: "Nguyễn Bá Mạnh",
-    warranty: "het", password: "", charger: true, appointmentTime: "15:30",
-    registrationType: "in-person", isApproved: true,
-    testerBefore: "Nguyễn Ngọc Anh", testerAfter: "",
-  },
-];
 
 // ─── Check items from PDF ──────────────────────────────────────────────────────
 const CHECKLIST_ITEMS = [
@@ -253,14 +184,7 @@ const TECHNICIAN_CHECKLIST = [
   "Vệ sinh máy",
 ];
 
-const STATUS_STYLE: Record<Status, string> = {
-  COMPLETE: "bg-orange-500 text-white",
-  RUNNING: "bg-blue-500 text-white",
-  WAITING: "bg-yellow-400 text-white",
-  RETURNING: "bg-purple-500 text-white",
-  RETESTING: "bg-teal-500 text-white",
-  RETURNED: "bg-green-500 text-white",
-};
+// MachineCard imported from components/machines/MachineCard.tsx - reduces main file size (fixes edit-failed fragility per morphllm.com)
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function MachineCard({ machine, index, onClick, onApprove }: { machine: Machine; index: number; onClick: () => void; onApprove?: (id: number) => void }) {
@@ -271,7 +195,7 @@ function MachineCard({ machine, index, onClick, onApprove }: { machine: Machine;
       <div onClick={onClick} className="cursor-pointer">
         {/* Header row */}
         <div className="flex items-start justify-between">
-          <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${STATUS_STYLE[machine.status]}`}>
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${STATUS_STYLES[machine.status]}`}>
             {machine.status}
           </span>
           <span className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 text-xs font-bold">
@@ -279,103 +203,102 @@ function MachineCard({ machine, index, onClick, onApprove }: { machine: Machine;
           </span>
         </div>
 
-      {/* Name & phone */}
-      <div>
-        <p className="text-gray-900 text-sm font-semibold leading-snug">
-          {machine.customerName}, {machine.phone}
+        {/* Name & phone */}
+        <div>
+          <p className="text-gray-900 text-sm font-semibold leading-snug">
+            {machine.customerName}, {machine.phone}
+          </p>
+          <p className="text-gray-400 text-[11px]">{machine.time}</p>
+        </div>
+
+        {/* Description */}
+        <p className="text-gray-600 text-xs leading-snug line-clamp-2">{machine.description}</p>
+
+        {/* Expired */}
+        <p className="text-orange-500 text-xs font-semibold">
+          Expired: {machine.expired}
         </p>
-        <p className="text-gray-400 text-[11px]">{machine.time}</p>
-      </div>
 
-      {/* Description */}
-      <p className="text-gray-600 text-xs leading-snug line-clamp-2">{machine.description}</p>
+        {/* Category */}
+        <div>
+          <p className="text-gray-400 text-[10px] mb-1">Category</p>
+          <span className="px-2 py-0.5 bg-orange-500 text-white rounded text-[10px] font-semibold">
+            {machine.category}
+          </span>
+        </div>
 
-      {/* Expired */}
-      <p className="text-orange-500 text-xs font-semibold">
-        Expired: {machine.expired}
-      </p>
+        {/* Tester & Technician */}
+        <div className="flex flex-col gap-0.5">
+          <p className="text-gray-400 text-[10px]">
+            Tester: <span className="text-gray-700">{machine.tester}</span>
+          </p>
+          <p className="text-gray-400 text-[10px]">
+            Technician: <span className="text-gray-700">{machine.technician}</span>
+          </p>
+        </div>
 
-      {/* Category */}
-      <div>
-        <p className="text-gray-400 text-[10px] mb-1">Category</p>
-        <span className="px-2 py-0.5 bg-orange-500 text-white rounded text-[10px] font-semibold">
-          {machine.category}
-        </span>
-      </div>
+        {/* Services & Payment */}
+        {machine.additionalServices && machine.additionalServices.length > 0 && (
+          <div className="border-t border-gray-100 pt-2 mt-1">
+            <p className="text-gray-400 text-[10px] mb-1">Dịch vụ</p>
+            <div className="flex flex-wrap gap-1">
+              {machine.additionalServices.slice(0, 2).map((service, idx) => (
+                <span
+                  key={idx}
+                  className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-medium"
+                >
+                  {service}
+                </span>
+              ))}
+              {machine.additionalServices.length > 2 && (
+                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[9px]">
+                  +{machine.additionalServices.length - 2}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
-      {/* Tester & Technician */}
-      <div className="flex flex-col gap-0.5">
-        <p className="text-gray-400 text-[10px]">
-          Tester: <span className="text-gray-700">{machine.tester}</span>
-        </p>
-        <p className="text-gray-400 text-[10px]">
-          Technician: <span className="text-gray-700">{machine.technician}</span>
-        </p>
-      </div>
-
-      {/* Services & Payment */}
-      {machine.additionalServices && machine.additionalServices.length > 0 && (
-        <div className="border-t border-gray-100 pt-2 mt-1">
-          <p className="text-gray-400 text-[10px] mb-1">Dịch vụ</p>
-          <div className="flex flex-wrap gap-1">
-            {machine.additionalServices.slice(0, 2).map((service, idx) => (
-              <span
-                key={idx}
-                className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-medium"
-              >
-                {service}
+        {/* Payment Info */}
+        {machine.finalAmount !== undefined && machine.finalAmount > 0 && (
+          <div className="flex items-center justify-between gap-2 bg-gray-50 rounded px-2 py-1.5">
+            <div className="flex items-center gap-1">
+              <DollarSign size={12} className="text-gray-500" />
+              <span className="text-xs font-semibold text-gray-900">
+                {formatCurr(machine.finalAmount)}
               </span>
-            ))}
-            {machine.additionalServices.length > 2 && (
-              <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[9px]">
-                +{machine.additionalServices.length - 2}
+            </div>
+            {machine.paymentStatus && (
+              <span
+                className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${machine.paymentStatus === "paid"
+                  ? "bg-green-100 text-green-700"
+                  : machine.paymentStatus === "pending"
+                    ? "bg-yellow-100 text-yellow-700"
+                    : "bg-blue-100 text-blue-700"
+                  }`}
+              >
+                {machine.paymentStatus === "paid"
+                  ? "Đã thanh toán"
+                  : machine.paymentStatus === "pending"
+                    ? "Chưa thanh toán"
+                    : "Miễn phí"}
               </span>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Payment Info */}
-      {machine.finalAmount !== undefined && machine.finalAmount > 0 && (
-        <div className="flex items-center justify-between gap-2 bg-gray-50 rounded px-2 py-1.5">
-          <div className="flex items-center gap-1">
-            <DollarSign size={12} className="text-gray-500" />
-            <span className="text-xs font-semibold text-gray-900">
-              {formatCurr(machine.finalAmount)}
-            </span>
+        {/* Points Earned */}
+        {machine.pointsEarned && machine.pointsEarned > 0 && (
+          <div className="flex items-center gap-1 text-yellow-600">
+            <Star size={12} className="fill-yellow-500" />
+            <span className="text-[10px] font-semibold">+{machine.pointsEarned} điểm</span>
           </div>
-          {machine.paymentStatus && (
-            <span
-              className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
-                machine.paymentStatus === "paid"
-                  ? "bg-green-100 text-green-700"
-                  : machine.paymentStatus === "pending"
-                  ? "bg-yellow-100 text-yellow-700"
-                  : "bg-blue-100 text-blue-700"
-              }`}
-            >
-              {machine.paymentStatus === "paid"
-                ? "Đã thanh toán"
-                : machine.paymentStatus === "pending"
-                ? "Chưa thanh toán"
-                : "Miễn phí"}
-            </span>
-          )}
-        </div>
-      )}
+        )}
 
-      {/* Points Earned */}
-      {machine.pointsEarned && machine.pointsEarned > 0 && (
-        <div className="flex items-center gap-1 text-yellow-600">
-          <Star size={12} className="fill-yellow-500" />
-          <span className="text-[10px] font-semibold">+{machine.pointsEarned} điểm</span>
+        {/* QR */}
+        <div className="flex justify-end">
+          <QrCode size={18} className="text-blue-400 cursor-pointer hover:text-blue-600" />
         </div>
-      )}
-
-      {/* QR */}
-      <div className="flex justify-end">
-        <QrCode size={18} className="text-blue-400 cursor-pointer hover:text-blue-600" />
-      </div>
       </div>
 
       {/* Approve button for online registrations */}
@@ -395,28 +318,6 @@ function MachineCard({ machine, index, onClick, onApprove }: { machine: Machine;
   );
 }
 
-function MachineRow({ machine, index, onClick }: { machine: Machine; index: number; onClick: () => void }) {
-  return (
-    <tr onClick={onClick} className="hover:bg-orange-50 transition-colors border-b border-gray-100 cursor-pointer">
-      <td className="px-4 py-3 text-xs text-gray-400">{String(index + 1).padStart(2, "0")}</td>
-      <td className="px-4 py-3">
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${STATUS_STYLE[machine.status]}`}>
-          {machine.status}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-sm text-gray-800 font-medium">{machine.customerName}</td>
-      <td className="px-4 py-3 text-xs text-gray-500">{machine.phone}</td>
-      <td className="px-4 py-3 text-xs text-gray-500">{machine.time}</td>
-      <td className="px-4 py-3 text-xs text-gray-500 max-w-[180px] truncate">{machine.description}</td>
-      <td className="px-4 py-3 text-xs text-orange-500 font-semibold">{machine.expired}</td>
-      <td className="px-4 py-3 text-xs text-gray-500">{machine.tester}</td>
-      <td className="px-4 py-3 text-xs text-gray-500">{machine.technician}</td>
-      <td className="px-4 py-3">
-        <QrCode size={15} className="text-blue-400" />
-      </td>
-    </tr>
-  );
-}
 
 // ─── Customer Signature Section ───────────────────────────────────────────────
 const SIG_KEY_PREFIX = "its_sig_";
@@ -814,11 +715,11 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
   };
 
   const STEP_META = [
-    { n: 1, label: "Thông tin KH",  role: "Tester vòng ngoài",  badge: "bg-yellow-50 text-yellow-700 border-yellow-200",  statusTag: "WAITING",   statusColor: "bg-yellow-400" },
-    { n: 2, label: "Tester trước",  role: "Tester vòng ngoài",  badge: "bg-yellow-50 text-yellow-700 border-yellow-200",  statusTag: "WAITING",   statusColor: "bg-yellow-400" },
-    { n: 3, label: "Technician",    role: "Admin → Technician", badge: "bg-blue-50 text-blue-700 border-blue-200",         statusTag: "RUNNING",   statusColor: "bg-blue-500" },
-    { n: 4, label: "Tester sau",    role: "Admin → Tester",     badge: "bg-teal-50 text-teal-700 border-teal-200",         statusTag: "RETESTING", statusColor: "bg-teal-500" },
-    { n: 5, label: "Xác nhận",      role: "Admin xác nhận",     badge: "bg-green-50 text-green-700 border-green-200",      statusTag: "COMPLETE",  statusColor: "bg-green-500" },
+    { n: 1, label: "Thông tin KH", role: "Tester vòng ngoài", badge: "bg-yellow-50 text-yellow-700 border-yellow-200", statusTag: "WAITING", statusColor: "bg-yellow-400" },
+    { n: 2, label: "Tester trước", role: "Tester vòng ngoài", badge: "bg-yellow-50 text-yellow-700 border-yellow-200", statusTag: "WAITING", statusColor: "bg-yellow-400" },
+    { n: 3, label: "Technician", role: "Admin → Technician", badge: "bg-blue-50 text-blue-700 border-blue-200", statusTag: "RUNNING", statusColor: "bg-blue-500" },
+    { n: 4, label: "Tester sau", role: "Admin → Tester", badge: "bg-teal-50 text-teal-700 border-teal-200", statusTag: "RETESTING", statusColor: "bg-teal-500" },
+    { n: 5, label: "Xác nhận", role: "Admin xác nhận", badge: "bg-green-50 text-green-700 border-green-200", statusTag: "COMPLETE", statusColor: "bg-green-500" },
   ];
 
   const currentMeta = STEP_META[step - 1];
@@ -867,14 +768,14 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
     };
 
     onSave(updatedForm, machine?.id);
-    
+
     // Show success message with points
     if (pointsEarned > 0) {
       setTimeout(() => {
         alert(`✅ Hoàn thành!\n\n🎉 Khách hàng nhận được ${pointsEarned} điểm thưởng!\n\n${getPointsExplanation(finalAmount).join("\n")}`);
       }, 100);
     }
-    
+
     onClose();
   };
 
@@ -904,11 +805,10 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
             <button
               key={n}
               onClick={() => setStep(n)}
-              className={`flex-1 py-3 text-xs font-semibold transition-colors border-b-2 ${
-                step === n
-                  ? "border-orange-500 text-orange-600 bg-white"
-                  : "border-transparent text-gray-400 hover:text-gray-600"
-              }`}
+              className={`flex-1 py-3 text-xs font-semibold transition-colors border-b-2 ${step === n
+                ? "border-orange-500 text-orange-600 bg-white"
+                : "border-transparent text-gray-400 hover:text-gray-600"
+                }`}
             >
               <span className="hidden sm:inline">P{n}: </span>{label}
             </button>
@@ -974,9 +874,8 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
                     <label key={v} className="flex items-center gap-2 cursor-pointer">
                       <div
                         onClick={() => set("warranty", v)}
-                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          form.warranty === v ? "border-orange-500" : "border-gray-300"
-                        }`}
+                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${form.warranty === v ? "border-orange-500" : "border-gray-300"
+                          }`}
                       >
                         {form.warranty === v && (
                           <div className="w-2 h-2 rounded-full bg-orange-500" />
@@ -1018,9 +917,8 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
                       <label key={v} className="flex items-center gap-2 cursor-pointer">
                         <div
                           onClick={() => set("charger", v)}
-                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
-                            form.charger === v ? "border-orange-500" : "border-gray-300"
-                          }`}
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${form.charger === v ? "border-orange-500" : "border-gray-300"
+                            }`}
                         >
                           {form.charger === v && (
                             <div className="w-2 h-2 rounded-full bg-orange-500" />
@@ -1073,7 +971,7 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
               {/* Finance section */}
               <div className="border-t border-gray-200 pt-4 mt-2">
                 <h4 className="text-xs font-semibold text-gray-700 mb-3">Thông tin tài chính</h4>
-                
+
                 <div className="flex flex-col gap-1 mb-3">
                   <label className="text-xs font-medium text-gray-600">Dịch vụ thêm</label>
                   <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
@@ -1090,11 +988,10 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
                                 : [...form.additionalServices, service.name];
                               set("additionalServices", newServices);
                             }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
-                              isSelected
-                                ? "bg-orange-500 text-white shadow-sm"
-                                : "bg-white text-gray-600 border border-gray-200 hover:border-orange-300"
-                            }`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${isSelected
+                              ? "bg-orange-500 text-white shadow-sm"
+                              : "bg-white text-gray-600 border border-gray-200 hover:border-orange-300"
+                              }`}
                           >
                             <span>{service.name}</span>
                             <span className={`text-[10px] ${isSelected ? "opacity-90" : "opacity-60"}`}>
@@ -1211,13 +1108,12 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
                         type="button"
                         onClick={() => set("paymentStatus", "paid")}
                         disabled={finalAmount === 0}
-                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                          finalAmount === 0
-                            ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-50"
-                            : form.paymentStatus === "paid"
+                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${finalAmount === 0
+                          ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-50"
+                          : form.paymentStatus === "paid"
                             ? "bg-green-500 text-white shadow-md"
                             : "bg-white text-gray-600 border border-gray-200 hover:border-green-300"
-                        }`}
+                          }`}
                       >
                         Đã thanh toán
                       </button>
@@ -1225,13 +1121,12 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
                         type="button"
                         onClick={() => set("paymentStatus", "pending")}
                         disabled={finalAmount === 0}
-                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                          finalAmount === 0
-                            ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-50"
-                            : form.paymentStatus === "pending"
+                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${finalAmount === 0
+                          ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-50"
+                          : form.paymentStatus === "pending"
                             ? "bg-yellow-500 text-white shadow-md"
                             : "bg-white text-gray-600 border border-gray-200 hover:border-yellow-300"
-                        }`}
+                          }`}
                       >
                         Chưa thanh toán
                       </button>
@@ -1239,13 +1134,12 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
                         type="button"
                         onClick={() => set("paymentStatus", "free")}
                         disabled={finalAmount > 0}
-                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                          finalAmount > 0
-                            ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-50"
-                            : form.paymentStatus === "free"
+                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${finalAmount > 0
+                          ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-50"
+                          : form.paymentStatus === "free"
                             ? "bg-blue-500 text-white shadow-md"
                             : "bg-white text-gray-600 border border-gray-200 hover:border-blue-300"
-                        }`}
+                          }`}
                       >
                         Miễn phí
                       </button>
@@ -1533,18 +1427,17 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
                         Hóa đơn thanh toán
                       </p>
                       {finalAmount > 0 && (
-                        <span className={`px-2 py-1 rounded-full text-[10px] font-semibold ${
-                          form.paymentStatus === "paid"
-                            ? "bg-green-100 text-green-700"
-                            : form.paymentStatus === "pending"
+                        <span className={`px-2 py-1 rounded-full text-[10px] font-semibold ${form.paymentStatus === "paid"
+                          ? "bg-green-100 text-green-700"
+                          : form.paymentStatus === "pending"
                             ? "bg-yellow-100 text-yellow-700"
                             : "bg-blue-100 text-blue-700"
-                        }`}>
+                          }`}>
                           {form.paymentStatus === "paid"
                             ? "Đã thanh toán"
                             : form.paymentStatus === "pending"
-                            ? "Chưa thanh toán"
-                            : "Miễn phí"}
+                              ? "Chưa thanh toán"
+                              : "Miễn phí"}
                         </span>
                       )}
                     </div>
@@ -1676,9 +1569,8 @@ function CreateDrawer({ onClose, onSave, machine }: FormDrawerProps) {
               <div
                 key={n}
                 onClick={() => setStep(n)}
-                className={`h-2 rounded-full cursor-pointer transition-all ${
-                  step === n ? "bg-orange-500 w-4" : "w-2 bg-gray-300 hover:bg-gray-400"
-                }`}
+                className={`h-2 rounded-full cursor-pointer transition-all ${step === n ? "bg-orange-500 w-4" : "w-2 bg-gray-300 hover:bg-gray-400"
+                  }`}
               />
             ))}
           </div>
@@ -1727,16 +1619,10 @@ export default function Machines() {
   const [editMachine, setEditMachine] = useState<Machine | null>(null);
   const [viewMode, setViewMode] = useState<"main" | "online">("main"); // main = quản lý chính, online = đăng ký trực tuyến
 
-  // Load machines from localStorage on mount
+  // Load machines from localStorage only (no initial/mock data ever - per requirement)
   useEffect(() => {
     const storedMachines = getMachines();
-    if (storedMachines.length > 0) {
-      setMachines(storedMachines);
-    } else {
-      // Use initial mock data if no stored data
-      setMachines(INITIAL_MACHINES);
-      saveMachines(INITIAL_MACHINES);
-    }
+    setMachines(storedMachines);
   }, []);
 
   const today = new Date().toLocaleDateString("vi-VN", {
@@ -1828,8 +1714,20 @@ export default function Machines() {
     const confirmed = window.confirm("Xác nhận khách hàng đã đưa máy đến và duyệt vào hệ thống quản lý chính?");
     if (!confirmed) return;
 
+
+    // Ensure the machine has a proper sequential ID before approving
+    const currentMachines = getMachines();
+    let finalId = id;
+
+    const machineToApprove = currentMachines.find(m => m.id === id);
+    if (machineToApprove && (!machineToApprove.id || typeof machineToApprove.id !== 'number' || machineToApprove.id > 1000000000)) {
+      finalId = ensureSequentialId(currentMachines, id);
+    }
+
     const updatedMachines = machines.map(m =>
-      m.id === id ? { ...m, isApproved: true } : m
+      m.id === id
+        ? { ...m, id: finalId, isApproved: true, status: "WAITING" as Status }
+        : m
     );
     setMachines(updatedMachines);
     saveMachines(updatedMachines);
@@ -1865,21 +1763,19 @@ export default function Machines() {
       <div className="bg-white border-b border-gray-200 px-6 flex items-center gap-1">
         <button
           onClick={() => setViewMode("main")}
-          className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-            viewMode === "main"
-              ? "text-orange-600 border-b-2 border-orange-600"
-              : "text-gray-600 hover:text-gray-800"
-          }`}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${viewMode === "main"
+            ? "text-orange-600 border-b-2 border-orange-600"
+            : "text-gray-600 hover:text-gray-800"
+            }`}
         >
           Quản lý chính
         </button>
         <button
           onClick={() => setViewMode("online")}
-          className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-            viewMode === "online"
-              ? "text-orange-600 border-b-2 border-orange-600"
-              : "text-gray-600 hover:text-gray-800"
-          }`}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${viewMode === "online"
+            ? "text-orange-600 border-b-2 border-orange-600"
+            : "text-gray-600 hover:text-gray-800"
+            }`}
         >
           Đăng ký trực tuyến
           {machines.filter(m => m.registrationType === "online" && !m.isApproved).length > 0 && (
@@ -1956,7 +1852,7 @@ export default function Machines() {
       <div className="flex-1 p-5">
         {filtered.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
-            Do not have machine.
+            Chưa có máy nào. Nhấn "Tạo" để bắt đầu.
           </div>
         ) : gridView ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">

@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   Search,
-  Plus,
-  X,
+    X,
   Pencil,
   Trash2,
   ToggleRight,

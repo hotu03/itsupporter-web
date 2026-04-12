@@ -2,7 +2,6 @@ import { RouterProvider } from "react-router";
 import { Suspense } from "react";
 import { router } from "./routes";
 import { AuthProvider } from "./contexts/AuthContext";
-import Loading from "./components/Loading";
 
 const AppLoading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">

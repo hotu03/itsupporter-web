@@ -27,7 +27,9 @@
       "Bash(git -C \"/d/itsupporter/.claude/worktrees/agent-ae9bd0a1\" rev-list --all -- \"tsconfig.json\")",
       "Bash(find d:\\\\itsupporter\\\\design\\\\src\\\\app\\\\data -name \"*.ts\" -exec wc -l {} \\\\;)",
       "Bash(wc -l d:/itsupporter/design/src/app/data/*.ts)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "WebFetch(domain:www.morphllm.com)",
+      "Bash(npx --yes typescript@5.5 tsc --noEmit -p tsconfig.json --skipLibCheck)"
     ]
   }
 }

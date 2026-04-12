@@ -5,11 +5,9 @@ import {
   X,
   CheckCircle2,
   Printer,
-  Download,
-  ArrowLeft,
+    ArrowLeft,
   QrCode,
-  Clock,
-  Package,
+    Package,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { getServices, formatCurrency as formatCurr } from "../data/services";
@@ -206,8 +204,8 @@ export default function ServiceRegistration() {
       set("discountAmount", 0);
       return;
     }
-    const discount = useDiscount(form.discountCode, form.serviceAmount);
-    set("discountAmount", discount);
+    useDiscount(form.discountCode);
+    set("discountAmount", result.discountAmount ?? 0);
     setDiscountError("");
     setDiscountApplied(true);
   };

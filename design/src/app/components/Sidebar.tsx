@@ -25,7 +25,7 @@ const navItems = [
 
 export function Sidebar() {
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
+  const { logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
   const handleLogout = () => {

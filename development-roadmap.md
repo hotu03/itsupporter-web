@@ -234,11 +234,11 @@ firebase deploy --only hosting
 Core functionality: Tạo và quản lý phiếu sửa chữa cơ bản
 
 ### 📋 Deliverables
-- [x] Machine creation form (P1)
-- [x] Machine list view (Grid)
-- [x] Basic machine card
-- [x] Customer information management
-- [x] Service selection
+- [x] Machine creation form (P1) - extracted to components + integrated
+- [x] Machine list view (Grid/List toggle with pagination ready)
+- [x] Basic machine card (extracted MachineCard.tsx + CustomerMachineCard)
+- [x] Customer information management (lookup/auto-save via addOrUpdateCustomer)
+- [x] Service selection (multi-select + pricing integrated)
 
 ### 🔧 Technical Tasks
 ```bash
@@ -268,11 +268,11 @@ Core functionality: Tạo và quản lý phiếu sửa chữa cơ bản
 - [x] `document/system/data-entities.md` - Entity definitions
 
 ### 🧪 Testing Criteria
-- [x] Tạo machine thành công với đầy đủ thông tin
-- [x] Hiển thị machine list với pagination
-- [x] Machine card hiển thị thông tin chính xác
-- [x] Customer auto-save khi tạo machine
-- [x] Form validation hoạt động
+- [x] Tạo machine thành công với đầy đủ thông tin (form + immutable CRUD)
+- [x] Hiển thị machine list với pagination/grid (extracted components)
+- [x] Machine card hiển thị thông tin chính xác (MachineCard.tsx reviewed)
+- [x] Customer auto-save khi tạo machine (addOrUpdateCustomer integrated)
+- [x] Form validation hoạt động (in extracted form logic)
 
 ### 🚀 Deployment
 ```bash
@@ -282,10 +282,10 @@ firebase deploy --only hosting
 ```
 
 ### ✅ Acceptance Criteria
-- [x] Tester có thể tạo 5 phiếu/thời gian
-- [x] Admin có thể xem tất cả phiếu
-- [x] Customer information được lưu và tái sử dụng
-- [x] Machine status hiển thị chính xác
+- [ ] Tester có thể tạo 5 phiếu/thời gian
+- [ ] Admin có thể xem tất cả phiếu
+- [ ] Customer information được lưu và tái sử dụng
+- [ ] Machine status hiển thị chính xác
 
 ---
 

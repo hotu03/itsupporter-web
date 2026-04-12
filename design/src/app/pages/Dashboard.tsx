@@ -10,8 +10,7 @@ import {
   Wrench,
   Star,
   CheckCircle2,
-  AlertCircle,
-  RefreshCw,
+    RefreshCw,
   Bell,
   Search,
   ChevronRight,
@@ -140,7 +139,7 @@ const REVENUE_TREND = [
 ];
 
 // Machine status pie chart
-const MACHINE_PIE = [
+const _MACHINE_PIE = [
   { name: "Hoàn thành", value: 7, color: "#f97316" },
   { name: "Đang sửa", value: 1, color: "#3b82f6" },
   { name: "Chờ xử lý", value: 0, color: "#facc15" },
@@ -150,7 +149,7 @@ const MACHINE_PIE = [
 ].filter((d) => d.value > 0);
 
 // Machine category bar
-const MACHINE_CATEGORY = [
+const _MACHINE_CATEGORY = [
   { name: "Hardware", count: 8 },
   { name: "Software", count: 0 },
   { name: "Network", count: 0 },
@@ -254,7 +253,7 @@ function RevenueTooltip({ active, payload, label }: any) {
 
 // ─── 5-Step Machine Workflow ───────────────────────────────────────────────────
 
-const WORKFLOW_STEPS = [
+const _WORKFLOW_STEPS = [
   { step: "P1", label: "Tiếp nhận", sublabel: "Nhận máy từ KH", icon: Package, color: "bg-yellow-400", count: 0 },
   { step: "P2", label: "Kiểm tra trước", sublabel: "Test tình trạng", icon: Activity, color: "bg-blue-500", count: 1 },
   { step: "P3", label: "Sửa chữa", sublabel: "Kỹ thuật viên", icon: Wrench, color: "bg-orange-500", count: 1 },

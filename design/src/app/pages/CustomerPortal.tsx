@@ -147,7 +147,7 @@ export default function CustomerPortal() {
   // Filter machines by date
   const filteredMachines = machineFilterDate
     ? machines.filter((machine) => {
-        const machineDate = new Date(machine.registerDate).toISOString().split("T")[0];
+        const machineDate = new Date(machine.time).toISOString().split("T")[0];
         return machineDate === machineFilterDate;
       })
     : machines;
