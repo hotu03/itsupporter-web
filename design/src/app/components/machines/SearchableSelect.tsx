@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Search, ChevronDown, X } from "lucide-react";
 
 interface SearchableSelectProps {
@@ -54,10 +54,11 @@ export function SearchableSelect({
         <button
           type="button"
           onClick={() => { setOpen((p) => !p); setQuery(""); }}
-          className={`w-full flex items-center justify-between border rounded-lg px-3 py-2 text-sm outline-none transition-all ${open
-            ? "border-orange-400 ring-2 ring-orange-200 bg-white"
-            : "border-gray-200 bg-white hover:border-gray-300"
-            }`}
+          className={`w-full flex items-center justify-between border rounded-lg px-3 py-2 text-sm outline-none transition-all ${
+            open
+              ? "border-orange-400 ring-2 ring-orange-200 bg-white"
+              : "border-gray-200 bg-white hover:border-gray-300"
+          }`}
         >
           <span className={value ? "text-gray-800" : "text-gray-400"}>
             {value || placeholder}
@@ -104,8 +105,9 @@ export function SearchableSelect({
                   <li
                     key={opt}
                     onClick={() => handleSelect(opt)}
-                    className={`px-3 py-2.5 text-sm cursor-pointer transition-colors hover:bg-orange-50 hover:text-orange-700 ${opt === value ? "bg-orange-50 text-orange-600 font-medium" : "text-gray-700"
-                      }`}
+                    className={`px-3 py-2.5 text-sm cursor-pointer transition-colors hover:bg-orange-50 hover:text-orange-700 ${
+                      opt === value ? "bg-orange-50 text-orange-600 font-medium" : "text-gray-700"
+                    }`}
                   >
                     {opt}
                   </li>

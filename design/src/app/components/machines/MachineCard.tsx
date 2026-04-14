@@ -1,6 +1,6 @@
-import { DollarSign, Star, QrCode, CheckCircle2 } from "lucide-react";
-import type { Machine } from "../../data/machines";
-import { STATUS_STYLES } from "../../data/machines";
+import React from "react";
+import { QrCode, Star, DollarSign, CheckCircle2 } from "lucide-react";
+import { Machine, STATUS_STYLES } from "../../data/machines";
 import { formatCurrency as formatCurr } from "../../data/services";
 
 interface MachineCardProps {
