@@ -221,7 +221,7 @@ export default function ServiceRegistration() {
 
     // Create the current timestamp
     const now = new Date();
-    const currentTime = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    const currentTime = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) + " " + now.toLocaleDateString("vi-VN").replace(/\//g, "/");
     const currentDate = now.toLocaleDateString("vi-VN");
 
     // Calculate expiry time (3 hours from now by default)

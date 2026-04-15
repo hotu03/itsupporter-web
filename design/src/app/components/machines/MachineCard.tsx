@@ -1,28 +1,25 @@
-import React from "react";
 import { QrCode, Star, DollarSign, CheckCircle2 } from "lucide-react";
 import { Machine, STATUS_STYLES } from "../../data/machines";
 import { formatCurrency as formatCurr } from "../../data/services";
 
 interface MachineCardProps {
   machine: Machine;
-  index: number;
+  stt: number;
   onClick: () => void;
   onApprove?: (id: number) => void;
 }
 
-export function MachineCard({ machine, index, onClick, onApprove }: MachineCardProps) {
+export function MachineCard({ machine, stt, onClick, onApprove }: MachineCardProps) {
   return (
-    <div
-      className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col gap-2 hover:shadow-md hover:border-orange-300 transition-all group relative"
-    >
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col gap-2 hover:shadow-md hover:border-orange-300 transition-all group relative">
       <div onClick={onClick} className="cursor-pointer">
-        {/* Header row */}
+        {/* Header */}
         <div className="flex items-start justify-between">
           <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${STATUS_STYLES[machine.status]}`}>
             {machine.status}
           </span>
           <span className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 text-xs font-bold">
-            {String(index + 1).padStart(2, "0")}
+            {String(stt).padStart(2, "0")}
           </span>
         </div>
 
@@ -60,7 +57,7 @@ export function MachineCard({ machine, index, onClick, onApprove }: MachineCardP
           </p>
         </div>
 
-        {/* Services & Payment */}
+        {/* Services */}
         {machine.additionalServices && machine.additionalServices.length > 0 && (
           <div className="border-t border-gray-100 pt-2 mt-1">
             <p className="text-gray-400 text-[10px] mb-1">Dịch vụ</p>
@@ -92,21 +89,7 @@ export function MachineCard({ machine, index, onClick, onApprove }: MachineCardP
               </span>
             </div>
             {machine.paymentStatus && (
-              <span
-                className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
-                  machine.paymentStatus === "paid"
-                    ? "bg-green-100 text-green-700"
-                    : machine.paymentStatus === "pending"
-                    ? "bg-yellow-100 text-yellow-700"
-                    : "bg-blue-100 text-blue-700"
-                }`}
-              >
-                {machine.paymentStatus === "paid"
-                  ? "Đã thanh toán"
-                  : machine.paymentStatus === "pending"
-                  ? "Chưa thanh toán"
-                  : "Miễn phí"}
-              </span>
+              <PaymentBadge status={machine.paymentStatus} />
             )}
           </div>
         )}
@@ -139,5 +122,26 @@ export function MachineCard({ machine, index, onClick, onApprove }: MachineCardP
         </button>
       )}
     </div>
+  );
+}
+
+// ─── Extracted: Payment Badge ────────────────────────────────────────────────
+interface PaymentBadgeProps {
+  status: "paid" | "pending" | "free";
+}
+
+function PaymentBadge({ status }: PaymentBadgeProps) {
+  const label = status === "paid" ? "Đã thanh toán"
+    : status === "pending" ? "Chưa thanh toán"
+    : "Miễn phí";
+
+  const className = status === "paid" ? "bg-green-100 text-green-700"
+    : status === "pending" ? "bg-yellow-100 text-yellow-700"
+    : "bg-blue-100 text-blue-700";
+
+  return (
+    <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${className}`}>
+      {label}
+    </span>
   );
 }

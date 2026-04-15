@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { getServices, getServicePrice } from "../../../data/services";
 import { validateDiscount, useDiscount } from "../../../data/discounts";
 import { calculatePoints, addPointHistory } from "../../../data/points";
-import { type Machine, type Status } from "../../../data/machines";
+import { type Machine, type Status, getMachines, ensureSequentialId } from "../../../data/machines";
 
 export interface FormState {
   customerName: string;
@@ -33,6 +33,7 @@ export interface FormState {
   discountCode: string;
   discountAmount: number;
   paymentStatus: "paid" | "pending" | "free";
+  pointsEarned?: number;
 }
 
 const DEFAULT_FORM: FormState = {
@@ -66,7 +67,6 @@ const STEP_STATUS: Record<number, Status> = {
 };
 
 export function useMachineForm(machine?: Machine | null) {
-  const isEdit = !!machine;
   const [form, setForm] = useState<FormState>(
     machine ? machineToForm(machine) : DEFAULT_FORM
   );
@@ -164,23 +164,9 @@ export function useMachineForm(machine?: Machine | null) {
     let pointsEarned = 0;
     if ((finalStatus === "COMPLETE" || finalStatus === "RETURNED") && finalAmount > 0) {
       pointsEarned = calculatePoints(finalAmount);
-
-      // Save to point history
-      if (pointsEarned > 0) {
-        addPointHistory({
-          id: Date.now().toString(),
-          customerPhone: form.phone,
-          customerName: form.customerName,
-          type: "earn",
-          points: pointsEarned,
-          date: new Date().toISOString(),
-          description: `Đơn hàng #${machine?.id || "New"} - ${finalAmount}`,
-          relatedId: machine?.id?.toString() || "new",
-        });
-      }
     }
 
-    // Return the machine object
+    // Build the machine object with proper ID
     const updatedForm = {
       ...form,
       discountAmount: discountApplied ? discountAmount : 0,
@@ -190,7 +176,23 @@ export function useMachineForm(machine?: Machine | null) {
       status: finalStatus ?? STEP_STATUS[step]
     };
 
-    return formToMachine(updatedForm, machine);
+    const resultMachine = formToMachine(updatedForm, machine);
+
+    // Save point history after machine is created (so we have the correct ID)
+    if (pointsEarned > 0) {
+      addPointHistory({
+        id: Date.now().toString(),
+        customerPhone: form.phone,
+        customerName: form.customerName,
+        type: "earn",
+        points: pointsEarned,
+        date: new Date().toISOString(),
+        description: `Đơn hàng #${resultMachine.id} - ${finalAmount}`,
+        relatedId: resultMachine.id.toString(),
+      });
+    }
+
+    return resultMachine;
   };
 
   return {
@@ -251,12 +253,18 @@ function formToMachine(form: FormState, existing?: Machine | null): Machine {
   }, 0);
   const finalAmount = totalServiceAmount - form.discountAmount;
 
+  // Use existing ID for edits, ensureSequentialId for new machines
+  const newId = existing?.id ?? ensureSequentialId(getMachines());
+
   return {
-    id: existing?.id ?? Date.now(),
+    id: newId,
     status: form.status,
     customerName: form.customerName || "Khách hàng",
     phone: form.phone || "—",
-    time: existing?.time ?? new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+    time: existing?.time ?? new Date().toLocaleString("vi-VN", {
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      day: "2-digit", month: "numeric", year: "numeric",
+    }).replace(/\//g, "/"),
     description: form.needs || form.machineCondition || "—",
     expired: form.appointmentTime || "—",
     category: form.category,
@@ -287,6 +295,6 @@ function formToMachine(form: FormState, existing?: Machine | null): Machine {
     discountAmount: form.discountAmount > 0 ? form.discountAmount : undefined,
     paymentStatus: form.paymentStatus,
     finalAmount: finalAmount > 0 ? finalAmount : undefined,
-    pointsEarned: (form as any).pointsEarned || undefined,
+    pointsEarned: form.pointsEarned || undefined,
   };
 }

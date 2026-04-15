@@ -46,14 +46,17 @@ export function getMachines(): Machine[] {
   if (typeof window === "undefined") return [];
 
   const stored = localStorage.getItem("its_machines");
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return [];
-    }
+  if (!stored) return [];
+
+  try {
+    const parsed = JSON.parse(stored);
+    // Ensure it's always an array (fixes "Expected a JSON object, array or literal" errors from bad/corrupted data)
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.warn("Failed to parse machines from localStorage, resetting:", e);
+    localStorage.removeItem("its_machines");
+    return [];
   }
-  return [];
 }
 
 // Save machines to localStorage
@@ -86,8 +89,6 @@ export function addMachine(machine: Omit<Machine, "id">): Machine {
 
   const updatedMachines = [...machines, newMachine];
   saveMachines(updatedMachines);
-
-  console.log(`Created machine with sequential ID: ${newId}`); // for debugging
 
   return newMachine;
 }
