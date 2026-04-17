@@ -20,6 +20,7 @@ export interface Member {
   status: string;
   approvalStatus: ApprovalStatus;
   email?: string;
+  uid?: string; // for User-Member linking (added for registration.ts)
   registeredAt?: string;
   isAdmin?: boolean;
 }

@@ -28,12 +28,21 @@ export default function SignIn() {
 
   const handleGoogleLogin = async () => {
     setError("");
-    const success = await googleLogin();
-    if (success) {
-      navigate("/dashboard");
-    } else {
-      setError("Google login failed. Check console or try again.");
+    const result = await googleLogin();
+
+    if (!result.success) {
+      setError("Google login failed. Please try again.");
+      return;
     }
+
+    if (result.needsProfileCompletion) {
+      const emailQuery = result.email ? `&email=${encodeURIComponent(result.email)}` : "";
+      const uidQuery = result.uid ? `&uid=${encodeURIComponent(result.uid)}` : "";
+      navigate(`/signup?from=google${emailQuery}${uidQuery}`);
+      return;
+    }
+
+    navigate("/dashboard");
   };
 
   return (

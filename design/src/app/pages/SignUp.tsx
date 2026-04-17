@@ -1,8 +1,11 @@
 import { useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Camera, ChevronDown, X, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Camera, ChevronDown, X, ArrowLeft, Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
 import backgroundImage from "../../assets/images/background.jpg";
 import logo from "../../assets/images/logo.png";
+import { createUserWithEmailAndPassword, deleteUser, signOut } from "firebase/auth";
+import { registerUserAndPendingMember } from "../data/registration";
+import { auth } from "../utils/firebase";
 
 // ─── Custom Select ────────────────────────────────────────────────────────────
 function FormSelect({
@@ -13,7 +16,7 @@ function FormSelect({
 }: {
   value: string;
   onChange: (v: string) => void;
-  options: string[];
+  options: readonly string[];
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -67,29 +70,6 @@ function Field({ label, required, children }: { label: string; required?: boolea
   );
 }
 
-// ─── Input ────────────────────────────────────────────────────────────────────
-function FormInput({
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  type?: string;
-}) {
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all bg-white"
-    />
-  );
-}
-
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const PROVINCES = [
   "Hà Nội", "TP. Hồ Chí Minh", "Đà Nẵng", "Hải Phòng", "Cần Thơ",
@@ -109,19 +89,22 @@ const PROVINCES = [
 
 const COURSES = ["K13", "K14", "K15", "K16", "K17", "K18", "K19", "K20"];
 const POSITIONS = ["Member", "Collaborators", "President", "Vice President", "Commissioner"];
-const TECH_POSITIONS = ["Technician", "Tester"];
+const TECH_POSITIONS = ["Technician", "Tester"] as const;
 const GENDERS = ["Male", "Female", "Other"];
 
 export default function SignUp() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const fromGoogle = params.get("from") === "google";
+  const googleEmail = (params.get("email") || "").trim().toLowerCase();
+  const googleUid = (params.get("uid") || "").trim();
+  const isGoogleCompletion = fromGoogle && Boolean(googleEmail) && Boolean(googleUid);
 
   const [avatar, setAvatar] = useState<string>("");
   const [lastName, setLastName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(googleEmail);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState("");
@@ -133,6 +116,9 @@ export default function SignUp() {
   const [course, setCourse] = useState("");
   const [classRoom, setClassRoom] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState("");
+  const [submitSuccess, setSubmitSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,8 +135,12 @@ export default function SignUp() {
     if (!username.trim()) errs.username = "Bắt buộc";
     if (!email.trim()) errs.email = "Bắt buộc";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = "Email không hợp lệ";
-    if (!password.trim()) errs.password = "Bắt buộc";
-    else if (password.length < 6) errs.password = "Tối thiểu 6 ký tự";
+
+    if (!isGoogleCompletion) {
+      if (!password.trim()) errs.password = "Bắt buộc";
+      else if (password.length < 6) errs.password = "Tối thiểu 6 ký tự";
+    }
+
     if (!phone.trim()) errs.phone = "Bắt buộc";
     if (!gender) errs.gender = "Bắt buộc";
     if (!position) errs.position = "Bắt buộc";
@@ -159,18 +149,72 @@ export default function SignUp() {
     return errs;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError("");
+    setSubmitSuccess("");
+
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
     }
-    // Persist registration flag for this "user" (demo: username as key)
-    localStorage.setItem(`its_registered_${username}`, "true");
-    // If came from Google, store that too
-    if (fromGoogle) localStorage.setItem("its_google_registered", "true");
-    navigate("/dashboard");
+
+    setIsSubmitting(true);
+    let firebaseUid = "";
+
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const fullName = `${lastName.trim()} ${firstName.trim()}`.trim();
+
+      if (isGoogleCompletion) {
+        const currentUser = auth.currentUser;
+        const normalizedCurrentEmail = (currentUser?.email || "").trim().toLowerCase();
+        if (!currentUser || currentUser.uid !== googleUid || normalizedCurrentEmail !== normalizedEmail) {
+          setSubmitError("Phiên Google không hợp lệ. Vui lòng đăng nhập lại bằng Google.");
+          return;
+        }
+        firebaseUid = googleUid;
+      } else {
+        const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+        firebaseUid = credential.user.uid;
+      }
+
+      registerUserAndPendingMember({
+        name: fullName,
+        username: username.trim(),
+        email: normalizedEmail,
+        uid: firebaseUid,
+        dob: birthday,
+        phone: phone.trim(),
+        gender,
+        course,
+        class: classRoom.trim(),
+        hometown,
+        position,
+        type: techPosition.toLowerCase() as "technician" | "tester",
+        isAdmin: false,
+      });
+
+      if (!isGoogleCompletion) {
+        await signOut(auth);
+      }
+
+      setSubmitSuccess("Đăng ký thành công. Tài khoản đang chờ admin phê duyệt.");
+      setTimeout(() => navigate("/"), 1200);
+    } catch (error: unknown) {
+      if (!isGoogleCompletion && auth.currentUser && firebaseUid && firebaseUid === auth.currentUser.uid) {
+        await deleteUser(auth.currentUser).catch(() => undefined);
+      }
+
+      if (error instanceof Error) {
+        setSubmitError(error.message);
+      } else {
+        setSubmitError("Đăng ký thất bại. Vui lòng thử lại.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const inputClass = (field: string) =>
@@ -307,31 +351,37 @@ export default function SignUp() {
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: "" })); }}
                   placeholder="example@email.com"
+                  disabled={isGoogleCompletion}
                   className={inputClass("email")}
                 />
+                {isGoogleCompletion && (
+                  <p className="text-[10px] text-gray-500">Email lấy từ Google và không thể chỉnh sửa</p>
+                )}
                 {errors.email && <p className="text-red-400 text-[10px]">{errors.email}</p>}
               </Field>
 
               {/* Password */}
-              <Field label="Password" required>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); setErrors((p) => ({ ...p, password: "" })); }}
-                    placeholder="Tối thiểu 6 ký tự"
-                    className={inputClass("password")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                {errors.password && <p className="text-red-400 text-[10px]">{errors.password}</p>}
-              </Field>
+              {!isGoogleCompletion && (
+                <Field label="Password" required>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setErrors((p) => ({ ...p, password: "" })); }}
+                      placeholder="Tối thiểu 6 ký tự"
+                      className={inputClass("password")}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {errors.password && <p className="text-red-400 text-[10px]">{errors.password}</p>}
+                </Field>
+              )}
 
               {/* Phone / Birthday */}
               <div className="grid grid-cols-2 gap-3">
@@ -420,18 +470,34 @@ export default function SignUp() {
                 </Field>
               </div>
 
+              {/* Submit feedback */}
+              {submitError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 text-sm flex items-start gap-2">
+                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                  <span>{submitError}</span>
+                </div>
+              )}
+
+              {submitSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm flex items-start gap-2">
+                  <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                  <span>{submitSuccess}</span>
+                </div>
+              )}
+
               {/* Submit */}
               <div className="flex justify-center mt-2">
                 <button
                   type="submit"
-                  className="px-16 py-2.5 rounded-full bg-green-500 text-white font-semibold text-sm hover:bg-green-600 active:scale-95 transition-all shadow-md"
+                  disabled={isSubmitting}
+                  className="px-16 py-2.5 rounded-full bg-green-500 text-white font-semibold text-sm hover:bg-green-600 active:scale-95 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Add
+                  {isSubmitting ? "Đang gửi..." : fromGoogle ? "Hoàn tất đăng ký" : "Đăng ký"}
                 </button>
               </div>
 
               {/* Sign in link */}
-              {!fromGoogle && (
+              {!isGoogleCompletion && (
                 <p className="text-center text-xs text-gray-400 mt-1">
                   Đã có tài khoản?{" "}
                   <button

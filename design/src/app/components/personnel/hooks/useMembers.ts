@@ -1,21 +1,26 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   getMembers,
-  saveMembers,
   addMember,
   updateMember,
   deleteMember,
   type Member,
   COURSES_DEFAULT,
 } from "../../../data/members";
+import {
+  approveAndLinkMember,
+  rejectMember as rejectMemberReg,
+  linkExistingSeeds,
+} from "../../../data/registration";
 
 export function useMembers() {
   const [members, setMembers] = useState<Member[]>([]);
   const [courses, setCourses] = useState<string[]>(COURSES_DEFAULT);
   const [loading, setLoading] = useState(true);
 
-  // Load from localStorage
+  // Load from localStorage + link seeds for User-Member architecture
   useEffect(() => {
+    linkExistingSeeds(); // idempotent migration for uid + users
     setMembers(getMembers());
     const storedCourses = localStorage.getItem("its_member_courses");
     if (storedCourses) {
@@ -56,29 +61,41 @@ export function useMembers() {
   }, []);
 
   const handleApprove = useCallback((id: number) => {
-    const updated = updateMember(id, { approvalStatus: "approved" });
-    setMembers(updated);
+    const result = approveAndLinkMember(id);
+    if (result.success) {
+      setMembers(getMembers()); // refresh to sync with user link
+      // TODO: Could dispatch toast for linked User update
+    } else if (result.error) {
+      // TODO: proper error handling (no console in prod)
+      console.error("Approve failed:", result.error);
+    }
   }, []);
 
   const handleReject = useCallback((id: number) => {
-    const updated = updateMember(id, { approvalStatus: "rejected" });
+    // Use registration reject which sets inactive
+    const updated = rejectMemberReg(id);
     setMembers(updated);
+    return updated;
   }, []);
 
   const handleApproveAll = useCallback(() => {
-    const updated = members.map(m =>
-      m.approvalStatus === "pending" ? { ...m, approvalStatus: "approved" as const } : m
-    );
-    saveMembers(updated);
-    setMembers(updated);
+    const pendingIds = members
+      .filter(m => m.approvalStatus === "pending")
+      .map(m => m.id);
+    pendingIds.forEach(id => {
+      approveAndLinkMember(id); // links user + role for each
+    });
+    setMembers(getMembers()); // final refresh
   }, [members]);
 
   const handleRejectAll = useCallback(() => {
-    const updated = members.map(m =>
-      m.approvalStatus === "pending" ? { ...m, approvalStatus: "rejected" as const } : m
-    );
-    saveMembers(updated);
-    setMembers(updated);
+    const pendingIds = members
+      .filter(m => m.approvalStatus === "pending")
+      .map(m => m.id);
+    pendingIds.forEach(id => {
+      rejectMemberReg(id);
+    });
+    setMembers(getMembers());
   }, [members]);
 
   const handleAddCourse = useCallback((c: string) => {

@@ -1,10 +1,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { User, UserRole } from '../data/users';
 import { initUsers, getCurrentUser, setCurrentUser, hasPermission, updateUserRole } from '../data/users';
+import { getRegistrationStatusByEmail } from '../data/registration';
 import { auth } from '../utils/firebase';
 import {
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
@@ -12,11 +12,18 @@ import {
   type User as FirebaseUser
 } from 'firebase/auth';
 
+interface GoogleLoginResult {
+  success: boolean;
+  needsProfileCompletion?: boolean;
+  email?: string;
+  uid?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  googleLogin: () => Promise<boolean>;
+  googleLogin: () => Promise<GoogleLoginResult>;
   logout: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
   updateRole: (userId: number, newRole: UserRole, newPermissions: string[]) => void;
@@ -24,24 +31,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function mapFirebaseToLocalUser(firebaseUser: FirebaseUser): User {
+function mapFirebaseToLocalUser(firebaseUser: FirebaseUser): User | null {
   const users = initUsers();
-  let localUser = users.find(u => u.email === firebaseUser.email);
+  const localUser = users.find(u => u.email === firebaseUser.email);
 
   if (!localUser) {
-    // Create basic user for new Firebase accounts (immutable)
-    localUser = {
-      id: Date.now(),
-      uid: firebaseUser.uid,
-      name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New User',
-      username: firebaseUser.email?.split('@')[0] || 'user',
-      email: firebaseUser.email || '',
-      role: 'tester' as UserRole,
-      permissions: ['view:machines'],
-      status: 'active',
-      registeredAt: new Date().toISOString(),
-    };
-    // Note: In production, use Firebase custom claims or Firestore for roles
+    return null;
   }
 
   return { ...localUser, uid: firebaseUser.uid };
@@ -51,37 +46,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Seed root admin to real Firebase on first deploy/load (if not exists)
-  const seedRootToFirebase = useCallback(async () => {
-    const seeded = localStorage.getItem('root_firebase_seeded');
-    if (seeded) return;
-
-    const rootEmail = 'root@itsupporter.com';
-    const rootPassword = import.meta.env.VITE_ROOT_PASSWORD || 'RootAdminPass2026!';
-
-    try {
-      await createUserWithEmailAndPassword(auth, rootEmail, rootPassword);
-      console.log('Root admin seeded to Firebase (change password in Console after first login)');
-      localStorage.setItem('root_firebase_seeded', 'true');
-    } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') {
-        localStorage.setItem('root_firebase_seeded', 'true');
-      } else {
-        console.error('Root seed failed:', error);
-      }
-    }
-  }, []);
-
-  // Real Firebase auth state listener + local role sync + root seed
+  // Real Firebase auth state listener + local role sync
   useEffect(() => {
     initUsers(); // Ensure local seed
-    seedRootToFirebase();
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         const mappedUser = mapFirebaseToLocalUser(firebaseUser);
-        setCurrentUser(mappedUser);
-        setUser(mappedUser);
+        if (mappedUser && mappedUser.status === 'active') {
+          setCurrentUser(mappedUser);
+          setUser(mappedUser);
+        } else {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('its_current_user');
+          }
+          setUser(null);
+        }
       } else {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('its_current_user');
@@ -92,12 +72,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [seedRootToFirebase]);
+  }, []);
+
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const mappedUser = mapFirebaseToLocalUser(userCredential.user);
+      if (!mappedUser || mappedUser.status !== 'active') {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('its_current_user');
+        }
+        await firebaseSignOut(auth);
+        return false;
+      }
       setCurrentUser(mappedUser);
       setUser(mappedUser);
       return true;
@@ -107,19 +95,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const googleLogin = useCallback(async (): Promise<boolean> => {
+  const googleLogin = useCallback(async (): Promise<GoogleLoginResult> => {
     try {
       const provider = new GoogleAuthProvider();
       provider.addScope('profile');
       provider.addScope('email');
       const result = await signInWithPopup(auth, provider);
+      const email = result.user.email || '';
+      const registrationStatus = getRegistrationStatusByEmail(email);
+
       const mappedUser = mapFirebaseToLocalUser(result.user);
+      if (registrationStatus === 'not_registered') {
+        return {
+          success: true,
+          needsProfileCompletion: true,
+          email,
+          uid: result.user.uid,
+        };
+      }
+
+      if (!mappedUser || mappedUser.status !== 'active') {
+        await firebaseSignOut(auth);
+        return { success: false };
+      }
+
       setCurrentUser(mappedUser);
       setUser(mappedUser);
-      return true;
+      return { success: true, needsProfileCompletion: false, email };
     } catch (error: unknown) {
       console.error('Google login failed:', error); // Dev only
-      return false;
+      return { success: false };
     }
   }, []);
 
@@ -140,13 +145,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const updateRole = useCallback((userId: number, newRole: UserRole, newPermissions: string[]) => {
+    if (!user || !hasPermission(user, 'manage:personnel')) {
+      return;
+    }
+
     updateUserRole(userId, newRole, newPermissions);
     const current = getCurrentUser();
     if (current && current.id === userId) {
       setCurrentUser(current);
       setUser(current);
     }
-  }, []);
+  }, [user]);
 
   const value: AuthContextType = {
     user,
