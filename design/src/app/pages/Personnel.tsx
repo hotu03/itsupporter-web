@@ -70,7 +70,7 @@ export default function Personnel() {
 
       {/* Content */}
       <div className="flex-1 p-6">
-        {activeTab === "overview" && <OverviewTab members={members} />}
+        {activeTab === "overview" && <OverviewTab members={members} courses={courses} />}
         {activeTab === "technician" && (
           <MemberListTab type="technician" courses={courses} members={members} onAddMember={addMember} onUpdateMember={updateMember} onDeleteMember={deleteMember} />
         )}

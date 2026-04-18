@@ -4,9 +4,10 @@ import { POSITION_COLORS } from "../../data/members";
 
 interface OverviewTabProps {
   members: Member[];
+  courses: string[];
 }
 
-export function OverviewTab({ members }: OverviewTabProps) {
+export function OverviewTab({ members, courses }: OverviewTabProps) {
   const approvedMembers = members.filter((m) => m.approvalStatus === "approved");
   const technicians = approvedMembers.filter((m) => m.type === "technician");
   const testers = approvedMembers.filter((m) => m.type === "tester");
@@ -19,11 +20,16 @@ export function OverviewTab({ members }: OverviewTabProps) {
     acc[m.course] = (acc[m.course] || 0) + 1;
     return acc;
   }, {});
-  const courseData = Object.entries(courseGroups)
-    .map(([course, count]) => ({ course, count }))
-    .sort((a, b) => a.course.localeCompare(b.course));
+
+  // Use dynamic courses list from "Quản lý khóa" management
+  const sortedCourses = [...courses].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const courseData = sortedCourses
+    .map((course) => ({ course, count: courseGroups[course] || 0 }));
+
   const maxCount = Math.max(...courseData.map((d) => d.count), 1);
-  const BAR_COLORS = ["#f97316", "#fb923c", "#fdba74", "#fed7aa", "#ffedd5", "#fff7ed"];
+  // Colors: gray for empty, orange gradient (dark→light) for populated
+  const BAR_COLORS = ["#94a3b8", "#ea580c", "#f97316", "#fb923c", "#fdba74", "#fed7aa"];
+  const MIN_HEIGHT_PCT = 10; // minimum bar height as percentage
 
   return (
     <div className="flex flex-col gap-6">
@@ -52,20 +58,22 @@ export function OverviewTab({ members }: OverviewTabProps) {
             <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center"><Users size={14} className="text-orange-500" /></div>
             <p className="text-gray-700 text-sm" style={{ fontWeight: 600 }}>Thành viên theo khoá</p>
           </div>
-          <div className="flex items-end gap-2 h-[160px] px-1">
+          <div className="flex items-end justify-center gap-3 h-[160px] px-2">
             {courseData.map(({ course, count }, i) => (
-              <div key={course} className="flex-1 flex flex-col items-center gap-1 group relative">
+              <div key={course} className="flex flex-col items-center gap-1 group relative" style={{ width: "40px" }}>
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] rounded-lg px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                   {course}: {count} người
                 </div>
-                <span className="text-[10px] text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontWeight: 600 }}>{count}</span>
-                <div className="w-full rounded-t-lg" style={{ height: `${(count / maxCount) * 100}%`, backgroundColor: BAR_COLORS[i % BAR_COLORS.length], minHeight: 4 }} />
+                <span className="text-[11px] text-gray-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">{count}</span>
+                <div
+                  className="w-full rounded-t-lg transition-all cursor-pointer hover:opacity-80"
+                  style={{
+                    height: `${count > 0 ? Math.max((count / maxCount) * 140, 20) : 4}px`,
+                    backgroundColor: BAR_COLORS[i % BAR_COLORS.length],
+                  }}
+                />
+                <span className="text-[10px] text-gray-400 mt-1">{course}</span>
               </div>
-            ))}
-          </div>
-          <div className="flex gap-2 px-1 mt-1.5">
-            {courseData.map(({ course }) => (
-              <div key={course} className="flex-1 text-center text-[10px] text-gray-400">{course}</div>
             ))}
           </div>
           <div className="mt-4 flex flex-col gap-1.5 border-t border-gray-50 pt-3">
