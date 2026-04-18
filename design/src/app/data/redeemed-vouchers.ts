@@ -3,6 +3,7 @@
 export interface RedeemedVoucher {
   id: string;
   customerPhone: string;
+  customerEmail?: string;
   customerName: string;
   voucherCode: string;
   voucherName: string;
@@ -45,9 +46,23 @@ export function getCustomerRedeemedVouchers(customerPhone: string): RedeemedVouc
   return getRedeemedVouchers().filter((v) => v.customerPhone === customerPhone);
 }
 
+// Get redeemed vouchers by customer email
+export function getCustomerRedeemedVouchersByEmail(customerEmail: string): RedeemedVoucher[] {
+  const normalized = customerEmail.toLowerCase();
+  return getRedeemedVouchers().filter((v) => v.customerEmail?.toLowerCase() === normalized);
+}
+
 // Check if a specific voucher code is redeemed by customer
 export function isVoucherRedeemedByCustomer(customerPhone: string, voucherCode: string): boolean {
   return getRedeemedVouchers().some(
     (v) => v.customerPhone === customerPhone && v.voucherCode === voucherCode
+  );
+}
+
+// Check if a specific voucher code is redeemed by customer email
+export function isVoucherRedeemedByCustomerEmail(customerEmail: string, voucherCode: string): boolean {
+  const normalized = customerEmail.toLowerCase();
+  return getRedeemedVouchers().some(
+    (v) => v.customerEmail?.toLowerCase() === normalized && v.voucherCode === voucherCode
   );
 }

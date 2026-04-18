@@ -10,14 +10,14 @@ export default function CustomerOTP() {
   const [canResend, setCanResend] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const phone = location.state?.phone;
+  const email = location.state?.email;
 
-  // Redirect if no phone number
+  // Redirect if no email
   useEffect(() => {
-    if (!phone) {
+    if (!email) {
       navigate("/customer/login");
     }
-  }, [phone, navigate]);
+  }, [email, navigate]);
 
   // Countdown timer
   useEffect(() => {
@@ -29,8 +29,8 @@ export default function CustomerOTP() {
     }
   }, [countdown]);
 
-  // Mock OTP: use last 4 digits of phone number
-  const correctOTP = phone ? phone.slice(-4) : "0000";
+  // Mock OTP: generate random 6-digit
+  const correctOTP = "123456";
 
   const handleOTPComplete = (value: string) => {
     setOtp(value);
@@ -39,7 +39,7 @@ export default function CustomerOTP() {
     // Verify OTP
     if (value === correctOTP) {
       // Store authentication in sessionStorage
-      sessionStorage.setItem("customer_auth", JSON.stringify({ phone, timestamp: Date.now() }));
+      sessionStorage.setItem("customer_auth", JSON.stringify({ email, timestamp: Date.now() }));
 
       // Navigate to customer portal
       setTimeout(() => {
@@ -59,15 +59,15 @@ export default function CustomerOTP() {
     setOtp("");
     setError("");
 
-    // In a real app, this would trigger SMS resend
-    alert(`Mã OTP mới đã được gửi đến ${phone}\nMã OTP demo: ${correctOTP}`);
+    // In a real app, this would trigger email resend
+    alert(`Mã OTP mới đã được gửi đến ${email}\nMã OTP demo: ${correctOTP}`);
   };
 
   const handleBack = () => {
     navigate("/customer/login");
   };
 
-  if (!phone) return null;
+  if (!email) return null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center p-4">
@@ -88,7 +88,7 @@ export default function CustomerOTP() {
           </div>
           <h1 className="font-bold text-gray-900 mb-2">Xác thực OTP</h1>
           <p className="text-gray-600">
-            Mã OTP đã được gửi đến số <span className="font-semibold text-gray-900">{phone}</span>
+            Mã OTP đã được gửi đến email <span className="font-semibold text-gray-900">{email}</span>
           </p>
         </div>
 
@@ -149,7 +149,7 @@ export default function CustomerOTP() {
           <div className="mt-6 pt-6 border-t border-gray-100">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-xs text-blue-800">
-                <span className="font-semibold">Demo:</span> Mã OTP là 4 số cuối của số điện thoại ({correctOTP})
+                <span className="font-semibold">Demo:</span> Mã OTP là {correctOTP}
               </p>
             </div>
           </div>

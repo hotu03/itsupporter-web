@@ -15,6 +15,7 @@ export interface PointRule {
 export interface PointHistory {
   id: string;
   customerPhone: string;
+  customerEmail?: string;
   customerName: string;
   type: "earn" | "redeem" | "spend"; // Tích điểm, đổi điểm, hoặc tiêu điểm
   points: number; // Số điểm (+ tích, - đổi)
@@ -118,6 +119,11 @@ export function addPointHistory(entry: PointHistory): void {
 
 export function getCustomerPointHistory(customerPhone: string): PointHistory[] {
   return getPointHistory().filter((h) => h.customerPhone === customerPhone);
+}
+
+export function getCustomerPointHistoryByEmail(customerEmail: string): PointHistory[] {
+  const normalized = customerEmail.toLowerCase();
+  return getPointHistory().filter((h) => h.customerEmail?.toLowerCase() === normalized);
 }
 
 // ─── Business Logic ───────────────────────────────────────────────────────────

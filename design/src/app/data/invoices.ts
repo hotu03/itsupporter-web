@@ -103,6 +103,12 @@ export function getInvoicesByPhone(phone: string): Invoice[] {
   return invoices.filter(inv => inv.phone === phone);
 }
 
+// Get invoices by email
+export function getInvoicesByEmail(email: string): Invoice[] {
+  const invoices = getInvoices();
+  return invoices.filter(inv => inv.customerEmail?.toLowerCase() === email.toLowerCase());
+}
+
 // Get invoices by customer name
 export function getInvoicesByCustomerName(customerName: string): Invoice[] {
   const invoices = getInvoices();
