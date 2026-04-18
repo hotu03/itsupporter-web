@@ -49,3 +49,19 @@ export function addTransaction(transaction: Omit<Transaction, "id">): Transactio
 
   return newTransaction;
 }
+
+// Update an existing transaction by machineId
+export function updateTransactionByMachineId(
+  machineId: number,
+  updates: Partial<Pick<Transaction, "paymentStatus" | "discountCode" | "discountAmount">>
+): Transaction | null {
+  const transactions = getTransactions();
+  const index = transactions.findIndex(t => t.machineId === machineId);
+
+  if (index === -1) return null;
+
+  transactions[index] = { ...transactions[index], ...updates };
+  saveTransactions(transactions);
+
+  return transactions[index];
+}

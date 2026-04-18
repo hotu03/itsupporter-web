@@ -10,7 +10,7 @@ import { Machine, Status, getMachines, saveMachines, ensureSequentialId } from "
 import { getServicePrice } from "../data/services";
 import { addInvoice } from "../data/invoices";
 import { addOrUpdateCustomer } from "../data/customers";
-import { addTransaction } from "../data/finance";
+import { addTransaction, updateTransactionByMachineId } from "../data/finance";
 import { calculatePoints } from "../data/points";
 import { CreateDrawer } from "../components/machines/CreateDrawer";
 import { MachineCard } from "../components/machines/MachineCard";
@@ -171,21 +171,35 @@ export default function Machines() {
       }
 
       if (machine.finalAmount && machine.finalAmount > 0) {
+        // Use additionalServices if available, otherwise fall back to description
+        const serviceNames = machine.additionalServices?.length
+          ? machine.additionalServices.join(", ")
+          : (machine.description || "Dịch vụ khác");
         addTransaction({
           machineId: machine.id,
           customerName: machine.customerName,
           phone: machine.phone,
-          service: machine.description,
+          service: serviceNames,
           amount: machine.finalAmount,
           paymentStatus: machine.paymentStatus || "pending",
-          date: now.toLocaleDateString("vi-VN"),
+          date: now.toISOString().split("T")[0],
           discountCode: machine.discountCode,
           discountAmount: machine.discountAmount,
         });
       }
     }
 
-    if (editMachine) setEditMachine(null);
+    if (editMachine) {
+      // Update transaction in Finance when machine payment status changes
+      if (machine.finalAmount && machine.finalAmount > 0) {
+        updateTransactionByMachineId(machine.id, {
+          paymentStatus: machine.paymentStatus,
+          discountCode: machine.discountCode,
+          discountAmount: machine.discountAmount,
+        });
+      }
+      setEditMachine(null);
+    }
   };
 
   const handleApproveMachine = (id: number) => {

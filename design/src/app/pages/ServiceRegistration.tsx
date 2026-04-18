@@ -222,14 +222,17 @@ export default function ServiceRegistration() {
     // Create the current timestamp
     const now = new Date();
     const currentTime = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) + " " + now.toLocaleDateString("vi-VN").replace(/\//g, "/");
-    const currentDate = now.toLocaleDateString("vi-VN");
+    // Use ISO date format for storage (parseable by new Date())
+    const currentDate = now.toISOString().split("T")[0];
 
     // Calculate expiry time (3 hours from now by default)
     const expiry = new Date(now.getTime() + 3 * 60 * 60 * 1000);
     const expiryTime = expiry.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 
-    // Build description from needs or services
-    const description = form.needs || form.additionalServices.join(", ") || "Dịch vụ khác";
+    // Build service names from selected additionalServices (NOT needs which is free text)
+    const serviceNames = form.additionalServices.length > 0
+      ? form.additionalServices.join(", ")
+      : (form.needs || "Dịch vụ khác");
 
     // Add machine to system with WAITING status (online registration)
     const newMachine = addMachine({
@@ -237,7 +240,7 @@ export default function ServiceRegistration() {
       customerName: form.customerName,
       phone: form.phone,
       time: currentTime,
-      description: description,
+      description: serviceNames,
       expired: form.appointmentTime || expiryTime,
       category: form.category,
       tester: "",
@@ -270,7 +273,7 @@ export default function ServiceRegistration() {
       machineId: newMachine.id,
       customerName: form.customerName,
       phone: form.phone,
-      service: description,
+      service: serviceNames,
       amount: form.finalAmount,
       paymentStatus: form.finalAmount === 0 ? "free" : "pending",
       date: currentDate,

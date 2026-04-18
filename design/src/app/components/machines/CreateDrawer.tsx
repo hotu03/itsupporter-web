@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { Machine, Status } from "../../data/machines";
 import { getPointsExplanation } from "../../data/points";
+import { updateTransactionByMachineId } from "../../data/finance";
 import { useMachineForm } from "./hooks/useMachineForm";
 import { StepCustomerInfo } from "./form/StepCustomerInfo";
 import { StepTesterBefore } from "./form/StepTesterBefore";
@@ -165,6 +166,7 @@ export function CreateDrawer({ onClose, onSave, machine, members, checklistItems
               discountApplied={discountApplied}
               discountAmount={discountAmount}
               onSubmit={handleSubmit}
+              machineId={machine?.id}
             />
           )}
         </div>
@@ -202,6 +204,36 @@ export function CreateDrawer({ onClose, onSave, machine, members, checklistItems
             >
               Huỷ
             </button>
+
+            {/* P5: Lưu cập nhật thông tin P5 */}
+            {step === TOTAL_STEPS && (
+              <button
+                onClick={() => {
+                  // Cập nhật transaction trong Finance nếu có machineId
+                  if (machine?.id) {
+                    updateTransactionByMachineId(machine.id, {
+                      paymentStatus: form.paymentStatus as "paid" | "pending" | "free",
+                      discountCode: form.discountCode,
+                      discountAmount: form.discountAmount || 0,
+                    });
+                  }
+                  // Cập nhật machine với thông tin từ P5
+                  const updatedMachine: Machine = {
+                    ...(machine ?? {}),
+                    adminConfirmNote: form.adminConfirmNote,
+                    paymentStatus: form.paymentStatus,
+                    status: machine?.status ?? "COMPLETE",
+                  } as Machine;
+                  onSave(updatedMachine);
+                  onClose();
+                }}
+                className="px-5 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold hover:bg-green-600 transition-colors shadow-sm"
+              >
+                Lưu P5
+              </button>
+            )}
+
+            {/* P1-P4: Lưu và chuyển trạng thái */}
             {step < TOTAL_STEPS && (
               <button
                 onClick={() => handleSubmit(STEP_STATUS[step])}

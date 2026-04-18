@@ -1,6 +1,7 @@
 import { Star, CreditCard } from "lucide-react";
 import { getServicePrice, formatCurrency as formatCurr } from "../../../data/services";
 import { calculatePoints, getPointsExplanation } from "../../../data/points";
+import { updateTransactionByMachineId } from "../../../data/finance";
 import type { Status } from "../../../data/machines";
 import type { FormState } from "../hooks/useMachineForm";
 
@@ -12,10 +13,11 @@ interface StepProps {
   discountApplied: boolean;
   discountAmount: number;
   onSubmit: (status: Status) => void;
+  machineId?: number;
 }
 
 export function StepAdminConfirm({
-  form, set, totalServiceAmount, finalAmount, discountApplied, discountAmount, onSubmit,
+  form, set, totalServiceAmount, finalAmount, discountApplied, discountAmount, onSubmit, machineId,
 }: StepProps) {
   return (
     <div className="flex flex-col gap-5">
@@ -30,10 +32,12 @@ export function StepAdminConfirm({
       {(form.additionalServices.length > 0 || form.discountCode) && (
         <InvoiceSection
           form={form}
+          set={set}
           totalServiceAmount={totalServiceAmount}
           finalAmount={finalAmount}
           discountApplied={discountApplied}
           discountAmount={discountAmount}
+          machineId={machineId}
         />
       )}
 
@@ -127,13 +131,15 @@ interface InvoiceSectionProps {
     discountCode: string;
     paymentStatus: "paid" | "pending" | "free";
   };
+  set: (key: keyof FormState, value: unknown) => void;
   totalServiceAmount: number;
   finalAmount: number;
   discountApplied: boolean;
   discountAmount: number;
+  machineId?: number;
 }
 
-function InvoiceSection({ form, totalServiceAmount, finalAmount, discountApplied, discountAmount }: InvoiceSectionProps) {
+function InvoiceSection({ form, set, totalServiceAmount, finalAmount, discountApplied, discountAmount, machineId }: InvoiceSectionProps) {
   return (
     <div className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden">
       <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
@@ -143,15 +149,40 @@ function InvoiceSection({ form, totalServiceAmount, finalAmount, discountApplied
             Hóa đơn thanh toán
           </p>
           {finalAmount > 0 && (
-            <span className={`px-2 py-1 rounded-full text-[10px] font-semibold ${
-              form.paymentStatus === "paid" ? "bg-green-100 text-green-700"
-              : form.paymentStatus === "pending" ? "bg-yellow-100 text-yellow-700"
-              : "bg-blue-100 text-blue-700"
-            }`}>
-              {form.paymentStatus === "paid" ? "Đã thanh toán"
-              : form.paymentStatus === "pending" ? "Chưa thanh toán"
-              : "Miễn phí"}
-            </span>
+            <div className="flex items-center gap-2">
+              <select
+                value={form.paymentStatus}
+                onChange={(e) => set("paymentStatus", e.target.value as "paid" | "pending" | "free")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all outline-none ${
+                  form.paymentStatus === "paid"
+                    ? "bg-green-100 text-green-700 border border-green-300"
+                    : form.paymentStatus === "pending"
+                    ? "bg-yellow-100 text-yellow-700 border border-yellow-300"
+                    : "bg-blue-100 text-blue-700 border border-blue-300"
+                }`}
+              >
+                <option value="pending">Chưa thanh toán</option>
+                <option value="paid">Đã thanh toán</option>
+                <option value="free">Miễn phí</option>
+              </select>
+              {machineId && (
+                <button
+                  onClick={() => {
+                    if (finalAmount > 0) {
+                      updateTransactionByMachineId(machineId, {
+                        paymentStatus: form.paymentStatus as "paid" | "pending" | "free",
+                        discountCode: form.discountCode,
+                        discountAmount: discountAmount,
+                      });
+                      alert("Đã lưu trạng thái thanh toán!");
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+                >
+                  Lưu thanh toán
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
