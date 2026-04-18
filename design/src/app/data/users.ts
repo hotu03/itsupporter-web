@@ -15,6 +15,15 @@ export interface User {
   permissions: string[]; // e.g. ['*'] for root, or ['manage:personnel', 'view:finance']
   status: 'active' | 'inactive';
   registeredAt: string;
+  // Extended profile fields
+  avatar?: string;
+  dob?: string;
+  gender?: string;
+  hometown?: string;
+  position?: string;
+  techType?: string;
+  course?: string;
+  classRoom?: string;
 }
 
 const ROOT_ADMIN: User = {
@@ -73,6 +82,11 @@ export function initUsers(): User[] {
           permissions: ['manage:personnel', 'view:finance'],
           status: 'active',
           registeredAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+          gender: "Male",
+          hometown: "Hà Nội",
+          position: "President",
+          techType: "Technician",
+          course: "K15",
         },
         {
           id: 2,
@@ -83,6 +97,11 @@ export function initUsers(): User[] {
           permissions: ['execute:repair'],
           status: 'active',
           registeredAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+          gender: "Female",
+          hometown: "Hà Nội",
+          position: "Member",
+          techType: "Technician",
+          course: "K15",
         },
       ];
       const allUsers = [ROOT_ADMIN, ...testUsers];
@@ -127,4 +146,16 @@ export function getCurrentUser(): User | null {
 export function setCurrentUser(user: User): void {
   if (typeof window === "undefined") return;
   localStorage.setItem("its_current_user", JSON.stringify(user));
+}
+
+// Update current user profile
+export function updateCurrentUserProfile(updates: Partial<Omit<User, "id" | "role" | "isRoot" | "permissions" | "status">>): User | null {
+  const current = getCurrentUser();
+  if (!current) return null;
+
+  const updatedUser: User = { ...current, ...updates };
+  const allUsers = getUsers().map(u => u.id === current.id ? updatedUser : u);
+  saveUsers(allUsers);
+  setCurrentUser(updatedUser);
+  return updatedUser;
 }

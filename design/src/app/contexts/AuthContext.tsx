@@ -27,6 +27,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
   updateRole: (userId: number, newRole: UserRole, newPermissions: string[]) => void;
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -157,6 +158,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  const updateUser = useCallback((updatedUser: User) => {
+    setCurrentUser(updatedUser);
+    setUser(updatedUser);
+  }, []);
+
   const value: AuthContextType = {
     user,
     loading,
@@ -165,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     hasPermission: hasPermissionFn,
     updateRole,
+    updateUser,
   };
 
   return (

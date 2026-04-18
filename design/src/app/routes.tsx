@@ -18,6 +18,7 @@ const Personnel = lazy(() => import("./pages/Personnel"));
 const Customers = lazy(() => import("./pages/Customers"));
 const Finance = lazy(() => import("./pages/Finance"));
 const Invoices = lazy(() => import("./pages/Invoices"));
+const Profile = lazy(() => import("./pages/Profile"));
 const DashboardLayout = lazy(() => import("./components/DashboardLayout"));
 
 export const router = createBrowserRouter([
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
       { path: "customers", Component: Customers },
       { path: "finance", Component: Finance },
       { path: "invoices", Component: Invoices },
+      { path: "profile", Component: Profile },
       {
         path: "nhan-su",
         element: (

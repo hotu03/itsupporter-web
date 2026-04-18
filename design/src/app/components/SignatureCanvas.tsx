@@ -10,6 +10,7 @@ import { RotateCcw } from "lucide-react";
 
 export interface SignatureCanvasHandle {
   reset: () => void;
+  complete: () => void;
   isEmpty: () => boolean;
   toDataURL: () => string;
 }
@@ -21,6 +22,7 @@ interface Props {
   className?: string;
   height?: number;
   showResetButton?: boolean;
+  showCompleteButton?: boolean;
   label?: string;
 }
 
@@ -33,12 +35,15 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, Props>(
       className = "",
       height = 160,
       showResetButton = true,
+      showCompleteButton = true,
       label,
     },
     ref
   ) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const isDrawing = useRef(false);
+    const hasDrawn = useRef(false); // track if any stroke was drawn
+    const onEndTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [hasData, setHasData] = useState(false);
 
     // Setup / resize canvas preserving existing content
@@ -50,7 +55,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, Props>(
 
       // Save existing pixels before resize
       const snapshot = canvas.toDataURL("image/png");
-      const hadContent = hasData;
+      const hadContent = hasData || hasDrawn.current;
 
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -69,6 +74,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, Props>(
         img.onload = () => {
           ctx.drawImage(img, 0, 0, rect.width, rect.height);
           setHasData(true);
+          hasDrawn.current = true;
         };
         img.src = initialData;
       } else if (hadContent) {
@@ -99,7 +105,10 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, Props>(
 
     useEffect(() => {
       window.addEventListener("resize", setupCanvas);
-      return () => window.removeEventListener("resize", setupCanvas);
+      return () => {
+        window.removeEventListener("resize", setupCanvas);
+        if (onEndTimeout.current) clearTimeout(onEndTimeout.current);
+      };
     }, [setupCanvas]);
 
     // ── Pointer helpers ────────────────────────────────────────
@@ -123,6 +132,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, Props>(
         if (disabled) return;
         e.preventDefault();
         isDrawing.current = true;
+        hasDrawn.current = true;
         const pos = getPos(e);
         const ctx = canvasRef.current?.getContext("2d");
         if (!ctx) return;
@@ -148,22 +158,23 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, Props>(
     const stopDrawing = useCallback(() => {
       if (!isDrawing.current) return;
       isDrawing.current = false;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
       setHasData(true);
-      onEnd?.(canvas.toDataURL("image/png"));
-    }, [onEnd]);
+      // Do NOT call onEnd here - only via complete() button
+    }, []);
 
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+
       canvas.addEventListener("mousedown", startDrawing);
       canvas.addEventListener("mousemove", draw);
       canvas.addEventListener("mouseup", stopDrawing);
       canvas.addEventListener("mouseleave", stopDrawing);
+
       canvas.addEventListener("touchstart", startDrawing, { passive: false });
       canvas.addEventListener("touchmove", draw, { passive: false });
       canvas.addEventListener("touchend", stopDrawing);
+
       return () => {
         canvas.removeEventListener("mousedown", startDrawing);
         canvas.removeEventListener("mousemove", draw);
@@ -176,6 +187,8 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, Props>(
     }, [startDrawing, draw, stopDrawing]);
 
     const reset = useCallback(() => {
+      if (onEndTimeout.current) clearTimeout(onEndTimeout.current);
+      hasDrawn.current = false;
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
@@ -187,6 +200,11 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, Props>(
 
     useImperativeHandle(ref, () => ({
       reset,
+      complete: () => {
+        if (onEndTimeout.current) clearTimeout(onEndTimeout.current);
+        const canvas = canvasRef.current;
+        if (canvas && hasData) onEnd?.(canvas.toDataURL("image/png"));
+      },
       isEmpty: () => !hasData,
       toDataURL: () => canvasRef.current?.toDataURL("image/png") ?? "",
     }));
@@ -218,14 +236,29 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, Props>(
         </div>
 
         {showResetButton && !disabled && hasData && (
-          <button
-            type="button"
-            onClick={reset}
-            className="self-start flex items-center gap-2 px-3.5 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-xs font-medium hover:border-red-300 hover:text-red-600 hover:bg-red-50 active:scale-95 transition-all shadow-sm"
-          >
-            <RotateCcw size={14} />
-            Ký lại
-          </button>
+          <div className="flex items-center gap-2">
+            {showCompleteButton && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onEndTimeout.current) clearTimeout(onEndTimeout.current);
+                  const canvas = canvasRef.current;
+                  if (canvas) onEnd?.(canvas.toDataURL("image/png"));
+                }}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-orange-500 text-white text-xs font-medium hover:bg-orange-600 active:scale-95 transition-all shadow-sm"
+              >
+                Hoàn thành chữ ký
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={reset}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-xs font-medium hover:border-red-300 hover:text-red-600 hover:bg-red-50 active:scale-95 transition-all shadow-sm"
+            >
+              <RotateCcw size={14} />
+              Ký lại
+            </button>
+          </div>
         )}
       </div>
     );

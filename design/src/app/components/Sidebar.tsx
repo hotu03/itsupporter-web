@@ -4,6 +4,7 @@ import {
   Monitor,
   Users,
   UserCircle,
+  User,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -21,6 +22,7 @@ const navItems = [
   { label: "Customers", icon: UserCircle, to: "/dashboard/customers", permission: null },
   { label: "Finance", icon: DollarSign, to: "/dashboard/finance", permission: "view:finance" },
   { label: "Invoices", icon: FileText, to: "/dashboard/invoices", permission: null },
+  { label: "Hồ sơ", icon: User, to: "/dashboard/profile", permission: null },
 ];
 
 export function Sidebar() {
@@ -39,37 +41,33 @@ export function Sidebar() {
     <aside
       className={`relative flex flex-col bg-orange-500 text-white transition-all duration-300 ease-in-out ${
         collapsed ? "w-[64px]" : "w-[200px]"
-      } min-h-screen shrink-0`}
+      } h-full shrink-0`}
     >
-      {/* Logo */}
-      <div
-        className={`flex items-center gap-2.5 px-4 py-4 border-b border-white/20 ${
-          collapsed ? "justify-center px-0" : ""
-        }`}
-      >
-        <img
-          src={logo}
-          alt="IT Supporter"
-          className="w-8 h-8 rounded-lg shrink-0 object-cover"
-        />
-        {!collapsed && (
-          <span className="text-white font-bold text-sm tracking-wide">
-            IT Supporter
-          </span>
-        )}
+      {/* Logo + Collapse toggle in one row */}
+      <div className="flex items-center justify-between px-4 py-4 border-b border-white/20">
+        <div className={`flex items-center gap-2.5 ${collapsed ? "justify-center w-full" : ""}`}>
+          <img
+            src={logo}
+            alt="IT Supporter"
+            className="w-8 h-8 rounded-lg shrink-0 object-cover"
+          />
+          {!collapsed && (
+            <span className="text-white font-bold text-sm tracking-wide">
+              IT Supporter
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-orange-50 transition-colors border border-orange-200 shrink-0"
+        >
+          {collapsed ? (
+            <ChevronRight size={12} className="text-orange-500" />
+          ) : (
+            <ChevronLeft size={12} className="text-orange-500" />
+          )}
+        </button>
       </div>
-
-      {/* Collapse toggle */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-[52px] w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-orange-50 transition-colors z-10 border border-orange-200"
-      >
-        {collapsed ? (
-          <ChevronRight size={12} className="text-orange-500" />
-        ) : (
-          <ChevronLeft size={12} className="text-orange-500" />
-        )}
-      </button>
 
       {/* Nav */}
       <nav className="flex-1 py-3 flex flex-col gap-0.5 px-2">

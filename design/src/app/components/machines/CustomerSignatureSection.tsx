@@ -110,6 +110,7 @@ export function CustomerSignatureSection({ customerName, value, onChange }: Cust
               height={160}
               onEnd={(data) => { if (data) onChange(data); }}
               showResetButton
+              showCompleteButton
             />
           )}
           <p className="text-[11px] text-gray-400 italic">Khách hàng ký trực tiếp vào ô trên, sau đó tester nhấn Lưu.</p>
