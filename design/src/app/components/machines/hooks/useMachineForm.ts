@@ -3,6 +3,7 @@ import { getServices, getServicePrice } from "../../../data/services";
 import { validateDiscount, useDiscount } from "../../../data/discounts";
 import { calculatePoints, addPointHistory } from "../../../data/points";
 import { type Machine, type Status, getMachines, ensureSequentialId } from "../../../data/machines";
+import { addOrUpdateCustomer } from "../../../data/customers";
 
 export interface FormState {
   customerName: string;
@@ -160,9 +161,13 @@ export function useMachineForm(machine?: Machine | null) {
       useDiscount(form.discountCode);
     }
 
-    // Calculate points earned if order is completed/returned
+    // Calculate points earned if order is completed/returned OR for in-person (already brought machine)
     let pointsEarned = 0;
+    const isInPerson = machine?.registrationType === "in-person" || (!machine && finalAmount > 0);
     if ((finalStatus === "COMPLETE" || finalStatus === "RETURNED") && finalAmount > 0) {
+      pointsEarned = calculatePoints(finalAmount);
+    } else if (isInPerson && finalAmount > 0) {
+      // For in-person: award points immediately when customer brings machine
       pointsEarned = calculatePoints(finalAmount);
     }
 
@@ -178,7 +183,7 @@ export function useMachineForm(machine?: Machine | null) {
 
     const resultMachine = formToMachine(updatedForm, machine);
 
-    // Save point history after machine is created (so we have the correct ID)
+    // Save point history and award customer points after machine is created
     if (pointsEarned > 0) {
       addPointHistory({
         id: Date.now().toString(),
@@ -190,6 +195,10 @@ export function useMachineForm(machine?: Machine | null) {
         description: `Đơn hàng #${resultMachine.id} - ${finalAmount}`,
         relatedId: resultMachine.id.toString(),
       });
+      // Award points to customer for in-person (customer already brought machine)
+      if (form.phone && form.customerName && form.customerName !== "Khách hàng") {
+        addOrUpdateCustomer(form.customerName, form.phone, pointsEarned);
+      }
     }
 
     return resultMachine;

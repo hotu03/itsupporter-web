@@ -11,6 +11,7 @@ import { getServicePrice } from "../data/services";
 import { addInvoice } from "../data/invoices";
 import { addOrUpdateCustomer } from "../data/customers";
 import { addTransaction } from "../data/finance";
+import { calculatePoints } from "../data/points";
 import { CreateDrawer } from "../components/machines/CreateDrawer";
 import { MachineCard } from "../components/machines/MachineCard";
 import { MachineRow } from "../components/machines/MachineRow";
@@ -164,7 +165,9 @@ export default function Machines() {
       });
 
       if (machine.phone !== "—" && machine.customerName !== "Khách hàng") {
-        addOrUpdateCustomer(machine.customerName, machine.phone, machine.pointsEarned || 0);
+        // Award points immediately for in-person (customer already brought machine)
+        const pts = (machine.pointsEarned || 0) > 0 ? machine.pointsEarned : calculatePoints(machine.finalAmount || 0);
+        addOrUpdateCustomer(machine.customerName, machine.phone, pts);
       }
 
       if (machine.finalAmount && machine.finalAmount > 0) {
@@ -200,6 +203,11 @@ export default function Machines() {
     );
     setMachines(updated);
     saveMachines(updated);
+
+    // Award points when machine is officially approved into management
+    if (machineToApprove && machineToApprove.phone !== "—" && machineToApprove.customerName) {
+      addOrUpdateCustomer(machineToApprove.customerName, machineToApprove.phone, machineToApprove.pointsEarned || 0);
+    }
   };
 
   const pendingOnline = machines.filter(m => m.registrationType === "online" && !m.isApproved).length;

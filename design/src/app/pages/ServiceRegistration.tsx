@@ -13,7 +13,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { getServices, formatCurrency as formatCurr } from "../data/services";
 import { validateDiscount, useDiscount } from "../data/discounts";
 import { addMachine } from "../data/machines";
-import { addOrUpdateCustomer } from "../data/customers";
+import { registerCustomer } from "../data/customers";
 import { addTransaction } from "../data/finance";
 import { calculatePoints } from "../data/points";
 import { addInvoice } from "../data/invoices";
@@ -262,8 +262,8 @@ export default function ServiceRegistration() {
       pointsEarned: pointsEarned,
     });
 
-    // Add or update customer
-    addOrUpdateCustomer(form.customerName, form.phone, pointsEarned);
+    // Register customer record (no points yet — points awarded on approval)
+    registerCustomer(form.customerName, form.phone);
 
     // Add transaction to finance
     addTransaction({
