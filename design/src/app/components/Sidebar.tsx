@@ -25,8 +25,10 @@ const navItems = [
 
 export function Sidebar() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, hasPermission } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+
+  const visibleNavItems = navItems.filter(item => !item.permission || hasPermission(item.permission));
 
   const handleLogout = () => {
     logout();
@@ -71,7 +73,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 py-3 flex flex-col gap-0.5 px-2">
-        {navItems.map(({ label, icon: Icon, to }) => (
+        {visibleNavItems.map(({ label, icon: Icon, to }) => (
           <NavLink
             key={to}
             to={to}

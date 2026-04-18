@@ -5,7 +5,7 @@
 import type { Member } from "./members";
 import type { User, UserRole } from "./users";
 import { addMember, updateMember, getMembers, saveMembers } from "./members";
-import { getUsers, saveUsers, getCurrentUser, hasPermission } from "./users";
+import { getUsers, saveUsers, getCurrentUser, hasPermission, setCurrentUser } from "./users";
 
 export type RegistrationStatus = "not_registered" | "pending" | "approved" | "rejected";
 
@@ -176,7 +176,10 @@ export function registerUserAndPendingMember(
   return { user, member };
 }
 
-export function approveAndLinkMember(id: number): { success: boolean; member: Member; user?: User; error?: string } {
+export function approveAndLinkMember(
+  id: number,
+  updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>
+): { success: boolean; member: Member; user?: User; error?: string } {
   const currentUser = getCurrentUser();
   if (!currentUser || !hasPermission(currentUser, "manage:personnel")) {
     return { success: false, member: {} as Member, error: "Unauthorized" };
@@ -191,60 +194,139 @@ export function approveAndLinkMember(id: number): { success: boolean; member: Me
   const originalMember = members[memberIndex];
   const approvedMember: Member = {
     ...originalMember,
+    ...updates,
     approvalStatus: "approved" as const,
-    // Ensure other fields consistent
-    status: "active",
+    status: updates?.status ?? "active",
   };
 
-  // Immutable update
-  const updatedMembers = members.map((m, idx) =>
-    idx === memberIndex ? approvedMember : m
+  const updatedMembers = members.map((member, index) =>
+    index === memberIndex ? approvedMember : member
   );
 
-  // Link/update User (reuse mapping)
   let linkedUser: User | undefined;
-  const memberForMapping = approvedMember;
-  const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(memberForMapping);
+  const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(approvedMember);
   const users = getUsers();
-  const existingUser = users.find(u => u.uid === memberForMapping.uid || u.email === memberForMapping.email);
+  const existingUser = users.find(user => user.uid === approvedMember.uid || user.email === approvedMember.email);
 
   if (existingUser) {
-    const updatedUsers: User[] = users.map((u): User =>
-      u.id === existingUser.id
+    const updatedUsers: User[] = users.map((user): User =>
+      user.id === existingUser.id
         ? {
-            ...u,
-            uid: u.uid || memberForMapping.uid,
+            ...user,
+            uid: user.uid || approvedMember.uid,
+            name: approvedMember.name,
+            username: approvedMember.username,
+            email: approvedMember.email || user.email,
             role,
             permissions: [...permissions],
             isRoot,
-            status: "active" as const,
+            status: approvedMember.status === "inactive" ? "inactive" : "active",
           }
-        : u
+        : user
     );
     saveUsers(updatedUsers);
-    linkedUser = updatedUsers.find(u => u.id === existingUser.id);
-  } else if (memberForMapping.email) {
-    // Create new User - could reuse mapFirebaseToLocalUser logic but adapted for Member
+    linkedUser = updatedUsers.find(user => user.id === existingUser.id);
+  } else if (approvedMember.email) {
     const newUser: User = {
       id: getNextUserId(users),
-      uid: memberForMapping.uid || generateMockUid(memberForMapping.email),
-      name: memberForMapping.name,
-      username: memberForMapping.username,
-      email: memberForMapping.email,
+      uid: approvedMember.uid || generateMockUid(approvedMember.email),
+      name: approvedMember.name,
+      username: approvedMember.username,
+      email: approvedMember.email,
       role,
       permissions: [...permissions],
       isRoot,
-      status: "active",
-      registeredAt: memberForMapping.registeredAt || new Date().toISOString(),
+      status: approvedMember.status === "inactive" ? "inactive" : "active",
+      registeredAt: approvedMember.registeredAt || new Date().toISOString(),
     };
     saveUsers([...users, newUser]);
     linkedUser = newUser;
   }
 
-  // Use consistent save (critical fix - no more direct localStorage)
   saveMembers(updatedMembers);
 
   return { success: true, member: approvedMember, user: linkedUser };
+}
+
+export function syncMemberRoleToUser(
+  id: number,
+  updates: Partial<Member>
+): { success: boolean; member?: Member; user?: User; error?: string } {
+  const currentUser = getCurrentUser();
+  if (!currentUser || !hasPermission(currentUser, "manage:personnel")) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const members = getMembers();
+  const originalMember = members.find(member => member.id === id);
+  if (!originalMember) {
+    return { success: false, error: "Member not found" };
+  }
+
+  const nextMember: Member = {
+    ...originalMember,
+    ...updates,
+  };
+
+  const updatedMembers = updateMember(id, updates);
+  const savedMember = updatedMembers.find(member => member.id === id) || nextMember;
+  const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(savedMember);
+  const users = getUsers();
+  const existingUser = users.find(user => user.uid === savedMember.uid || user.email === savedMember.email);
+
+  if (!existingUser) {
+    if (!savedMember.email) {
+      return { success: true, member: savedMember };
+    }
+
+    const createdUser: User = {
+      id: getNextUserId(users),
+      uid: savedMember.uid || generateMockUid(savedMember.email),
+      name: savedMember.name,
+      username: savedMember.username,
+      email: savedMember.email,
+      role,
+      permissions: [...permissions],
+      isRoot,
+      status: savedMember.status === "inactive" ? "inactive" : "active",
+      registeredAt: savedMember.registeredAt || new Date().toISOString(),
+    };
+
+    saveUsers([...users, createdUser]);
+    return {
+      success: true,
+      member: savedMember,
+      user: createdUser,
+    };
+  }
+
+  const updatedUsers = users.map((user): User =>
+    user.id === existingUser.id
+      ? {
+          ...user,
+          uid: user.uid || savedMember.uid,
+          name: savedMember.name,
+          username: savedMember.username,
+          email: savedMember.email || user.email,
+          role,
+          permissions: [...permissions],
+          isRoot,
+          status: savedMember.status === "inactive" ? "inactive" : "active",
+        }
+      : user
+  );
+
+  saveUsers(updatedUsers);
+  const syncedUser = updatedUsers.find(user => user.id === existingUser.id);
+  if (currentUser.id === existingUser.id && syncedUser) {
+    setCurrentUser(syncedUser);
+  }
+
+  return {
+    success: true,
+    member: savedMember,
+    user: syncedUser,
+  };
 }
 
 export function rejectMember(id: number): Member[] {

@@ -11,6 +11,7 @@ import {
   approveAndLinkMember,
   rejectMember as rejectMemberReg,
   linkExistingSeeds,
+  syncMemberRoleToUser,
 } from "../../../data/registration";
 
 export function useMembers() {
@@ -46,29 +47,46 @@ export function useMembers() {
 
   const handleAddMember = useCallback((member: Omit<Member, "id">) => {
     const newMember = addMember(member);
+    syncMemberRoleToUser(newMember.id, newMember);
     setMembers(getMembers());
     return newMember;
   }, []);
 
-  const handleUpdateMember = useCallback((updated: Member) => {
-    updateMember(updated.id, updated);
-    setMembers(getMembers());
-  }, []);
 
   const handleDeleteMember = useCallback((id: number) => {
     deleteMember(id);
     setMembers(getMembers());
   }, []);
 
-  const handleApprove = useCallback((id: number) => {
-    const result = approveAndLinkMember(id);
+  const handleApprove = useCallback((
+    id: number,
+    updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>
+  ) => {
+    const result = approveAndLinkMember(id, updates);
     if (result.success) {
-      setMembers(getMembers()); // refresh to sync with user link
-      // TODO: Could dispatch toast for linked User update
-    } else if (result.error) {
-      // TODO: proper error handling (no console in prod)
-      console.error("Approve failed:", result.error);
+      setMembers(getMembers());
     }
+  }, []);
+
+  const handleSetAdmin = useCallback((id: number, isAdmin: boolean) => {
+    const result = syncMemberRoleToUser(id, { isAdmin });
+    if (result.success) {
+      setMembers(getMembers());
+    }
+  }, []);
+
+  const handleSyncMember = useCallback((updated: Member) => {
+    const persistedMembers = updateMember(updated.id, updated);
+    const savedMember = persistedMembers.find((member) => member.id === updated.id) || updated;
+
+    syncMemberRoleToUser(savedMember.id, {
+      type: savedMember.type,
+      isAdmin: savedMember.isAdmin,
+      position: savedMember.position,
+      status: savedMember.status,
+    });
+
+    setMembers(getMembers());
   }, []);
 
   const handleReject = useCallback((id: number) => {
@@ -112,9 +130,10 @@ export function useMembers() {
     loading,
     refreshMembers,
     addMember: handleAddMember,
-    updateMember: handleUpdateMember,
+    updateMember: handleSyncMember,
     deleteMember: handleDeleteMember,
     approveMember: handleApprove,
+    setAdmin: handleSetAdmin,
     rejectMember: handleReject,
     approveAll: handleApproveAll,
     rejectAll: handleRejectAll,

@@ -4,6 +4,7 @@ import { useMembers } from "../components/personnel/hooks/useMembers";
 import { OverviewTab } from "../components/personnel/OverviewTab";
 import { MemberListTab } from "../components/personnel/MemberListTab";
 import { ApprovalTab } from "../components/personnel/ApprovalTab";
+import { AdminManagementTab } from "../components/personnel/AdminManagementTab";
 import { ManageCoursesModal } from "../components/personnel/ManageCoursesModal";
 
 const TABS = [
@@ -11,6 +12,7 @@ const TABS = [
   { key: "technician", label: "Technicians", icon: Cpu },
   { key: "tester", label: "Testers", icon: FlaskConical },
   { key: "approval", label: "Phê duyệt", icon: ShieldCheck },
+  { key: "admin", label: "Quản lý Admin", icon: ShieldCheck },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -22,7 +24,7 @@ export default function Personnel() {
   const {
     members, courses,
     addMember, updateMember, deleteMember,
-    approveMember, rejectMember, approveAll, rejectAll,
+    approveMember, setAdmin, rejectMember, approveAll, rejectAll,
     addCourse, deleteCourse,
   } = useMembers();
 
@@ -77,6 +79,9 @@ export default function Personnel() {
         )}
         {activeTab === "approval" && (
           <ApprovalTab members={members} onApprove={approveMember} onReject={rejectMember} onApproveAll={approveAll} onRejectAll={rejectAll} />
+        )}
+        {activeTab === "admin" && (
+          <AdminManagementTab members={members} onSetAdmin={setAdmin} />
         )}
       </div>
 

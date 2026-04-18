@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Camera, X, Mail, Eye, EyeOff, ChevronDown } from "lucide-react";
+import { Camera, X, Mail, ChevronDown } from "lucide-react";
 import type { Member } from "../../data/members";
 import { FormField, inputCls, selectCls } from "./PersonnelForm";
 import { PROVINCES, dobToInput, inputToDob, splitName, POSITION_COLORS } from "../../data/members";
@@ -17,8 +17,6 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
   const [firstName, setFirstName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState("");
   const [birthday, setBirthday] = useState("");
   const [gender, setGender] = useState("");
@@ -28,6 +26,7 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
   const [course, setCourse] = useState("");
   const [classVal, setClassVal] = useState("");
   const [status, setStatus] = useState("active");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const prevIdRef = useRef<number | null>(null);
@@ -42,7 +41,8 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
     setHometown(member.hometown); setPosition(member.position);
     setTechType(member.type); setCourse(member.course);
     setClassVal(member.class); setStatus(member.status);
-    setEmail(""); setNewPassword(""); setShowPassword(false);
+    setIsAdmin(Boolean(member.isAdmin));
+    setEmail("");
     setAvatar(null); setErrors({});
   }
 
@@ -58,7 +58,6 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
     if (!phone.trim()) errs.phone = "Bắt buộc";
     if (!gender) errs.gender = "Bắt buộc";
     if (!course) errs.course = "Bắt buộc";
-    if (newPassword && newPassword.length < 6) errs.newPassword = "Tối thiểu 6 ký tự";
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
     onSave({
@@ -74,6 +73,7 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
       course,
       class: classVal.trim(),
       status,
+      isAdmin,
       ...(email ? { email } : {}),
     });
   };
@@ -124,14 +124,6 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
               <div className="relative">
                 <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 <input type="email" value={email} onChange={e => { setEmail(e.target.value); setErrors(p => ({ ...p, email: "" })); }} placeholder="Nhập email mới (tuỳ chọn)" className={`${inputCls(errors.email)} pl-9`} />
-              </div>
-            </FormField>
-            <FormField label="Mật khẩu mới" error={errors.newPassword}>
-              <div className="relative">
-                <input type={showPassword ? "text" : "password"} value={newPassword} onChange={e => { setNewPassword(e.target.value); setErrors(p => ({ ...p, newPassword: "" })); }} placeholder="Để trống nếu không đổi" className={inputCls(errors.newPassword)} />
-                <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
               </div>
             </FormField>
             <div className="grid grid-cols-2 gap-3">
@@ -201,6 +193,28 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
                 <input value={classVal} onChange={e => setClassVal(e.target.value)} placeholder="CNTT01" className={inputCls()} />
               </FormField>
             </div>
+            <FormField label="Quyền quản trị">
+              <div className="flex gap-3">
+                {([
+                  { key: false, label: "Thành viên", activeCls: "bg-gray-100 border-gray-300 text-gray-600" },
+                  { key: true, label: "Admin", activeCls: "bg-orange-50 border-orange-400 text-orange-600" },
+                ] as const).map(option => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => setIsAdmin(option.key)}
+                    className={`flex-1 py-2.5 rounded-xl border text-sm transition-all ${
+                      isAdmin === option.key
+                        ? option.activeCls
+                        : "border-gray-200 text-gray-400 hover:border-gray-300"
+                    }`}
+                    style={{ fontWeight: isAdmin === option.key ? 600 : 400 }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </FormField>
             <FormField label="Trạng thái">
               <div className="flex gap-3">
                 {(["active", "inactive"] as const).map(s => (

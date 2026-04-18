@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router";
 import { lazy } from "react";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Authentication & critical pages (loaded early)
 const SignIn = lazy(() => import("./pages/SignIn"));
@@ -18,7 +19,6 @@ const Customers = lazy(() => import("./pages/Customers"));
 const Finance = lazy(() => import("./pages/Finance"));
 const Invoices = lazy(() => import("./pages/Invoices"));
 const DashboardLayout = lazy(() => import("./components/DashboardLayout"));
-const PlaceholderPage = lazy(() => import("./pages/PlaceholderPage"));
 
 export const router = createBrowserRouter([
   // Critical auth routes
@@ -40,7 +40,14 @@ export const router = createBrowserRouter([
       { path: "customers", Component: Customers },
       { path: "finance", Component: Finance },
       { path: "invoices", Component: Invoices },
-      { path: "nhan-su", Component: Personnel },
+      {
+        path: "nhan-su",
+        element: (
+          <ProtectedRoute requiredPermission="manage:personnel">
+            <Personnel />
+          </ProtectedRoute>
+        ),
+      },
     ],
   },
 ]);

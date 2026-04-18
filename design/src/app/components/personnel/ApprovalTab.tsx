@@ -5,7 +5,7 @@ import { POSITION_COLORS } from "../../data/members";
 
 interface ApprovalTabProps {
   members: Member[];
-  onApprove: (id: number) => void;
+  onApprove: (id: number, updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>) => void;
   onReject: (id: number) => void;
   onApproveAll: () => void;
   onRejectAll: () => void;
@@ -108,9 +108,10 @@ export function ApprovalTab({ members, onApprove, onReject, onApproveAll, onReje
 // ─── Extracted: Pending Member Card ───────────────────────────────────────────
 function PendingMemberCard({ member, onApprove, onReject }: {
   member: Member;
-  onApprove: (id: number) => void;
+  onApprove: (id: number, updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>) => void;
   onReject: (id: number) => void;
 }) {
+  const [selectedType, setSelectedType] = useState<Member["type"]>(member.type);
   const gradient = POSITION_COLORS[member.position] ?? "from-orange-400 to-orange-500";
   const initials = member.name.split(" ").slice(-2).map((w) => w[0]).join("").toUpperCase();
 
@@ -158,6 +159,30 @@ function PendingMemberCard({ member, onApprove, onReject }: {
               <span className="text-gray-600 text-xs truncate">{member.hometown}</span>
             </div>
           </div>
+          <div className="mb-4 rounded-2xl border border-orange-100 bg-orange-50/60 p-3">
+            <p className="text-xs text-gray-500 mb-2">Chỉ định vai trò kỹ thuật khi phê duyệt</p>
+            <div className="flex gap-2">
+              {([
+                { value: "technician", label: "Technician", className: "bg-blue-500" },
+                { value: "tester", label: "Tester", className: "bg-purple-500" },
+              ] as const).map(option => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setSelectedType(option.value)}
+                  className={`flex-1 rounded-xl border px-3 py-2 text-sm transition-all ${
+                    selectedType === option.value
+                      ? "border-orange-300 bg-white text-gray-700 shadow-sm"
+                      : "border-transparent bg-white/70 text-gray-400 hover:text-gray-600"
+                  }`}
+                  style={{ fontWeight: selectedType === option.value ? 600 : 500 }}
+                >
+                  <span className={`inline-block w-2 h-2 rounded-full mr-2 ${option.className}`} />
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
           {member.registeredAt && (
             <p className="text-gray-400 text-[10px] mb-3">
               <Clock size={10} className="inline mr-1" />
@@ -166,7 +191,7 @@ function PendingMemberCard({ member, onApprove, onReject }: {
           )}
           <div className="flex gap-2">
             <button
-              onClick={() => onApprove(member.id)}
+              onClick={() => onApprove(member.id, { type: selectedType })}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm transition-colors shadow-sm"
               style={{ fontWeight: 600 }}
             >

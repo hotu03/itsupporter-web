@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { UserCircle, Camera, X, Mail, Eye, EyeOff, ChevronDown, Lock } from "lucide-react";
+import { UserCircle, Camera, X, Mail, ChevronDown, Lock } from "lucide-react";
 import type { Member } from "../../data/members";
 import { FormField, inputCls, selectCls } from "./PersonnelForm";
 import { PROVINCES } from "../../data/members";
@@ -18,8 +18,6 @@ export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }:
   const [firstName, setFirstName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState("");
   const [birthday, setBirthday] = useState("");
   const [gender, setGender] = useState("");
@@ -27,15 +25,16 @@ export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }:
   const [position, setPosition] = useState("Member");
   const [course, setCourse] = useState("");
   const [classVal, setClassVal] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   const techPosition = techType === "technician" ? "Technician" : "Tester";
   const reset = () => {
     setAvatar(null); setLastName(""); setFirstName(""); setUsername("");
-    setEmail(""); setPassword(""); setShowPassword(false); setPhone("");
+    setEmail(""); setPhone("");
     setBirthday(""); setGender(""); setHometown(""); setPosition("Member");
-    setCourse(""); setClassVal(""); setErrors({});
+    setCourse(""); setClassVal(""); setIsAdmin(false); setErrors({});
   };
   const handleClose = () => { reset(); onClose(); };
 
@@ -47,8 +46,6 @@ export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }:
     if (!username.trim()) errs.username = "Bắt buộc";
     if (!email.trim()) errs.email = "Bắt buộc";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = "Email không hợp lệ";
-    if (!password.trim()) errs.password = "Bắt buộc";
-    else if (password.length < 6) errs.password = "Tối thiểu 6 ký tự";
     if (!phone.trim()) errs.phone = "Bắt buộc";
     if (!gender) errs.gender = "Bắt buộc";
     if (!course) errs.course = "Bắt buộc";
@@ -69,6 +66,7 @@ export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }:
       class: classVal.trim(),
       machinesDone: techType === "technician" ? 0 : undefined as never,
       testsRun: techType === "tester" ? 0 : undefined as never,
+      isAdmin,
       status: "active",
       approvalStatus: "approved",
     });
@@ -112,14 +110,6 @@ export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }:
               <div className="relative">
                 <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 <input type="email" value={email} onChange={e => { setEmail(e.target.value); setErrors(p => ({ ...p, email: "" })); }} placeholder="example@email.com" className={`${inputCls(errors.email)} pl-9`} />
-              </div>
-            </FormField>
-            <FormField label="Password" required error={errors.password}>
-              <div className="relative">
-                <input type={showPassword ? "text" : "password"} value={password} onChange={e => { setPassword(e.target.value); setErrors(p => ({ ...p, password: "" })); }} placeholder="Tối thiểu 6 ký tự" className={inputCls(errors.password)} />
-                <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
               </div>
             </FormField>
             <div className="grid grid-cols-2 gap-3">
@@ -181,6 +171,28 @@ export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }:
                 <input value={classVal} onChange={e => setClassVal(e.target.value)} placeholder="CNTT01" className={inputCls()} />
               </FormField>
             </div>
+            <FormField label="Quyền quản trị">
+              <div className="flex gap-3">
+                {([
+                  { key: false, label: "Thành viên", activeCls: "bg-gray-100 border-gray-300 text-gray-600" },
+                  { key: true, label: "Admin", activeCls: "bg-orange-50 border-orange-400 text-orange-600" },
+                ] as const).map(option => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => setIsAdmin(option.key)}
+                    className={`flex-1 py-2.5 rounded-xl border text-sm transition-all ${
+                      isAdmin === option.key
+                        ? option.activeCls
+                        : "border-gray-200 text-gray-400 hover:border-gray-300"
+                    }`}
+                    style={{ fontWeight: isAdmin === option.key ? 600 : 400 }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </FormField>
             <button type="submit" className="w-full mt-1 py-3 bg-green-500 hover:bg-green-600 text-white rounded-full text-sm transition-colors shadow-md" style={{ fontWeight: 600 }}>
               Add
             </button>
