@@ -223,11 +223,13 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, Props>(
               height: `${height}px`,
               display: "block",
               touchAction: "none",
-              cursor: disabled ? "default" : "crosshair",
+              cursor: disabled ? "not-allowed" : "crosshair",
+              pointerEvents: disabled ? "none" : "auto",
+              opacity: disabled ? 0.6 : 1,
             }}
             className={`border-2 rounded-xl bg-white transition-all duration-200 ${
               disabled
-                ? "border-gray-200"
+                ? "border-gray-300"
                 : hasData
                 ? "border-orange-400 shadow-sm"
                 : "border-dashed border-gray-300 hover:border-orange-300"

@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "signatures": {
+      ".read": true,
+      ".write": true
+    },
+    "sessions": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

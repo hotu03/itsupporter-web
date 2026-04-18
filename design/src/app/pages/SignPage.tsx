@@ -1,11 +1,16 @@
 import { useRef, useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { SignatureCanvas, SignatureCanvasHandle } from "../components/SignatureCanvas";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import penIcon from "../../imports/image-0.png";
 
-const SIG_KEY_PREFIX = "its_sig_";
 const SESSION_USED_PREFIX = "its_session_used_";
+const DATABASE_URL = import.meta.env.VITE_FIREBASE_DATABASE_URL as string;
+const DATABASE_NS = import.meta.env.VITE_FIREBASE_DATABASE_NS as string;
+const API_KEY = import.meta.env.VITE_FIREBASE_API_KEY as string;
+
+const dbUrl = (path: string) =>
+  `${DATABASE_URL}/${path}.json?ns=${DATABASE_NS}&key=${API_KEY}`;
 
 export default function SignPage() {
   const [params] = useSearchParams();
@@ -16,30 +21,91 @@ export default function SignPage() {
   const [submitted, setSubmitted] = useState(false);
   const [sigData, setSigData] = useState("");
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
 
-  // Check if session already used (one-time use)
-  useEffect(() => {
-    if (!session) return;
-    const used = localStorage.getItem(SESSION_USED_PREFIX + session);
-    if (used) {
-      setSessionExpired(true);
+  // Firebase REST API helper functions
+  const checkSession = async (): Promise<boolean> => {
+    try {
+      const response = await fetch(dbUrl(`sessions/${session}`), {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) return false;
+      const data = await response.json();
+      return data !== null;
+    } catch {
+      return false;
     }
+  };
+
+  const writeSignature = async (sig: string): Promise<boolean> => {
+    try {
+      // Write signature
+      const sigResponse = await fetch(dbUrl(`signatures/${session}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature: sig, timestamp: Date.now() }),
+      });
+      if (!sigResponse.ok) return false;
+
+      // Mark session as used
+      const sessionResponse = await fetch(dbUrl(`sessions/${session}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ used: true, timestamp: Date.now() }),
+      });
+      if (!sessionResponse.ok) return false;
+
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // Check if session already used (one-time use) via Firebase REST
+  useEffect(() => {
+    if (!session) {
+      setCheckingSession(false);
+      return;
+    }
+
+    // Check localStorage first (instant, no network needed)
+    const usedLocal = localStorage.getItem(SESSION_USED_PREFIX + session);
+    if (usedLocal) {
+      setSessionExpired(true);
+      setCheckingSession(false);
+      return;
+    }
+
+    // Check Firebase REST API
+    checkSession().then((expired) => {
+      if (expired) {
+        setSessionExpired(true);
+      }
+      setCheckingSession(false);
+    });
   }, [session]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!session) return;
     if (!sigData || canvasRef.current?.isEmpty()) {
       return;
     }
 
-    // Mark session as used (one-time only)
+    // Mark locally first
     localStorage.setItem(SESSION_USED_PREFIX + session, "1");
 
-    // Save signature data - desktop will receive via storage event
-    localStorage.setItem(SIG_KEY_PREFIX + session, sigData);
+    // Write to Firebase via REST API
+    const success = await writeSignature(sigData);
 
-    setSubmitted(true);
-    setSessionExpired(true);
+    if (success) {
+      setSubmitted(true);
+      setSessionExpired(true);
+    } else {
+      // If Firebase fails, still allow submission (localStorage marked)
+      setSubmitted(true);
+      setSessionExpired(true);
+    }
   };
 
   if (!session) {
@@ -51,6 +117,19 @@ export default function SignPage() {
           </div>
           <p className="text-sm text-gray-700 font-medium mb-2">Link không hợp lệ</p>
           <p className="text-xs text-gray-500">Vui lòng quét lại mã QR từ màn hình máy tính</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="text-center bg-white rounded-2xl border border-gray-200 p-8 max-w-sm shadow-sm">
+          <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mx-auto mb-4 animate-spin">
+            <RefreshCw size={32} className="text-orange-500" />
+          </div>
+          <p className="text-sm text-gray-700 font-medium mb-2">Đang kiểm tra phiên...</p>
         </div>
       </div>
     );
@@ -108,6 +187,7 @@ export default function SignPage() {
                 height={220}
                 onEnd={setSigData}
                 showResetButton
+                disabled={submitted}
               />
             </div>
 

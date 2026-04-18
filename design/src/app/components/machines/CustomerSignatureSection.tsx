@@ -1,9 +1,16 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Smartphone, Monitor, CheckCircle2, RefreshCw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { SignatureCanvas, SignatureCanvasHandle } from "../SignatureCanvas";
 
 const SIG_KEY_PREFIX = "its_sig_";
+const SESSION_USED_PREFIX = "its_session_used_";
+const DATABASE_URL = import.meta.env.VITE_FIREBASE_DATABASE_URL as string;
+const DATABASE_NS = import.meta.env.VITE_FIREBASE_DATABASE_NS as string;
+const API_KEY = import.meta.env.VITE_FIREBASE_API_KEY as string;
+
+const dbUrl = (path: string) =>
+  `${DATABASE_URL}/${path}.json?ns=${DATABASE_NS}&key=${API_KEY}`;
 
 interface CustomerSignatureSectionProps {
   customerName: string;
@@ -11,51 +18,86 @@ interface CustomerSignatureSectionProps {
   onChange: (sig: string) => void;
 }
 
+function generateSessionId() {
+  return Math.random().toString(36).substr(2, 9);
+}
+
 export function CustomerSignatureSection({ customerName, value, onChange }: CustomerSignatureSectionProps) {
   const isMobileDevice = typeof window !== "undefined" && window.innerWidth < 768;
   const [mode, setMode] = useState<"direct" | "qr">(isMobileDevice ? "direct" : "qr");
-  const sessionId = useRef(Math.random().toString(36).substr(2, 9));
+  const [sessionId, setSessionId] = useState(generateSessionId);
   const sigCanvasRef = useRef<SignatureCanvasHandle>(null);
+
+  // Stable onChange callback
+  const handleSignatureReceived = useCallback((sig: string) => {
+    onChange(sig);
+  }, [onChange]);
 
   const qrUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/sign?session=${sessionId.current}&name=${encodeURIComponent(customerName)}`
+      ? `${window.location.origin}/sign?session=${sessionId}&name=${encodeURIComponent(customerName)}`
       : "";
 
-  // Listen for signature from mobile via storage event (same browser, cross-tab)
-  useEffect(() => {
-    const key = SIG_KEY_PREFIX + sessionId.current;
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === key && e.newValue) {
-        onChange(e.newValue);
-        localStorage.removeItem(key);
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [onChange]);
-
-  // Poll localStorage as fallback (1s interval)
+  // Poll Firebase REST API for signature (cross-device/cross-browser)
   useEffect(() => {
     if (mode !== "qr") return;
-    const key = SIG_KEY_PREFIX + sessionId.current;
+
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const response = await fetch(dbUrl(`signatures/${sessionId}`), {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data?.signature && !cancelled) {
+          handleSignatureReceived(data.signature);
+          // Clear after receiving
+          await fetch(dbUrl(`signatures/${sessionId}`), {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      } catch (error) {
+        // Silently fail on network issues
+      }
+    };
+
+    // Poll every 500ms
+    const intervalId = setInterval(poll, 500);
+    poll(); // Initial check
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [mode, sessionId, handleSignatureReceived]);
+
+  // Also poll localStorage as backup (for same-browser case)
+  useEffect(() => {
+    if (mode !== "qr") return;
+    const key = SIG_KEY_PREFIX + sessionId;
     const interval = setInterval(() => {
       const stored = localStorage.getItem(key);
       if (stored) {
-        onChange(stored);
+        handleSignatureReceived(stored);
         localStorage.removeItem(key);
-        clearInterval(interval);
       }
-    }, 1000);
+    }, 300);
     return () => clearInterval(interval);
-  }, [mode, onChange]);
+  }, [mode, sessionId, handleSignatureReceived]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
+    // Immediately invalidate OLD session
+    localStorage.setItem(SESSION_USED_PREFIX + sessionId, "1");
+    localStorage.removeItem(SIG_KEY_PREFIX + sessionId);
     onChange("");
     sigCanvasRef.current?.reset();
     // Fresh session ID so QR code refreshes
-    sessionId.current = Math.random().toString(36).substr(2, 9);
-  };
+    setSessionId(generateSessionId());
+  }, [sessionId, onChange]);
 
   return (
     <div className="border-t border-gray-100 pt-4 flex flex-col gap-3">
