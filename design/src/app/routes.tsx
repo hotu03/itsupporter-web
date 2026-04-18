@@ -8,6 +8,8 @@ const SignUp = lazy(() => import("./pages/SignUp"));
 const SignPage = lazy(() => import("./pages/SignPage"));
 const ServiceRegistration = lazy(() => import("./pages/ServiceRegistration"));
 const CustomerLogin = lazy(() => import("./pages/CustomerLogin"));
+const CustomerForgot = lazy(() => import("./pages/CustomerForgot"));
+const CustomerSetPassword = lazy(() => import("./pages/CustomerSetPassword"));
 const CustomerOTP = lazy(() => import("./pages/CustomerOTP"));
 const CustomerPortal = lazy(() => import("./pages/CustomerPortal"));
 
@@ -28,6 +30,8 @@ export const router = createBrowserRouter([
   { path: "/sign", Component: SignPage },
   { path: "/dang-ky-dich-vu", Component: ServiceRegistration },
   { path: "/customer/login", Component: CustomerLogin },
+  { path: "/customer/forgot", Component: CustomerForgot },
+  { path: "/customer/set-password", Component: CustomerSetPassword },
   { path: "/customer/otp", Component: CustomerOTP },
   { path: "/customer/portal", Component: CustomerPortal },
 

@@ -10,6 +10,18 @@ export interface Customer {
   lastRepair?: string;
   notes?: string;
   points: number;
+  passwordHash?: string; // Password hash for customer login
+}
+
+// Simple hash function for demo (not secure for production)
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString(16);
 }
 
 // Get customers from localStorage
@@ -36,6 +48,36 @@ export function saveCustomers(customers: Customer[]): void {
 // Get customer by phone
 export function getCustomerByPhone(phone: string): Customer | undefined {
   return getCustomers().find((c) => c.phone === phone);
+}
+
+// Get customer by email
+export function getCustomerByEmail(email: string): Customer | undefined {
+  const normalized = email.trim().toLowerCase();
+  return getCustomers().find((c) => c.email?.toLowerCase() === normalized);
+}
+
+// Check if customer has a password set
+export function hasPassword(email: string): boolean {
+  const customer = getCustomerByEmail(email);
+  return !!customer?.passwordHash;
+}
+
+// Set password for customer
+export function setCustomerPassword(email: string, password: string): boolean {
+  const customers = getCustomers();
+  const index = customers.findIndex((c) => c.email?.toLowerCase() === email.trim().toLowerCase());
+  if (index === -1) return false;
+
+  customers[index].passwordHash = simpleHash(password);
+  saveCustomers(customers);
+  return true;
+}
+
+// Verify customer password
+export function verifyCustomerPassword(email: string, password: string): boolean {
+  const customer = getCustomerByEmail(email);
+  if (!customer?.passwordHash) return false;
+  return customer.passwordHash === simpleHash(password);
 }
 
 // Add new customer

@@ -17,6 +17,8 @@ import { registerCustomer } from "../data/customers";
 import { addTransaction } from "../data/finance";
 import { calculatePoints } from "../data/points";
 import { addInvoice } from "../data/invoices";
+import { createFirebaseCustomer, sendCustomerPasswordReset } from "../data/firebase-auth";
+import { toast } from "sonner";
 
 // ─── SearchableSelect Component ───────────────────────────────────────────────
 interface SearchableSelectProps {
@@ -212,7 +214,7 @@ export default function ServiceRegistration() {
     setDiscountApplied(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.customerName || !form.phone || !form.customerEmail) {
       alert("Vui lòng điền đầy đủ thông tin khách hàng (tên, email, SĐT)!");
       return;
@@ -277,6 +279,26 @@ export default function ServiceRegistration() {
 
     // Register customer record (no points yet — points awarded on approval)
     registerCustomer(form.customerName, form.phone, form.customerEmail);
+
+    // Create Firebase Auth user with temporary password and send password reset email
+    try {
+      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+      await createFirebaseCustomer(form.customerEmail, tempPassword);
+      await sendCustomerPasswordReset(form.customerEmail);
+      toast.success("Tài khoản đã được tạo! Vui lòng kiểm tra email để đặt mật khẩu.");
+    } catch (err: any) {
+      if (err.code === 'auth/email-already-in-use') {
+        // User already exists in Firebase Auth, that's ok - just send reset email
+        try {
+          await sendCustomerPasswordReset(form.customerEmail);
+          toast.success("Tài khoản đã tồn tại! Vui lòng kiểm tra email để đặt mật khẩu.");
+        } catch {
+          // Ignore email sending error
+        }
+      } else {
+        console.error("Firebase Auth error:", err);
+      }
+    }
 
     // Add transaction to finance
     addTransaction({
