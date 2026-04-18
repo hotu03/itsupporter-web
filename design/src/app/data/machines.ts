@@ -6,6 +6,7 @@ export interface Machine {
   id: number;
   status: Status;
   customerName: string;
+  customerEmail: string;
   phone: string;
   time: string;
   description: string;

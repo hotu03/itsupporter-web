@@ -12,6 +12,7 @@ import {
 import { Pagination } from "../Pagination";
 import { formatCurrency as formatCurr } from "../../data/services";
 import type { Transaction, TransactionStats } from "./hooks/useFinance";
+import { getMachines } from "../../data/machines";
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -23,10 +24,12 @@ interface TransactionTableProps {
   endDate: string;
   page: number;
   pageSize: number;
+  approvalFilter: "all" | "approved" | "pending";
   onSearchChange: (q: string) => void;
   onStartDateChange: (d: string) => void;
   onEndDateChange: (d: string) => void;
   onResetDateFilter: () => void;
+  onApprovalFilterChange: (f: "all" | "approved" | "pending") => void;
   onPageChange: (p: number) => void;
   onPageSizeChange: (s: number) => void;
   onEdit: (tx: Transaction) => void;
@@ -42,10 +45,12 @@ export function TransactionTable({
   endDate,
   page,
   pageSize,
+  approvalFilter,
   onSearchChange,
   onStartDateChange,
   onEndDateChange,
   onResetDateFilter,
+  onApprovalFilterChange,
   onPageChange,
   onPageSizeChange,
   onEdit,
@@ -122,6 +127,20 @@ export function TransactionTable({
               </span>
             </div>
           )}
+
+          {/* Approval filter */}
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-sm text-gray-500">Lọc duyệt:</span>
+            <select
+              value={approvalFilter}
+              onChange={(e) => onApprovalFilterChange(e.target.value as "all" | "approved" | "pending")}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100"
+            >
+              <option value="all">Tất cả</option>
+              <option value="approved">Đã duyệt</option>
+              <option value="pending">Chờ duyệt</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -232,6 +251,9 @@ export function TransactionTable({
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">
                   Trạng thái
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  Duyệt
+                </th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">
                   Thao tác
                 </th>
@@ -240,7 +262,7 @@ export function TransactionTable({
             <tbody className="divide-y divide-gray-100">
               {pagedTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
+                  <td colSpan={7} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <FileText size={32} className="text-gray-300" />
                       <p className="text-sm text-gray-500">
@@ -286,6 +308,23 @@ export function TransactionTable({
                       </span>
                     </td>
                     <td className="px-4 py-3">{getStatusBadge(tx.paymentStatus)}</td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        if (!tx.machineId) {
+                          return <span className="text-gray-300 text-xs">—</span>;
+                        }
+                        const machines = getMachines();
+                        const machine = machines.find(m => m.id === tx.machineId);
+                        if (!machine) {
+                          return <span className="text-gray-300 text-xs">—</span>;
+                        }
+                        return machine.isApproved ? (
+                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Đã duyệt</span>
+                        ) : (
+                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Chờ duyệt</span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button

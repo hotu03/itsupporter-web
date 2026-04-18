@@ -3,6 +3,7 @@ import type { ServiceData } from "../../../data/services";
 import { getServices, saveServices } from "../../../data/services";
 import type { DiscountCode } from "../../../data/discounts";
 import { getDiscounts, saveDiscounts } from "../../../data/discounts";
+import { getMachines } from "../../../data/machines";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ export interface UseFinanceReturn {
   searchQuery: string;
   startDate: string;
   endDate: string;
+  approvalFilter: "all" | "approved" | "pending";
 
   // Transaction form
   showTransactionModal: boolean;
@@ -79,6 +81,7 @@ export interface UseFinanceReturn {
   setStartDate: (d: string) => void;
   setEndDate: (d: string) => void;
   resetDateFilter: () => void;
+  setApprovalFilter: (f: "all" | "approved" | "pending") => void;
 
   // Actions - transactions
   setTxPage: (p: number) => void;
@@ -186,6 +189,7 @@ export function useFinance(): UseFinanceReturn {
   const [searchQuery, setSearchQuery] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [approvalFilter, setApprovalFilter] = useState<"all" | "approved" | "pending">("all");
 
   // Transaction form
   const [showTransactionModal, setShowTransactionModal] = useState(false);
@@ -255,8 +259,19 @@ export function useFinance(): UseFinanceReturn {
       );
     }
 
+    // Approval filter - cross-reference with Machines data
+    if (approvalFilter !== "all") {
+      const machines = getMachines();
+      result = result.filter((t) => {
+        if (!t.machineId) return approvalFilter === "pending"; // manual tx = pending
+        const machine = machines.find(m => m.id === t.machineId);
+        if (!machine) return approvalFilter === "pending";
+        return approvalFilter === "approved" ? machine.isApproved : !machine.isApproved;
+      });
+    }
+
     return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, searchQuery, startDate, endDate]);
+  }, [transactions, searchQuery, startDate, endDate, approvalFilter]);
 
   const pagedTransactions = useMemo(() => {
     const start = (txPage - 1) * txPageSize;
@@ -638,6 +653,7 @@ export function useFinance(): UseFinanceReturn {
     searchQuery,
     startDate,
     endDate,
+    approvalFilter,
 
     // Transaction form
     showTransactionModal,
@@ -662,6 +678,7 @@ export function useFinance(): UseFinanceReturn {
     setStartDate,
     setEndDate,
     resetDateFilter,
+    setApprovalFilter,
 
     // Actions - transactions
     setTxPage,

@@ -47,6 +47,27 @@ export function CreateDrawer({ onClose, onSave, machine, members, checklistItems
   const currentMeta = STEP_META[step - 1];
 
   const handleSubmit = (finalStatus?: Status) => {
+    // Validate required fields on P1 (customer info step)
+    if (step === 1) {
+      if (!form.customerName.trim()) {
+        alert("Vui lòng nhập tên khách hàng!");
+        return;
+      }
+      if (!form.phone.trim()) {
+        alert("Vui lòng nhập số điện thoại!");
+        return;
+      }
+      if (!form.customerEmail.trim()) {
+        alert("Vui lòng nhập email khách hàng!");
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(form.customerEmail)) {
+        alert("Vui lòng nhập email hợp lệ!");
+        return;
+      }
+    }
+
     const resultMachine = submitForm(finalStatus);
     onSave(resultMachine);
 
@@ -245,7 +266,28 @@ export function CreateDrawer({ onClose, onSave, machine, members, checklistItems
             )}
             {step < TOTAL_STEPS && (
               <button
-                onClick={() => setStep(step + 1)}
+                onClick={() => {
+                  if (step === 1) {
+                    if (!form.customerName.trim()) {
+                      alert("Vui lòng nhập tên khách hàng!");
+                      return;
+                    }
+                    if (!form.phone.trim()) {
+                      alert("Vui lòng nhập số điện thoại!");
+                      return;
+                    }
+                    if (!form.customerEmail.trim()) {
+                      alert("Vui lòng nhập email khách hàng!");
+                      return;
+                    }
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(form.customerEmail)) {
+                      alert("Vui lòng nhập email hợp lệ!");
+                      return;
+                    }
+                  }
+                  setStep(step + 1);
+                }}
                 className="px-5 py-2 rounded-lg bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 transition-colors"
               >
                 Tiếp →

@@ -98,7 +98,18 @@ export default function Machines() {
     const matchSearch =
       m.customerName.toLowerCase().includes(search.toLowerCase()) ||
       m.phone.includes(search);
-    const matchFilter = filterStatus === "All" || m.status === filterStatus;
+
+    // Status filter (includes approval filters)
+    let matchFilter = true;
+    if (filterStatus === "All") {
+      matchFilter = true;
+    } else if (filterStatus === "PENDING_APPROVAL") {
+      matchFilter = m.registrationType === "online" && !m.isApproved;
+    } else if (filterStatus === "APPROVED") {
+      matchFilter = m.isApproved === true;
+    } else {
+      matchFilter = m.status === filterStatus;
+    }
 
     // Online tab: show all pending online registrations (no date filter)
     if (viewMode === "online") {
@@ -138,6 +149,7 @@ export default function Machines() {
       addInvoice({
         machineId: machine.id,
         customerName: machine.customerName,
+        customerEmail: machine.customerEmail || "",
         phone: machine.phone,
         registrationType: "in-person",
         services: (machine.additionalServices || []).map(name => ({
@@ -167,35 +179,51 @@ export default function Machines() {
       if (machine.phone !== "—" && machine.customerName !== "Khách hàng") {
         // Award points immediately for in-person (customer already brought machine)
         const pts = (machine.pointsEarned || 0) > 0 ? machine.pointsEarned : calculatePoints(machine.finalAmount || 0);
-        addOrUpdateCustomer(machine.customerName, machine.phone, pts);
+        addOrUpdateCustomer(machine.customerName, machine.phone, pts, machine.customerEmail);
       }
 
-      if (machine.finalAmount && machine.finalAmount > 0) {
-        // Use additionalServices if available, otherwise fall back to description
-        const serviceNames = machine.additionalServices?.length
-          ? machine.additionalServices.join(", ")
-          : (machine.description || "Dịch vụ khác");
+      // Always create transaction - free if no services selected
+      const serviceNames = machine.additionalServices?.length
+        ? machine.additionalServices.join(", ")
+        : (machine.description || "Dịch vụ khác");
+      addTransaction({
+        machineId: machine.id,
+        customerName: machine.customerName,
+        phone: machine.phone,
+        service: serviceNames,
+        amount: machine.finalAmount || 0,
+        paymentStatus: (machine.finalAmount || 0) === 0 ? "free" : (machine.paymentStatus || "pending"),
+        date: now.toISOString().split("T")[0],
+        discountCode: machine.discountCode,
+        discountAmount: machine.discountAmount || 0,
+      });
+    }
+
+    if (editMachine) {
+      // Update transaction - if not found, create new one
+      const now = new Date();
+      const serviceNames = machine.additionalServices?.length
+        ? machine.additionalServices.join(", ")
+        : (machine.description || "Dịch vụ khác");
+      const updated = updateTransactionByMachineId(machine.id, {
+        paymentStatus: machine.paymentStatus,
+        discountCode: machine.discountCode,
+        discountAmount: machine.discountAmount || 0,
+        service: serviceNames,
+        amount: machine.finalAmount || 0,
+      });
+      // If transaction didn't exist, create it
+      if (!updated) {
         addTransaction({
           machineId: machine.id,
           customerName: machine.customerName,
           phone: machine.phone,
           service: serviceNames,
-          amount: machine.finalAmount,
-          paymentStatus: machine.paymentStatus || "pending",
+          amount: machine.finalAmount || 0,
+          paymentStatus: (machine.finalAmount || 0) === 0 ? "free" : (machine.paymentStatus || "pending"),
           date: now.toISOString().split("T")[0],
           discountCode: machine.discountCode,
-          discountAmount: machine.discountAmount,
-        });
-      }
-    }
-
-    if (editMachine) {
-      // Update transaction in Finance when machine payment status changes
-      if (machine.finalAmount && machine.finalAmount > 0) {
-        updateTransactionByMachineId(machine.id, {
-          paymentStatus: machine.paymentStatus,
-          discountCode: machine.discountCode,
-          discountAmount: machine.discountAmount,
+          discountAmount: machine.discountAmount || 0,
         });
       }
       setEditMachine(null);
@@ -220,7 +248,7 @@ export default function Machines() {
 
     // Award points when machine is officially approved into management
     if (machineToApprove && machineToApprove.phone !== "—" && machineToApprove.customerName) {
-      addOrUpdateCustomer(machineToApprove.customerName, machineToApprove.phone, machineToApprove.pointsEarned || 0);
+      addOrUpdateCustomer(machineToApprove.customerName, machineToApprove.phone, machineToApprove.pointsEarned || 0, machineToApprove.customerEmail);
     }
   };
 
@@ -292,6 +320,8 @@ export default function Machines() {
           <option value="COMPLETE">Complete</option>
           <option value="RETURNED">Returned</option>
           <option value="RETURNING">Returning</option>
+          <option value="PENDING_APPROVAL">Chờ duyệt</option>
+          <option value="APPROVED">Đã duyệt</option>
         </FilterSelect>
 
         <FilterSelect value={orderBy} onChange={setOrderBy}>
@@ -357,6 +387,7 @@ export default function Machines() {
                   <th className="text-left px-4 py-3 text-gray-400 text-xs font-semibold">Expired</th>
                   <th className="text-left px-4 py-3 text-gray-400 text-xs font-semibold">Tester</th>
                   <th className="text-left px-4 py-3 text-gray-400 text-xs font-semibold">Technician</th>
+                  <th className="text-left px-4 py-3 text-gray-400 text-xs font-semibold">Duyệt</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>

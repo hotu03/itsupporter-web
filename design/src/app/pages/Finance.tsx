@@ -38,6 +38,7 @@ export default function Finance() {
     searchQuery,
     startDate,
     endDate,
+    approvalFilter,
     showTransactionModal,
     editingTransaction,
     transactionFormData,
@@ -51,6 +52,7 @@ export default function Finance() {
     setStartDate,
     setEndDate,
     resetDateFilter,
+    setApprovalFilter,
     setTxPage,
     setTxPageSize,
     openTransactionModal,
@@ -170,12 +172,14 @@ export default function Finance() {
             searchQuery={searchQuery}
             startDate={startDate}
             endDate={endDate}
+            approvalFilter={approvalFilter}
             page={txPage}
             pageSize={txPageSize}
             onSearchChange={setSearchQuery}
             onStartDateChange={setStartDate}
             onEndDateChange={setEndDate}
             onResetDateFilter={resetDateFilter}
+            onApprovalFilterChange={setApprovalFilter}
             onPageChange={setTxPage}
             onPageSizeChange={setTxPageSize}
             onEdit={openTransactionModal}

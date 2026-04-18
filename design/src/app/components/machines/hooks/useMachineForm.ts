@@ -7,6 +7,7 @@ import { addOrUpdateCustomer } from "../../../data/customers";
 
 export interface FormState {
   customerName: string;
+  customerEmail: string;
   phone: string;
   machineCondition: string;
   warranty: "con" | "het";
@@ -38,7 +39,7 @@ export interface FormState {
 }
 
 const DEFAULT_FORM: FormState = {
-  customerName: "", phone: "", machineCondition: "",
+  customerName: "", customerEmail: "", phone: "", machineCondition: "",
   warranty: "het", needs: "", password: "", charger: "khong",
   appointmentTime: "", dropOffTime: "", testerBefore: "", testerAfter: "",
   checklistBefore: Array(10).fill(false),
@@ -163,12 +164,15 @@ export function useMachineForm(machine?: Machine | null) {
 
     // Calculate points earned if order is completed/returned OR for in-person (already brought machine)
     let pointsEarned = 0;
-    const isInPerson = machine?.registrationType === "in-person" || (!machine && finalAmount > 0);
+    const isInPerson = machine?.registrationType === "in-person" || (!machine);
     if ((finalStatus === "COMPLETE" || finalStatus === "RETURNED") && finalAmount > 0) {
       pointsEarned = calculatePoints(finalAmount);
     } else if (isInPerson && finalAmount > 0) {
       // For in-person: award points immediately when customer brings machine
       pointsEarned = calculatePoints(finalAmount);
+    } else if (isInPerson && finalAmount === 0) {
+      // In-person free registration (no services selected): award 1 point since customer brought machine
+      pointsEarned = 1;
     }
 
     // Build the machine object with proper ID
@@ -197,7 +201,7 @@ export function useMachineForm(machine?: Machine | null) {
       });
       // Award points to customer for in-person (customer already brought machine)
       if (form.phone && form.customerName && form.customerName !== "Khách hàng") {
-        addOrUpdateCustomer(form.customerName, form.phone, pointsEarned);
+        addOrUpdateCustomer(form.customerName, form.phone, pointsEarned, form.customerEmail);
       }
     }
 
@@ -226,6 +230,7 @@ export function useMachineForm(machine?: Machine | null) {
 function machineToForm(m: Machine): FormState {
   return {
     customerName: m.customerName === "Khách hàng" ? "" : m.customerName,
+    customerEmail: m.customerEmail ?? "",
     phone: m.phone === "—" ? "" : m.phone,
     machineCondition: m.machineCondition ?? "",
     warranty: m.warranty,
@@ -269,6 +274,7 @@ function formToMachine(form: FormState, existing?: Machine | null): Machine {
     id: newId,
     status: form.status,
     customerName: form.customerName || "Khách hàng",
+    customerEmail: form.customerEmail,
     phone: form.phone || "—",
     time: existing?.time ?? new Date().toLocaleString("vi-VN", {
       hour: "2-digit", minute: "2-digit", second: "2-digit",

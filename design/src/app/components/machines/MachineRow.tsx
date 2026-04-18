@@ -42,6 +42,17 @@ export function MachineRow({ machine, stt, onClick, onApprove }: MachineRowProps
       <td className="px-4 py-3 text-xs text-gray-500">{machine.tester}</td>
       <td className="px-4 py-3 text-xs text-gray-500">{machine.technician}</td>
       <td className="px-4 py-3">
+        {machine.registrationType === "online" ? (
+          machine.isApproved ? (
+            <span className="px-2 py-1 rounded-full text-[10px] font-semibold bg-green-100 text-green-700">Đã duyệt</span>
+          ) : (
+            <span className="px-2 py-1 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">Chờ duyệt</span>
+          )
+        ) : (
+          <span className="text-gray-300 text-[10px]">—</span>
+        )}
+      </td>
+      <td className="px-4 py-3">
         <div className="flex items-center gap-1 justify-end">
           {/* Payment */}
           {machine.finalAmount !== undefined && machine.finalAmount > 0 && (

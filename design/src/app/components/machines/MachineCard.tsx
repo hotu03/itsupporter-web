@@ -15,9 +15,18 @@ export function MachineCard({ machine, stt, onClick, onApprove }: MachineCardPro
       <div onClick={onClick} className="cursor-pointer">
         {/* Header */}
         <div className="flex items-start justify-between">
-          <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${STATUS_STYLES[machine.status]}`}>
-            {machine.status}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${STATUS_STYLES[machine.status]}`}>
+              {machine.status}
+            </span>
+            {machine.registrationType === "online" && (
+              machine.isApproved ? (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Đã duyệt</span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">Chờ duyệt</span>
+              )
+            )}
+          </div>
           <span className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 text-xs font-bold">
             {String(stt).padStart(2, "0")}
           </span>

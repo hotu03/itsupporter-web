@@ -132,6 +132,7 @@ function SearchableSelect({ value, onChange, options, placeholder = "Select Item
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ServiceRegistrationForm {
   customerName: string;
+  customerEmail: string;
   phone: string;
   machineCondition: string;
   warranty: "con" | "het";
@@ -156,6 +157,7 @@ export default function ServiceRegistration() {
 
   const [form, setForm] = useState<ServiceRegistrationForm>({
     customerName: "",
+    customerEmail: "",
     phone: "",
     machineCondition: "",
     warranty: "het",
@@ -211,8 +213,15 @@ export default function ServiceRegistration() {
   };
 
   const handleSubmit = () => {
-    if (!form.customerName || !form.phone) {
-      alert("Vui lòng điền đầy đủ thông tin khách hàng!");
+    if (!form.customerName || !form.phone || !form.customerEmail) {
+      alert("Vui lòng điền đầy đủ thông tin khách hàng (tên, email, SĐT)!");
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.customerEmail)) {
+      alert("Vui lòng nhập email hợp lệ!");
       return;
     }
 
@@ -238,6 +247,7 @@ export default function ServiceRegistration() {
     const newMachine = addMachine({
       status: "WAITING",
       customerName: form.customerName,
+      customerEmail: form.customerEmail,
       phone: form.phone,
       time: currentTime,
       description: serviceNames,
@@ -266,7 +276,7 @@ export default function ServiceRegistration() {
     });
 
     // Register customer record (no points yet — points awarded on approval)
-    registerCustomer(form.customerName, form.phone);
+    registerCustomer(form.customerName, form.phone, form.customerEmail);
 
     // Add transaction to finance
     addTransaction({
@@ -285,6 +295,7 @@ export default function ServiceRegistration() {
     addInvoice({
       machineId: newMachine.id,
       customerName: form.customerName,
+      customerEmail: form.customerEmail,
       phone: form.phone,
       registrationType: "online",
       services: form.additionalServices.map(serviceName => {
@@ -559,7 +570,7 @@ export default function ServiceRegistration() {
           </h3>
 
           <div className="flex flex-col gap-4">
-            {/* Customer name & phone */}
+            {/* Customer name, email & phone */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600">Tên khách hàng *</label>
@@ -570,6 +581,19 @@ export default function ServiceRegistration() {
                   onChange={(e) => set("customerName", e.target.value)}
                 />
               </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-600">Email *</label>
+                <input
+                  type="email"
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+                  placeholder="email@example.com"
+                  value={form.customerEmail}
+                  onChange={(e) => set("customerEmail", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600">SĐT *</label>
                 <input

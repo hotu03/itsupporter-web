@@ -5,6 +5,7 @@ export interface Invoice {
   invoiceNumber: string; // Mã hóa đơn (VD: HD-001, HD-002)
   machineId?: number; // ID máy liên kết
   customerName: string;
+  customerEmail: string;
   phone: string;
   registrationType: "online" | "in-person"; // Loại đăng ký
 

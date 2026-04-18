@@ -4,7 +4,7 @@ export interface Customer {
   id: number;
   name: string;
   phone: string;
-  email?: string;
+  email: string;
   createdAt: string;
   totalRepairs: number;
   lastRepair?: string;
@@ -70,7 +70,8 @@ export function deleteCustomer(phone: string): void {
 export function addOrUpdateCustomer(
   name: string,
   phone: string,
-  pointsToAdd: number = 0
+  pointsToAdd: number = 0,
+  email: string = ""
 ): Customer {
   const customers = getCustomers();
   const existing = customers.find((c) => c.phone === phone);
@@ -78,7 +79,7 @@ export function addOrUpdateCustomer(
   if (existing) {
     const updated = customers.map((c) =>
       c.phone === phone
-        ? { ...c, totalRepairs: c.totalRepairs + 1, points: c.points + pointsToAdd }
+        ? { ...c, totalRepairs: c.totalRepairs + 1, points: c.points + pointsToAdd, email: email || c.email }
         : c
     );
     saveCustomers(updated);
@@ -89,6 +90,7 @@ export function addOrUpdateCustomer(
       id: newId,
       name,
       phone,
+      email,
       totalRepairs: 1,
       points: pointsToAdd,
       createdAt: new Date().toISOString().split("T")[0],
@@ -99,7 +101,7 @@ export function addOrUpdateCustomer(
 }
 
 // Register customer at registration time (no points yet, no repair count)
-export function registerCustomer(name: string, phone: string): Customer {
+export function registerCustomer(name: string, phone: string, email: string = ""): Customer {
   const customers = getCustomers();
   const existing = customers.find((c) => c.phone === phone);
   if (existing) return existing;
@@ -109,6 +111,7 @@ export function registerCustomer(name: string, phone: string): Customer {
     id: newId,
     name,
     phone,
+    email,
     totalRepairs: 0,
     points: 0,
     createdAt: new Date().toISOString().split("T")[0],

@@ -34,6 +34,19 @@ export function StepCustomerInfo({
           />
         </div>
         <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-600">Email *</label>
+          <input
+            type="email"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+            placeholder="email@example.com"
+            value={form.customerEmail}
+            onChange={(e) => set("customerEmail", e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-gray-600">SĐT *</label>
           <input
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"

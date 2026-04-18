@@ -7,6 +7,9 @@ export default function Invoices() {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<"all" | "online" | "in-person">("all");
   const [filterPayment, setFilterPayment] = useState<"all" | "paid" | "pending" | "free">("all");
+  const [datePreset, setDatePreset] = useState<"all" | "today" | "this-week" | "this-month" | "custom">("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
   useEffect(() => {
@@ -33,7 +36,40 @@ export default function Invoices() {
     const matchesType = filterType === "all" || invoice.registrationType === filterType;
     const matchesPayment = filterPayment === "all" || invoice.paymentStatus === filterPayment;
 
-    return matchesSearch && matchesType && matchesPayment;
+    // Date filtering
+    let matchesDate = true;
+    if (datePreset !== "all") {
+      const invoiceDate = new Date(invoice.createdAt.split("/").reverse().join("-"));
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (datePreset === "today") {
+        matchesDate = invoiceDate.toDateString() === today.toDateString();
+      } else if (datePreset === "this-week") {
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        matchesDate = invoiceDate >= startOfWeek && invoiceDate <= endOfWeek;
+      } else if (datePreset === "this-month") {
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        matchesDate = invoiceDate >= startOfMonth && invoiceDate <= endOfMonth;
+      } else if (datePreset === "custom" && (dateFrom || dateTo)) {
+        if (dateFrom) {
+          const from = new Date(dateFrom);
+          from.setHours(0, 0, 0, 0);
+          matchesDate = invoiceDate >= from;
+        }
+        if (dateTo && matchesDate) {
+          const to = new Date(dateTo);
+          to.setHours(23, 59, 59, 999);
+          matchesDate = invoiceDate <= to;
+        }
+      }
+    }
+
+    return matchesSearch && matchesType && matchesPayment && matchesDate;
   });
 
   const getPaymentStatusBadge = (status: "paid" | "pending" | "free") => {
@@ -335,6 +371,44 @@ export default function Invoices() {
               <option value="pending">Chưa thanh toán</option>
               <option value="free">Miễn phí</option>
             </select>
+
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
+              <Calendar size={14} className="text-gray-400" />
+              <select
+                value={datePreset}
+                onChange={(e) => {
+                  setDatePreset(e.target.value as typeof datePreset);
+                  if (e.target.value !== "custom") {
+                    setDateFrom("");
+                    setDateTo("");
+                  }
+                }}
+                className="bg-transparent text-sm outline-none text-gray-700"
+              >
+                <option value="all">Tất cả thời gian</option>
+                <option value="today">Hôm nay</option>
+                <option value="this-week">Tuần này</option>
+                <option value="this-month">Tháng này</option>
+                <option value="custom">Tùy chọn</option>
+              </select>
+              {datePreset === "custom" && (
+                <>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="bg-transparent text-xs outline-none text-gray-600 border-l border-gray-300 pl-2"
+                  />
+                  <span className="text-gray-400 text-xs">-</span>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="bg-transparent text-xs outline-none text-gray-600"
+                  />
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -460,6 +534,12 @@ export default function Invoices() {
                     <p className="text-xs text-gray-500">Số điện thoại</p>
                     <p className="text-sm font-semibold text-gray-800">{selectedInvoice.phone}</p>
                   </div>
+                  {selectedInvoice.customerEmail && (
+                    <div>
+                      <p className="text-xs text-gray-500">Email</p>
+                      <p className="text-sm font-semibold text-gray-800">{selectedInvoice.customerEmail}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-xs text-gray-500">Bảo hành</p>
                     <p className="text-sm font-semibold text-gray-800">
