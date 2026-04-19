@@ -57,3 +57,10 @@ export async function seedDefaultServices(): Promise<void> {
     await addFirestoreService(service);
   }
 }
+
+// Get service price by name (for form calculations)
+export async function getFirestoreServicePrice(serviceName: string): Promise<number> {
+  const services = await getFirestoreServices();
+  const service = services.find(s => s.name === serviceName);
+  return service?.price ?? 0;
+}

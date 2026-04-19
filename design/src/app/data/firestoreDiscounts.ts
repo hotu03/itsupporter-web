@@ -80,3 +80,72 @@ export async function seedDefaultDiscounts(): Promise<void> {
     await addFirestoreDiscount(discount);
   }
 }
+
+// Validate and apply discount code
+export async function validateFirestoreDiscount(
+  code: string,
+  originalAmount: number
+): Promise<{
+  valid: boolean;
+  discount?: DiscountCode;
+  discountAmount?: number;
+  finalAmount?: number;
+  error?: string;
+}> {
+  if (!code.trim()) {
+    return { valid: false, error: "Vui lòng nhập mã giảm giá" };
+  }
+
+  const discount = await getFirestoreDiscountByCode(code);
+
+  if (!discount) {
+    return { valid: false, error: "Mã giảm giá không tồn tại" };
+  }
+
+  // Check usage limit
+  if (discount.usageCount >= discount.usageLimit) {
+    return { valid: false, error: "Mã giảm giá đã hết lượt sử dụng" };
+  }
+
+  // Check date validity
+  const now = new Date();
+  const validFrom = new Date(discount.validFrom);
+  const validUntil = new Date(discount.validUntil);
+
+  if (now < validFrom) {
+    return {
+      valid: false,
+      error: `Mã chưa có hiệu lực (từ ${validFrom.toLocaleDateString("vi-VN")})`,
+    };
+  }
+
+  if (now > validUntil) {
+    return {
+      valid: false,
+      error: `Mã đã hết hạn (đến ${validUntil.toLocaleDateString("vi-VN")})`,
+    };
+  }
+
+  // Calculate discount
+  const calculatedDiscount = (originalAmount * discount.discountPercent) / 100;
+  const discountAmount = Math.min(calculatedDiscount, discount.maxDiscount);
+  const finalAmount = Math.max(0, originalAmount - discountAmount);
+
+  return {
+    valid: true,
+    discount,
+    discountAmount,
+    finalAmount,
+  };
+}
+
+// Increment usage count when discount is applied (returns updated discount)
+export async function useFirestoreDiscount(code: string): Promise<boolean> {
+  const discount = await getFirestoreDiscountByCode(code);
+  if (!discount) return false;
+
+  await updateFirestoreDiscount(discount.id, {
+    usageCount: discount.usageCount + 1,
+  });
+  return true;
+}
