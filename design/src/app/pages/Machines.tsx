@@ -9,7 +9,7 @@ import {
 import { Machine, Status } from "../data/machines";
 import { getFirestoreMachines, addFirestoreMachine, updateFirestoreMachine } from "../data/firestoreMachines";
 import { getServicePrice } from "../data/services";
-import { addInvoice } from "../data/invoices";
+import { addFirestoreInvoice } from "../data/firestoreInvoices";
 import { addOrUpdateCustomer } from "../data/customers";
 import { addTransaction, updateTransactionByMachineId } from "../data/finance";
 import { calculatePoints } from "../data/points";
@@ -158,7 +158,7 @@ export default function Machines() {
 
       if (machine.registrationType === "in-person") {
         const now = new Date();
-        addInvoice({
+        addFirestoreInvoice({
           machineId: id,
         customerName: machine.customerName,
         customerEmail: machine.customerEmail || "",

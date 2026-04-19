@@ -13,7 +13,7 @@ import { addFirestoreMachine } from "../data/firestoreMachines";
 import { registerCustomer } from "../data/customers";
 import { addTransaction } from "../data/finance";
 import { calculatePoints } from "../data/points";
-import { addInvoice } from "../data/invoices";
+import { addFirestoreInvoice } from "../data/firestoreInvoices";
 import { createFirebaseCustomer, sendCustomerPasswordReset } from "../data/firebase-auth";
 import { toast } from "sonner";
 
@@ -200,7 +200,7 @@ export default function ServiceRegistration() {
     });
 
     // Create invoice for online registration
-    addInvoice({
+    addFirestoreInvoice({
       machineId: id,
       customerName: form.customerName,
       customerEmail: form.customerEmail,

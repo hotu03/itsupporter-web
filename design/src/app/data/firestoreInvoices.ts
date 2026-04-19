@@ -32,8 +32,17 @@ export async function getFirestoreInvoicesByEmail(email: string): Promise<Invoic
 }
 
 // Add new invoice
-export async function addFirestoreInvoice(invoice: Omit<Invoice, 'id'>): Promise<string> {
-  const docRef = await addDoc(collection(db, COLLECTION_NAME), invoice);
+export async function addFirestoreInvoice(invoice: Omit<Invoice, 'id' | 'invoiceNumber'>): Promise<string> {
+  // Generate invoice number on the fly ( Firestore doesn't auto-generate sequential numbers)
+  const snapshot = await getDocs(collection(db, COLLECTION_NAME));
+  const nextNumber = snapshot.size + 1;
+  const invoiceNumber = `HD-${nextNumber.toString().padStart(4, '0')}`;
+
+  const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+    ...invoice,
+    invoiceNumber,
+    createdAt: invoice.createdAt || new Date().toLocaleDateString('vi-VN'),
+  });
   return docRef.id;
 }
 

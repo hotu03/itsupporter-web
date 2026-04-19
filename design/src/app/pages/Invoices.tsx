@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, FileText, Calendar, DollarSign, Download, Eye, Filter } from "lucide-react";
-import { getInvoices, formatCurrency, type Invoice } from "../data/invoices";
+import { getFirestoreInvoices } from "../data/firestoreInvoices";
+import { formatCurrency, type Invoice } from "../data/invoices";
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -13,19 +14,18 @@ export default function Invoices() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
   useEffect(() => {
+    async function loadInvoices() {
+      const data = await getFirestoreInvoices();
+      // Sort by created date (newest first)
+      data.sort((a, b) => {
+        const dateA = new Date(a.createdAt.split("/").reverse().join("-"));
+        const dateB = new Date(b.createdAt.split("/").reverse().join("-"));
+        return dateB.getTime() - dateA.getTime();
+      });
+      setInvoices(data);
+    }
     loadInvoices();
   }, []);
-
-  const loadInvoices = () => {
-    const data = getInvoices();
-    // Sort by created date (newest first)
-    data.sort((a, b) => {
-      const dateA = new Date(a.createdAt.split("/").reverse().join("-"));
-      const dateB = new Date(b.createdAt.split("/").reverse().join("-"));
-      return dateB.getTime() - dateA.getTime();
-    });
-    setInvoices(data);
-  };
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =

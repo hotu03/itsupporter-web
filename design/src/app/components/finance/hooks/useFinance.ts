@@ -1,9 +1,15 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import type { ServiceData } from "../../../data/services";
-import { getServices, saveServices } from "../../../data/services";
+import { getFirestoreServices, addFirestoreService, updateFirestoreService, deleteFirestoreService } from "../../../data/firestoreServices";
 import type { DiscountCode } from "../../../data/discounts";
-import { getDiscounts, saveDiscounts } from "../../../data/discounts";
+import { getFirestoreDiscounts, addFirestoreDiscount, updateFirestoreDiscount, deleteFirestoreDiscount } from "../../../data/firestoreDiscounts";
 import { getMachines } from "../../../data/machines";
+import {
+  getFirestoreTransactions,
+  addFirestoreTransaction,
+  updateFirestoreTransaction,
+  deleteFirestoreTransaction,
+} from "../../../data/firestoreTransactions";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -149,23 +155,7 @@ function isInDateRange(dateStr: string, start: string, end: string): boolean {
   return true;
 }
 
-function getTransactions(): Transaction[] {
-  if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem("its_transactions");
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
-
-function saveTransactions(transactions: Transaction[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("its_transactions", JSON.stringify(transactions));
-}
+// ─── Hook ────────────────────────────────────────────────────────────────────
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
@@ -227,19 +217,20 @@ export function useFinance(): UseFinanceReturn {
     pointsRequired: "",
   });
 
-  // Load data
+  // Load data from Firestore
   useEffect(() => {
-    setTransactions(getTransactions());
-    setServices(getServices());
-    setDiscounts(getDiscounts());
-  }, []);
-
-  // Persist transactions
-  useEffect(() => {
-    if (transactions.length > 0 || getTransactions().length > 0) {
-      saveTransactions(transactions);
+    async function loadData() {
+      const [txs, svcs, discs] = await Promise.all([
+        getFirestoreTransactions(),
+        getFirestoreServices(),
+        getFirestoreDiscounts(),
+      ]);
+      setTransactions(txs);
+      setServices(svcs);
+      setDiscounts(discs);
     }
-  }, [transactions]);
+    loadData();
+  }, []);
 
   // Filtered transactions
   const filteredTransactions = useMemo(() => {
@@ -382,7 +373,7 @@ export function useFinance(): UseFinanceReturn {
     });
   }, []);
 
-  const saveTransaction = useCallback(() => {
+  const saveTransaction = useCallback(async () => {
     if (
       !transactionFormData.customerPhone.trim() ||
       !transactionFormData.customerName.trim() ||
@@ -396,6 +387,12 @@ export function useFinance(): UseFinanceReturn {
     const paymentStatus = amount === 0 ? "free" : transactionFormData.paymentStatus;
 
     if (editingTransaction) {
+      await updateFirestoreTransaction(editingTransaction.id, {
+        service: transactionFormData.service,
+        amount,
+        date: transactionFormData.date,
+        paymentStatus,
+      });
       setTransactions((prev) =>
         prev.map((t) =>
           t.id === editingTransaction.id
@@ -410,8 +407,16 @@ export function useFinance(): UseFinanceReturn {
         )
       );
     } else {
+      const id = await addFirestoreTransaction({
+        customerName: transactionFormData.customerName,
+        phone: transactionFormData.customerPhone,
+        service: transactionFormData.service,
+        amount,
+        date: transactionFormData.date,
+        paymentStatus,
+      });
       const newTransaction: Transaction = {
-        id: Date.now().toString(),
+        id,
         customerName: transactionFormData.customerName,
         phone: transactionFormData.customerPhone,
         service: transactionFormData.service,
@@ -424,8 +429,9 @@ export function useFinance(): UseFinanceReturn {
     closeTransactionModal();
   }, [transactionFormData, editingTransaction, closeTransactionModal]);
 
-  const deleteTransaction = useCallback((id: string) => {
+  const deleteTransaction = useCallback(async (id: string) => {
     if (confirm("Bạn có chắc muốn xoá giao dịch này?")) {
+      await deleteFirestoreTransaction(id);
       setTransactions((prev) => prev.filter((t) => t.id !== id));
     }
   }, []);
@@ -448,7 +454,7 @@ export function useFinance(): UseFinanceReturn {
     setServiceFormData({ name: "", price: "" });
   }, []);
 
-  const saveService = useCallback(() => {
+  const saveService = useCallback(async () => {
     if (!serviceFormData.name.trim()) {
       alert("Vui lòng nhập tên dịch vụ");
       return;
@@ -457,29 +463,29 @@ export function useFinance(): UseFinanceReturn {
     const price = parseFloat(serviceFormData.price) || 0;
 
     if (editingService) {
+      await updateFirestoreService(editingService.id, { name: serviceFormData.name, price });
       const updated = services.map((s) =>
         s.id === editingService.id ? { ...s, name: serviceFormData.name, price } : s
       );
       setServices(updated);
-      saveServices(updated);
     } else {
+      const id = await addFirestoreService({ name: serviceFormData.name, price });
       const newService: ServiceData = {
-        id: Date.now().toString(),
+        id,
         name: serviceFormData.name,
         price,
       };
       const updated = [...services, newService];
       setServices(updated);
-      saveServices(updated);
     }
     closeServiceModal();
   }, [serviceFormData, editingService, services, closeServiceModal]);
 
-  const deleteService = useCallback((id: string) => {
+  const deleteService = useCallback(async (id: string) => {
     if (confirm("Bạn có chắc muốn xoá dịch vụ này?")) {
+      await deleteFirestoreService(id);
       const updated = services.filter((s) => s.id !== id);
       setServices(updated);
-      saveServices(updated);
     }
   }, [services]);
 
@@ -531,7 +537,7 @@ export function useFinance(): UseFinanceReturn {
     });
   }, []);
 
-  const saveDiscount = useCallback(() => {
+  const saveDiscount = useCallback(async () => {
     if (!discountFormData.code.trim()) {
       alert("Vui lòng nhập mã giảm giá");
       return;
@@ -569,55 +575,46 @@ export function useFinance(): UseFinanceReturn {
       }
     }
 
+    const discountData = {
+      code: discountFormData.code.toUpperCase(),
+      discountPercent,
+      maxDiscount,
+      usageLimit,
+      validFrom: discountFormData.validFrom,
+      validUntil: discountFormData.validUntil,
+      description: discountFormData.description || undefined,
+      isRedeemable: discountFormData.isRedeemable,
+      pointsRequired: discountFormData.isRedeemable
+        ? parseInt(discountFormData.pointsRequired)
+        : undefined,
+    };
+
     if (editingDiscount) {
+      await updateFirestoreDiscount(editingDiscount.id, { ...discountData, usageCount: editingDiscount.usageCount });
       const updated = discounts.map((d) =>
         d.id === editingDiscount.id
-          ? {
-              ...d,
-              code: discountFormData.code.toUpperCase(),
-              discountPercent,
-              maxDiscount,
-              usageLimit,
-              validFrom: discountFormData.validFrom,
-              validUntil: discountFormData.validUntil,
-              description: discountFormData.description || undefined,
-              isRedeemable: discountFormData.isRedeemable,
-              pointsRequired: discountFormData.isRedeemable
-                ? parseInt(discountFormData.pointsRequired)
-                : undefined,
-            }
+          ? { ...d, ...discountData }
           : d
       );
       setDiscounts(updated);
-      saveDiscounts(updated);
     } else {
+      const id = await addFirestoreDiscount(discountData);
       const newDiscount: DiscountCode = {
-        id: Date.now().toString(),
-        code: discountFormData.code.toUpperCase(),
-        discountPercent,
-        maxDiscount,
-        usageLimit,
+        id,
+        ...discountData,
         usageCount: 0,
-        validFrom: discountFormData.validFrom,
-        validUntil: discountFormData.validUntil,
-        description: discountFormData.description || undefined,
-        isRedeemable: discountFormData.isRedeemable,
-        pointsRequired: discountFormData.isRedeemable
-          ? parseInt(discountFormData.pointsRequired)
-          : undefined,
       };
       const updated = [...discounts, newDiscount];
       setDiscounts(updated);
-      saveDiscounts(updated);
     }
     closeDiscountModal();
   }, [discountFormData, editingDiscount, discounts, closeDiscountModal]);
 
-  const deleteDiscount = useCallback((id: string) => {
+  const deleteDiscount = useCallback(async (id: string) => {
     if (confirm("Bạn có chắc muốn xoá mã giảm giá này?")) {
+      await deleteFirestoreDiscount(id);
       const updated = discounts.filter((d) => d.id !== id);
       setDiscounts(updated);
-      saveDiscounts(updated);
     }
   }, [discounts]);
 

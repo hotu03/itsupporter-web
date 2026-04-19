@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  getMembers,
-  addMember,
-  updateMember,
-  deleteMember,
+  getFirestoreMembers,
+  addFirestoreMember,
+  updateFirestoreMember,
+  deleteFirestoreMember,
   type Member,
-  COURSES_DEFAULT,
-} from "../../../data/members";
+} from "../../../data/firestoreMembers";
+import { COURSES_DEFAULT } from "../../../data/members";
 import {
   approveAndLinkMember,
   rejectMember as rejectMemberReg,
@@ -19,19 +19,23 @@ export function useMembers() {
   const [courses, setCourses] = useState<string[]>(COURSES_DEFAULT);
   const [loading, setLoading] = useState(true);
 
-  // Load from localStorage + link seeds for User-Member architecture
+  // Load from Firestore + link seeds for User-Member architecture
   useEffect(() => {
     linkExistingSeeds(); // idempotent migration for uid + users
-    setMembers(getMembers());
-    const storedCourses = localStorage.getItem("its_member_courses");
-    if (storedCourses) {
-      try {
-        setCourses(JSON.parse(storedCourses));
-      } catch {
-        setCourses(COURSES_DEFAULT);
+    async function loadData() {
+      const firestoreMembers = await getFirestoreMembers();
+      setMembers(firestoreMembers);
+      const storedCourses = localStorage.getItem("its_member_courses");
+      if (storedCourses) {
+        try {
+          setCourses(JSON.parse(storedCourses));
+        } catch {
+          setCourses(COURSES_DEFAULT);
+        }
       }
+      setLoading(false);
     }
-    setLoading(false);
+    loadData();
   }, []);
 
   // Sync courses to localStorage when changed
@@ -41,80 +45,86 @@ export function useMembers() {
     }
   }, [courses, loading]);
 
-  const refreshMembers = useCallback(() => {
-    setMembers(getMembers());
+  const refreshMembers = useCallback(async () => {
+    const firestoreMembers = await getFirestoreMembers();
+    setMembers(firestoreMembers);
   }, []);
 
-  const handleAddMember = useCallback((member: Omit<Member, "id">) => {
-    const newMember = addMember(member);
-    syncMemberRoleToUser(newMember.id, newMember);
-    setMembers(getMembers());
+  const handleAddMember = useCallback(async (member: Omit<Member, "id">) => {
+    const id = await addFirestoreMember(member);
+    const newMember = { ...member, id } as Member;
+    syncMemberRoleToUser(id, newMember);
+    await refreshMembers();
     return newMember;
-  }, []);
+  }, [refreshMembers]);
 
 
-  const handleDeleteMember = useCallback((id: number) => {
-    deleteMember(id);
-    setMembers(getMembers());
-  }, []);
+  const handleDeleteMember = useCallback(async (id: number | string) => {
+    await deleteFirestoreMember(String(id));
+    await refreshMembers();
+  }, [refreshMembers]);
 
-  const handleApprove = useCallback((
-    id: number,
+  const handleApprove = useCallback(async (
+    id: number | string,
     updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>
   ) => {
-    const result = approveAndLinkMember(id, updates);
+    const result = approveAndLinkMember(Number(id), updates);
     if (result.success) {
-      setMembers(getMembers());
+      await refreshMembers();
     }
-  }, []);
+  }, [refreshMembers]);
 
-  const handleSetAdmin = useCallback((id: number, isAdmin: boolean) => {
-    const result = syncMemberRoleToUser(id, { isAdmin });
+  const handleSetAdmin = useCallback(async (id: number | string, isAdminFlag: boolean) => {
+    const result = syncMemberRoleToUser(Number(id), { isAdmin: isAdminFlag });
     if (result.success) {
-      setMembers(getMembers());
+      await refreshMembers();
     }
-  }, []);
+  }, [refreshMembers]);
 
-  const handleSyncMember = useCallback((updated: Member) => {
-    const persistedMembers = updateMember(updated.id, updated);
-    const savedMember = persistedMembers.find((member) => member.id === updated.id) || updated;
-
-    syncMemberRoleToUser(savedMember.id, {
-      type: savedMember.type,
-      isAdmin: savedMember.isAdmin,
-      position: savedMember.position,
-      status: savedMember.status,
+  const handleSyncMember = useCallback(async (updated: Member) => {
+    await updateFirestoreMember(String(updated.id), {
+      type: updated.type,
+      isAdmin: updated.isAdmin,
+      position: updated.position,
+      status: updated.status,
     });
 
-    setMembers(getMembers());
-  }, []);
+    syncMemberRoleToUser(updated.id, {
+      type: updated.type,
+      isAdmin: updated.isAdmin,
+      position: updated.position,
+      status: updated.status,
+    });
 
-  const handleReject = useCallback((id: number) => {
+    await refreshMembers();
+  }, [refreshMembers]);
+
+  const handleReject = useCallback(async (id: number | string) => {
     // Use registration reject which sets inactive
-    const updated = rejectMemberReg(id);
-    setMembers(updated);
+    const updated = rejectMemberReg(Number(id));
+    await refreshMembers();
     return updated;
-  }, []);
+  }, [refreshMembers]);
 
-  const handleApproveAll = useCallback(() => {
+  const handleApproveAll = useCallback(async () => {
     const pendingIds = members
       .filter(m => m.approvalStatus === "pending")
       .map(m => m.id);
     pendingIds.forEach(id => {
-      approveAndLinkMember(id); // links user + role for each
+      approveAndLinkMember(Number(id)); // links user + role for each
     });
-    setMembers(getMembers()); // final refresh
-  }, [members]);
+    await refreshMembers(); // final refresh
+  }, [members, refreshMembers]);
 
-  const handleRejectAll = useCallback(() => {
+  const handleRejectAll = useCallback(async () => {
     const pendingIds = members
       .filter(m => m.approvalStatus === "pending")
       .map(m => m.id);
     pendingIds.forEach(id => {
-      rejectMemberReg(id);
+      rejectMemberReg(Number(id));
     });
-    setMembers(getMembers());
-  }, [members]);
+    await refreshMembers();
+  }, [members, refreshMembers]);
 
   const handleAddCourse = useCallback((c: string) => {
     setCourses(prev => [...prev, c]);
