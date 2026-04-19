@@ -219,7 +219,7 @@ export function useCustomers(): UseCustomersReturn {
     }
 
     if (editingCustomer) {
-      await updateFirestoreCustomer(editingCustomer.id, {
+      await updateFirestoreCustomer(String(editingCustomer.id), {
         name: formData.name,
         email: formData.email || undefined,
         notes: formData.notes || undefined,

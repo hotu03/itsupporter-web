@@ -7,8 +7,6 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  where,
-  orderBy,
   onSnapshot,
   QueryConstraint,
   DocumentData,
@@ -39,10 +37,11 @@ export async function setDocument<T extends DocumentData>(
 }
 
 // Update existing document
-export async function updateDocument<T extends DocumentData>(
+export async function updateDocument(
   collectionName: string,
   id: string,
-  data: Partial<T>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>
 ): Promise<void> {
   await updateDoc(doc(db, collectionName, id), data);
 }

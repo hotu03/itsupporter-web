@@ -1,5 +1,5 @@
 import { collection, doc, getDocs, getDoc, setDoc, updateDoc, query, where } from 'firebase/firestore';
-import { customerAuth, customerApp } from '../utils/firebase';
+import { customerApp } from '../utils/firebase';
 import type { Customer } from './customers';
 
 const CUSTOMERS_COLLECTION = 'customers';
@@ -14,9 +14,11 @@ function getCustomerDb() {
 // Sync customer data to Customer Firebase
 export async function syncCustomerToCustomerFirebase(customer: Customer): Promise<void> {
   const db = getCustomerDb();
-  const customerRef = doc(db, CUSTOMERS_COLLECTION, customer.email.toLowerCase());
+  const docId = customer.email?.toLowerCase() ?? String(customer.id);
+  const customerRef = doc(db, CUSTOMERS_COLLECTION, docId);
   await setDoc(customerRef, {
     ...customer,
+    email: customer.email ?? docId,
     syncedAt: new Date().toISOString(),
   });
 }
