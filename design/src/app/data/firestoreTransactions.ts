@@ -26,11 +26,19 @@ export async function getFirestoreTransactionsByMachineId(machineId: string): Pr
 
 // Add new transaction
 export async function addFirestoreTransaction(transaction: Omit<Transaction, 'id'>): Promise<string> {
-  const docRef = await addDoc(collection(db, COLLECTION_NAME), {
-    ...transaction,
-    createdAt: new Date().toISOString(),
-  });
-  return docRef.id;
+  console.log("[firestoreTransactions] Adding transaction to collection:", COLLECTION_NAME);
+  console.log("[firestoreTransactions] Transaction data:", JSON.stringify(transaction));
+  try {
+    const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+      ...transaction,
+      createdAt: new Date().toISOString(),
+    });
+    console.log("[firestoreTransactions] Success! Doc ID:", docRef.id);
+    return docRef.id;
+  } catch (err) {
+    console.error("[firestoreTransactions] Error:", err);
+    throw err;
+  }
 }
 
 // Update transaction
@@ -44,4 +52,16 @@ export async function updateFirestoreTransaction(id: string, updates: Partial<Tr
 // Delete transaction
 export async function deleteFirestoreTransaction(id: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTION_NAME, id));
+}
+
+// Update transaction by machine ID (for P5 admin confirm)
+export async function updateFirestoreTransactionByMachineId(
+  machineId: string | number,
+  updates: Partial<Transaction>
+): Promise<void> {
+  const transactions = await getFirestoreTransactionsByMachineId(String(machineId));
+  if (transactions.length > 0) {
+    // Update the first matching transaction
+    await updateFirestoreTransaction(transactions[0].id, updates);
+  }
 }
