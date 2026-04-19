@@ -29,7 +29,6 @@ export function OverviewTab({ members, courses }: OverviewTabProps) {
   const maxCount = Math.max(...courseData.map((d) => d.count), 1);
   // Colors: gray for empty, orange gradient (dark→light) for populated
   const BAR_COLORS = ["#94a3b8", "#ea580c", "#f97316", "#fb923c", "#fdba74", "#fed7aa"];
-  const MIN_HEIGHT_PCT = 10; // minimum bar height as percentage
 
   return (
     <div className="flex flex-col gap-6">

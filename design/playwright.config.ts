@@ -1,6 +1,4 @@
 import { defineConfig, devices } from '@playwright/test';
-import path from 'path';
-
 /// <reference types="node" />
 
 export default defineConfig({

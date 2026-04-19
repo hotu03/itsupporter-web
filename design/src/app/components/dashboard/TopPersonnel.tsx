@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Cpu, FlaskConical, ChevronRight } from "lucide-react";
+import { Cpu, FlaskConical } from "lucide-react";
 import type { Member } from "../../../data/members";
 import type { PersonnelStats } from "./hooks/useDashboardData";
 

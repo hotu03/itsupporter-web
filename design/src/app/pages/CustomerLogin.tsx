@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
-import { getCustomerByEmail, hasPassword } from "../data/customers";
+import { getCustomerByEmail } from "../data/customers";
 import { signInCustomer } from "../data/firebase-auth";
 import { toast } from "sonner";
 

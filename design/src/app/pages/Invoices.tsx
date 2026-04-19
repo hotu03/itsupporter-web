@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, FileText, Calendar, User, Phone, DollarSign, Download, Eye, Filter } from "lucide-react";
+import { Search, FileText, Calendar, DollarSign, Download, Eye, Filter } from "lucide-react";
 import { getInvoices, formatCurrency, type Invoice } from "../data/invoices";
 
 export default function Invoices() {

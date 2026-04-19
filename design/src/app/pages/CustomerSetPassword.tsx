@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Lock, ArrowLeft, Check, X } from "lucide-react";
-import { verifyResetCode, resetPassword } from "../data/firebase-auth";
+import { resetPassword } from "../data/firebase-auth";
 import { toast } from "sonner";
 
 export default function CustomerSetPassword() {
