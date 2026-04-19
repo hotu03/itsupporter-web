@@ -907,7 +907,7 @@ export default function ServiceRegistration() {
               <p className="text-sm text-gray-600">Tra cứu trạng thái máy đã gửi sửa chữa</p>
             </div>
             <button
-              onClick={() => window.location.href = "/customer/login"}
+              onClick={() => window.location.href = "/customer/login?firstLogin=true"}
               className="px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg flex items-center gap-2"
             >
               <QrCode className="w-4 h-4" />

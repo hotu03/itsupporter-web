@@ -26,6 +26,9 @@ export interface User {
   classRoom?: string;
 }
 
+// Import Machine type for ownership checks
+import type { Machine } from './machines';
+
 const ROOT_ADMIN: User = {
   id: 0,
   name: "Root Admin",
@@ -158,4 +161,91 @@ export function updateCurrentUserProfile(updates: Partial<Omit<User, "id" | "rol
   saveUsers(allUsers);
   setCurrentUser(updatedUser);
   return updatedUser;
+}
+
+// ─── Permission Helpers ───────────────────────────────────────────────────────
+
+export function isRoot(user: User | null): boolean {
+  if (!user) return false;
+  return user.isRoot === true || user.permissions.includes('*');
+}
+
+export function isAdmin(user: User | null): boolean {
+  if (!user) return false;
+  if (isRoot(user)) return true;
+  return user.role === 'admin';
+}
+
+export function isTechnician(user: User | null): boolean {
+  if (!user) return false;
+  return user.role === 'technician';
+}
+
+export function isTester(user: User | null): boolean {
+  if (!user) return false;
+  return user.role === 'tester';
+}
+
+// Check if user can edit a specific machine (ownership check)
+export function canEditMachine(user: User | null, machine: Machine): boolean {
+  if (!user) return false;
+
+  // Root/Admin can edit anything
+  if (isRoot(user) || isAdmin(user)) return true;
+
+  // Member cannot edit machines
+  if (user.role === 'member') return false;
+
+  // Check if machine is unassigned
+  const isUnassigned =
+    (!machine.technician || machine.technician === '—' || machine.technician === 'Chưa gán') &&
+    (!machine.tester || machine.tester === '—' || machine.tester === 'Chưa gán');
+
+  if (isUnassigned) {
+    // All authenticated users except member can edit unassigned
+    return user.role === 'technician' || user.role === 'tester';
+  }
+
+  // Technician: can only edit machines assigned to them
+  if (user.role === 'technician') {
+    return machine.technician === user.name || machine.technician?.includes(user.name);
+  }
+
+  // Tester: can edit machines assigned to them OR status is RETESTING
+  if (user.role === 'tester') {
+    const isAssignedToMe = machine.tester === user.name || machine.tester?.includes(user.name);
+    const isRetesting = machine.status === 'RETESTING';
+    return isAssignedToMe || isRetesting;
+  }
+
+  return false;
+}
+
+export function canDeleteMachine(user: User | null, machine: Machine): boolean {
+  if (!user) return false;
+  // Only root and admin can delete machines
+  return isRoot(user) || isAdmin(user);
+}
+
+export function canManagePersonnel(user: User | null): boolean {
+  return hasPermission(user, 'manage:personnel');
+}
+
+export function canViewFinance(user: User | null): boolean {
+  // All roles can view finance (edit is blocked at UI level)
+  return true;
+}
+
+export function canManageInvoices(user: User | null): boolean {
+  return isRoot(user) || isAdmin(user);
+}
+
+export function canManageCustomers(user: User | null): boolean {
+  return isRoot(user) || isAdmin(user);
+}
+
+export function canCreateMachine(user: User | null): boolean {
+  if (!user) return false;
+  // All roles except member can create machines
+  return user.role !== 'member';
 }

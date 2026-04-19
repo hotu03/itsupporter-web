@@ -5,7 +5,7 @@ import backgroundImage from "../../assets/images/background.jpg";
 import logo from "../../assets/images/logo.png";
 import { createUserWithEmailAndPassword, deleteUser, signOut } from "firebase/auth";
 import { registerUserAndPendingMember } from "../data/registration";
-import { auth } from "../utils/firebase";
+import { staffAuth } from "../utils/firebase";
 
 // ─── Custom Select ────────────────────────────────────────────────────────────
 function FormSelect({
@@ -168,7 +168,7 @@ export default function SignUp() {
       const fullName = `${lastName.trim()} ${firstName.trim()}`.trim();
 
       if (isGoogleCompletion) {
-        const currentUser = auth.currentUser;
+        const currentUser = staffAuth.currentUser;
         const normalizedCurrentEmail = (currentUser?.email || "").trim().toLowerCase();
         if (!currentUser || currentUser.uid !== googleUid || normalizedCurrentEmail !== normalizedEmail) {
           setSubmitError("Phiên Google không hợp lệ. Vui lòng đăng nhập lại bằng Google.");
@@ -176,7 +176,7 @@ export default function SignUp() {
         }
         firebaseUid = googleUid;
       } else {
-        const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+        const credential = await createUserWithEmailAndPassword(staffAuth, normalizedEmail, password);
         firebaseUid = credential.user.uid;
       }
 
@@ -197,14 +197,14 @@ export default function SignUp() {
       });
 
       if (!isGoogleCompletion) {
-        await signOut(auth);
+        await signOut(staffAuth);
       }
 
       setSubmitSuccess("Đăng ký thành công. Tài khoản đang chờ admin phê duyệt.");
       setTimeout(() => navigate("/"), 1200);
     } catch (error: unknown) {
-      if (!isGoogleCompletion && auth.currentUser && firebaseUid && firebaseUid === auth.currentUser.uid) {
-        await deleteUser(auth.currentUser).catch(() => undefined);
+      if (!isGoogleCompletion && staffAuth.currentUser && firebaseUid && firebaseUid === staffAuth.currentUser.uid) {
+        await deleteUser(staffAuth.currentUser).catch(() => undefined);
       }
 
       if (error instanceof Error) {

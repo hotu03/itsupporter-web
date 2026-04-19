@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import type { User, UserRole } from '../data/users';
 import { initUsers, getCurrentUser, setCurrentUser, hasPermission, updateUserRole } from '../data/users';
 import { getRegistrationStatusByEmail } from '../data/registration';
-import { auth } from '../utils/firebase';
+import { staffAuth } from '../utils/firebase';
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     initUsers(); // Ensure local seed
 
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(staffAuth, (firebaseUser) => {
       if (firebaseUser) {
         const mappedUser = mapFirebaseToLocalUser(firebaseUser);
         if (mappedUser && mappedUser.status === 'active') {
@@ -78,13 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(staffAuth, email, password);
       const mappedUser = mapFirebaseToLocalUser(userCredential.user);
       if (!mappedUser || mappedUser.status !== 'active') {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('its_current_user');
         }
-        await firebaseSignOut(auth);
+        await firebaseSignOut(staffAuth);
         return false;
       }
       setCurrentUser(mappedUser);
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const provider = new GoogleAuthProvider();
       provider.addScope('profile');
       provider.addScope('email');
-      const result = await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(staffAuth, provider);
       const email = result.user.email || '';
       const registrationStatus = getRegistrationStatusByEmail(email);
 
@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (!mappedUser || mappedUser.status !== 'active') {
-        await firebaseSignOut(auth);
+        await firebaseSignOut(staffAuth);
         return { success: false };
       }
 
@@ -131,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async (): Promise<void> => {
     try {
-      await firebaseSignOut(auth);
+      await firebaseSignOut(staffAuth);
     } catch (error: unknown) {
       console.error('Logout failed:', error);
     }

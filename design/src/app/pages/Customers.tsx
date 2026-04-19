@@ -7,8 +7,11 @@ import { CustomerFormModal } from "../components/customers/CustomerFormModal";
 import { RedeemModal } from "../components/customers/RedeemModal";
 import { HistoryModal } from "../components/customers/HistoryModal";
 import { usePagination } from "../components/Pagination";
+import { useAuth } from "../contexts/AuthContext";
+import { isAdmin } from "../data/users";
 
 export default function Customers() {
+  const { user } = useAuth();
   const {
     loading,
     searchQuery,
@@ -61,13 +64,15 @@ export default function Customers() {
               Danh sách và thông tin khách hàng
             </p>
           </div>
-          <button
-            onClick={() => openForm()}
-            className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors shadow-sm"
-          >
-            <Plus size={18} />
-            Thêm khách hàng
-          </button>
+          {isAdmin(user) && (
+            <button
+              onClick={() => openForm()}
+              className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors shadow-sm"
+            >
+              <Plus size={18} />
+              Thêm khách hàng
+            </button>
+          )}
         </div>
 
         {/* Date Filter */}

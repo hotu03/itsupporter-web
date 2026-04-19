@@ -12,9 +12,12 @@ import { addInvoice } from "../data/invoices";
 import { addOrUpdateCustomer } from "../data/customers";
 import { addTransaction, updateTransactionByMachineId } from "../data/finance";
 import { calculatePoints } from "../data/points";
+import { createFirebaseCustomer, sendCustomerPasswordReset } from "../data/firebase-auth";
 import { CreateDrawer } from "../components/machines/CreateDrawer";
 import { MachineCard } from "../components/machines/MachineCard";
 import { MachineRow } from "../components/machines/MachineRow";
+import { useAuth } from "../contexts/AuthContext";
+import { isAdmin, canEditMachine, canCreateMachine } from "../data/users";
 
 // ─── Member data ──────────────────────────────────────────────────────────────
 const MEMBERS = [
@@ -60,6 +63,7 @@ const TECHNICIAN_CHECKLIST = [
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Machines() {
+  const { user } = useAuth();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [search, setSearch] = useState("");
   const [gridView, setGridView] = useState(true);
@@ -180,6 +184,23 @@ export default function Machines() {
         // Award points immediately for in-person (customer already brought machine)
         const pts = (machine.pointsEarned || 0) > 0 ? machine.pointsEarned : calculatePoints(machine.finalAmount || 0);
         addOrUpdateCustomer(machine.customerName, machine.phone, pts, machine.customerEmail);
+
+        // Create Firebase Auth account for customer if email exists (for customer portal login)
+        if (machine.customerEmail) {
+          const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+          try {
+            createFirebaseCustomer(machine.customerEmail, tempPassword).then(() => {
+              sendCustomerPasswordReset(machine.customerEmail);
+            }).catch((err: any) => {
+              // Ignore if already exists - user might already have an account
+              if (err.code !== 'auth/email-already-in-use') {
+                console.error('Firebase Auth error for customer:', err);
+              }
+            });
+          } catch (err) {
+            console.error('Failed to create Firebase customer account:', err);
+          }
+        }
       }
 
       // Always create transaction - free if no services selected
@@ -269,14 +290,16 @@ export default function Machines() {
           />
         </div>
         <div className="ml-auto">
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-semibold hover:bg-orange-600 transition-colors shadow-sm"
-          >
-            <Plus size={15} />
-            Create
-            <ChevronDown size={13} />
-          </button>
+          {canCreateMachine(user) && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-semibold hover:bg-orange-600 transition-colors shadow-sm"
+            >
+              <Plus size={15} />
+              Create
+              <ChevronDown size={13} />
+            </button>
+          )}
         </div>
       </header>
 
@@ -368,8 +391,12 @@ export default function Machines() {
                 key={m.id}
                 machine={m}
                 stt={m._stt}
-                onClick={() => setEditMachine(m)}
-                onApprove={viewMode === "online" ? handleApproveMachine : undefined}
+                onClick={() => {
+                  if (canEditMachine(user, m)) {
+                    setEditMachine(m);
+                  }
+                }}
+                onApprove={viewMode === "online" && isAdmin(user) ? handleApproveMachine : undefined}
               />
             ))}
           </div>
@@ -397,8 +424,12 @@ export default function Machines() {
                     key={m.id}
                     machine={m}
                     stt={m._stt}
-                    onClick={() => setEditMachine(m)}
-                    onApprove={viewMode === "online" ? handleApproveMachine : undefined}
+                    onClick={() => {
+                      if (canEditMachine(user, m)) {
+                        setEditMachine(m);
+                      }
+                    }}
+                    onApprove={viewMode === "online" && isAdmin(user) ? handleApproveMachine : undefined}
                   />
                 ))}
               </tbody>

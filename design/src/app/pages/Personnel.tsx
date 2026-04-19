@@ -6,18 +6,21 @@ import { MemberListTab } from "../components/personnel/MemberListTab";
 import { ApprovalTab } from "../components/personnel/ApprovalTab";
 import { AdminManagementTab } from "../components/personnel/AdminManagementTab";
 import { ManageCoursesModal } from "../components/personnel/ManageCoursesModal";
+import { useAuth } from "../contexts/AuthContext";
+import { isAdmin } from "../data/users";
 
 const TABS = [
   { key: "overview", label: "Tổng quan", icon: Users },
   { key: "technician", label: "Technicians", icon: Cpu },
   { key: "tester", label: "Testers", icon: FlaskConical },
-  { key: "approval", label: "Phê duyệt", icon: ShieldCheck },
-  { key: "admin", label: "Quản lý Admin", icon: ShieldCheck },
+  { key: "approval", label: "Phê duyệt", icon: ShieldCheck, adminOnly: true },
+  { key: "admin", label: "Quản lý Admin", icon: ShieldCheck, adminOnly: true },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
 
 export default function Personnel() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [showCourses, setShowCourses] = useState(false);
 
@@ -46,7 +49,7 @@ export default function Personnel() {
       {/* Tabs */}
       <div className="bg-white border-b border-gray-200 px-6">
         <div className="flex gap-1">
-          {TABS.map(({ key, label, icon: Icon }) => (
+          {TABS.filter(tab => !('adminOnly' in tab && tab.adminOnly && !isAdmin(user))).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}

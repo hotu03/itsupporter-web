@@ -41,11 +41,11 @@ export const router = createBrowserRouter([
     Component: DashboardLayout,
     children: [
       { index: true, Component: Dashboard },
-      { path: "machines", Component: Machines },
-      { path: "customers", Component: Customers },
-      { path: "finance", Component: Finance },
-      { path: "invoices", Component: Invoices },
-      { path: "profile", Component: Profile },
+      { path: "machines", element: <ProtectedRoute><Machines /></ProtectedRoute> },
+      { path: "customers", element: <ProtectedRoute><Customers /></ProtectedRoute> },
+      { path: "finance", element: <ProtectedRoute><Finance /></ProtectedRoute> },
+      { path: "invoices", element: <ProtectedRoute><Invoices /></ProtectedRoute> },
+      { path: "profile", element: <ProtectedRoute><Profile /></ProtectedRoute> },
       {
         path: "nhan-su",
         element: (

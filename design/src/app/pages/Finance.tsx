@@ -14,10 +14,13 @@ import { ServiceModal } from "../components/finance/ServiceModal";
 import { DiscountTable } from "../components/finance/DiscountTable";
 import { DiscountModal } from "../components/finance/DiscountModal";
 import PointRulesTab from "../components/PointRulesTab";
+import { useAuth } from "../contexts/AuthContext";
+import { isAdmin } from "../data/users";
 
 type TabType = "transactions" | "services" | "discounts" | "point_rules";
 
 export default function Finance() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("transactions");
 
   const {
@@ -97,7 +100,7 @@ export default function Finance() {
               Theo dõi dịch vụ và doanh thu từ khách hàng
             </p>
           </div>
-          {activeTab !== "point_rules" && (
+          {activeTab !== "point_rules" && isAdmin(user) && (
             <button
               onClick={handleAdd}
               className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors shadow-sm"

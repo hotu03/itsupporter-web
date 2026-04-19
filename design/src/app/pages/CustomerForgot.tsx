@@ -61,7 +61,7 @@ export default function CustomerForgot() {
   };
 
   const handleBack = () => {
-    navigate("/customer/login");
+    navigate("/customer/login?resetPassword=true");
   };
 
   if (sent) {
