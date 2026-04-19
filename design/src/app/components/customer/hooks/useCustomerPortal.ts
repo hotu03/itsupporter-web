@@ -1,18 +1,15 @@
 import { useState, useEffect } from "react";
-import { getMachines, type Machine } from "../../../data/machines";
-import { getCustomers, getCustomerByEmail, type Customer } from "../../../data/customers";
-import { getCustomerPointHistoryByEmail, type PointHistory } from "../../../data/points";
-import { getDiscounts, type DiscountCode } from "../../../data/discounts";
-import { getInvoicesByEmail, type Invoice } from "../../../data/invoices";
+import { getFirestoreMachines } from "../../../data/firestoreMachines";
+import { getFirestoreCustomers, getFirestoreCustomerByEmail, updateFirestoreCustomer, type Customer } from "../../../data/firestoreCustomers";
+import { getFirestoreCustomerPointHistoryByEmail, getFirestoreCustomerPointHistory, addFirestorePointHistory, type PointHistory } from "../../../data/firestorePoints";
+import { getFirestoreDiscounts, type DiscountCode } from "../../../data/firestoreDiscounts";
+import { getFirestoreInvoicesByEmail, type Invoice } from "../../../data/firestoreInvoices";
 import {
-  getCustomerRedeemedVouchersByEmail,
-  isVoucherRedeemedByCustomerEmail,
-  addRedeemedVoucher,
+  getFirestoreCustomerRedeemedVouchersByEmail,
+  isFirestoreVoucherRedeemedByCustomerEmail,
+  addFirestoreRedeemedVoucher,
   type RedeemedVoucher,
-} from "../../../data/redeemed-vouchers";
-import { getCustomerPointHistory } from "../../../data/points";
-import { addPointHistory } from "../../../data/points";
-import { saveCustomers } from "../../../data/customers";
+} from "../../../data/firestoreRedeemedVouchers";
 import { toast } from "sonner";
 
 export interface CustomerPortalData {
@@ -40,46 +37,55 @@ export function useCustomerPortal(email: string): CustomerPortalData {
       return;
     }
 
-    // Get customer by email
-    const foundCustomer = getCustomerByEmail(email);
-    if (!foundCustomer) {
-      setLoading(false);
-      return;
-    }
-    setCustomer(foundCustomer);
+    async function loadCustomerData() {
+      try {
+        // Get customer by email
+        const foundCustomer = await getFirestoreCustomerByEmail(email);
+        if (!foundCustomer) {
+          setLoading(false);
+          return;
+        }
+        setCustomer(foundCustomer);
 
-    // Get customer's machines
-    const allMachines = getMachines();
-    const customerMachines = allMachines.filter((m) => m.phone === foundCustomer.phone);
-    setMachines(customerMachines);
+        // Get customer's machines
+        const allMachines = await getFirestoreMachines();
+        const customerMachines = allMachines.filter((m) => m.phone === foundCustomer.phone);
+        setMachines(customerMachines);
 
-    // Get point history (by email or fallback to phone)
-    const historyByEmail = getCustomerPointHistoryByEmail(email);
-    const historyByPhone = getCustomerPointHistory(foundCustomer.phone);
-    const combinedHistory = [...historyByEmail];
-    historyByPhone.forEach((h) => {
-      if (!combinedHistory.find((c) => c.id === h.id)) {
-        combinedHistory.push(h);
+        // Get point history (by email or fallback to phone)
+        const historyByEmail = await getFirestoreCustomerPointHistoryByEmail(email);
+        const historyByPhone = await getFirestoreCustomerPointHistory(foundCustomer.phone);
+        const combinedHistory = [...historyByEmail];
+        historyByPhone.forEach((h) => {
+          if (!combinedHistory.find((c) => c.id === h.id)) {
+            combinedHistory.push(h);
+          }
+        });
+        setPointHistory(combinedHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+
+        // Get redeemable vouchers
+        const allDiscounts = await getFirestoreDiscounts();
+        const redeemable = allDiscounts.filter(
+          (d) => d.isRedeemable && d.pointsRequired && d.pointsRequired <= foundCustomer.points
+        );
+        setRedeemableVouchers(redeemable);
+
+        // Get customer's invoices (by email or phone)
+        const invoicesByEmail = await getFirestoreInvoicesByEmail(email);
+        setInvoices(invoicesByEmail);
+
+        // Get redeemed vouchers (by email or phone)
+        const redeemedByEmail = await getFirestoreCustomerRedeemedVouchersByEmail(email);
+        setRedeemedVouchers(redeemedByEmail);
+
+        setLoading(false);
+      } catch (err) {
+        console.error("Error loading customer portal data:", err);
+        setLoading(false);
       }
-    });
-    setPointHistory(combinedHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    }
 
-    // Get redeemable vouchers
-    const allDiscounts = getDiscounts();
-    const redeemable = allDiscounts.filter(
-      (d) => d.isRedeemable && d.pointsRequired && d.pointsRequired <= foundCustomer.points
-    );
-    setRedeemableVouchers(redeemable);
-
-    // Get customer's invoices (by email or phone)
-    const invoicesByEmail = getInvoicesByEmail(email);
-    setInvoices(invoicesByEmail);
-
-    // Get redeemed vouchers (by email or phone)
-    const redeemedByEmail = getCustomerRedeemedVouchersByEmail(email);
-    setRedeemedVouchers(redeemedByEmail);
-
-    setLoading(false);
+    loadCustomerData();
   }, [email]);
 
   return {
@@ -97,7 +103,7 @@ export function useRedeemVoucher(
   customer: Customer | null,
   onSuccess: () => void
 ) {
-  const handleRedeem = (voucher: DiscountCode) => {
+  const handleRedeem = async (voucher: DiscountCode) => {
     if (!customer || !voucher.pointsRequired) return;
 
     if (customer.points < voucher.pointsRequired) {
@@ -110,49 +116,48 @@ export function useRedeemVoucher(
       toast.error("Không tìm thấy email khách hàng");
       return;
     }
-    const byEmail = isVoucherRedeemedByCustomerEmail(customer.email, voucher.code);
+    const byEmail = await isFirestoreVoucherRedeemedByCustomerEmail(customer.email, voucher.code);
     if (byEmail) {
       toast.error("Bạn đã đổi voucher này rồi");
       return;
     }
 
-    // Add redeemed voucher
-    const redeemedVoucher: RedeemedVoucher = {
-      id: `RV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      customerPhone: customer.phone,
-      customerEmail: customer.email,
-      customerName: customer.name,
-      voucherCode: voucher.code,
-      voucherName: voucher.description || voucher.code,
-      pointsSpent: voucher.pointsRequired,
-      redeemedAt: new Date().toISOString(),
-    };
-    addRedeemedVoucher(redeemedVoucher);
+    try {
+      // Add redeemed voucher
+      const redeemedVoucher: Omit<RedeemedVoucher, 'id'> = {
+        customerPhone: customer.phone,
+        customerEmail: customer.email,
+        customerName: customer.name,
+        voucherCode: voucher.code,
+        voucherName: voucher.description || voucher.code,
+        pointsSpent: voucher.pointsRequired,
+        redeemedAt: new Date().toISOString(),
+      };
+      await addFirestoreRedeemedVoucher(redeemedVoucher);
 
-    // Add point history (spend points)
-    const pointHistoryEntry: PointHistory = {
-      id: `PH-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      customerPhone: customer.phone,
-      customerEmail: customer.email,
-      customerName: customer.name,
-      type: "spend",
-      points: voucher.pointsRequired,
-      date: new Date().toISOString(),
-      description: `Đổi voucher ${voucher.code}`,
-      relatedId: voucher.id,
-    };
-    addPointHistory(pointHistoryEntry);
+      // Add point history (spend points) to Firestore
+      await addFirestorePointHistory({
+        customerPhone: customer.phone,
+        customerEmail: customer.email,
+        customerName: customer.name,
+        type: "spend",
+        points: voucher.pointsRequired,
+        date: new Date().toISOString(),
+        description: `Đổi voucher ${voucher.code}`,
+        relatedId: voucher.id,
+      });
 
-    // Update customer points
-    const customers = getCustomers();
-    const customerIndex = customers.findIndex((c) => c.phone === customer.phone);
-    if (customerIndex !== -1) {
-      customers[customerIndex].points -= voucher.pointsRequired;
-      saveCustomers(customers);
+      // Update customer points in Firestore
+      await updateFirestoreCustomer(String(customer.id), {
+        points: customer.points - voucher.pointsRequired,
+      });
+
+      toast.success(`Đã đổi voucher ${voucher.code} thành công!`);
+      onSuccess();
+    } catch (err) {
+      console.error("Error redeeming voucher:", err);
+      toast.error("Đã xảy ra lỗi khi đổi voucher");
     }
-
-    toast.success(`Đã đổi voucher ${voucher.code} thành công!`);
-    onSuccess();
   };
 
   return { handleRedeem };
