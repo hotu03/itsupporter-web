@@ -4,8 +4,8 @@ import {
   addFirestoreMember,
   updateFirestoreMember,
   deleteFirestoreMember,
-  type Member,
 } from "../../../data/firestoreMembers";
+import type { Member } from "../../../data/members";
 import { COURSES_DEFAULT } from "../../../data/members";
 import {
   approveAndLinkMember,
@@ -52,8 +52,8 @@ export function useMembers() {
 
   const handleAddMember = useCallback(async (member: Omit<Member, "id">) => {
     const id = await addFirestoreMember(member);
-    const newMember = { ...member, id } as Member;
-    syncMemberRoleToUser(id, newMember);
+    const newMember = { ...member, id: Number(id) } as Member;
+    syncMemberRoleToUser(Number(id), newMember);
     await refreshMembers();
     return newMember;
   }, [refreshMembers]);

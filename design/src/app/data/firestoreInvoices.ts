@@ -1,8 +1,9 @@
-import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, query, where, runTransaction } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import type { Invoice } from './invoices';
 
 const COLLECTION_NAME = 'invoices';
+const COUNTER_COLLECTION = 'counters';
 
 // Get all invoices from Firestore
 export async function getFirestoreInvoices(): Promise<Invoice[]> {
@@ -31,12 +32,25 @@ export async function getFirestoreInvoicesByEmail(email: string): Promise<Invoic
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as Invoice));
 }
 
+// Get next invoice number atomically using a counter document
+async function getNextInvoiceNumber(): Promise<string> {
+  const counterRef = doc(db, COUNTER_COLLECTION, 'invoiceCounter');
+
+  const newNumber = await runTransaction(db, async (transaction) => {
+    const counterDoc = await transaction.get(counterRef);
+    const currentCount = counterDoc.exists() ? counterDoc.data().count : 0;
+    const nextCount = currentCount + 1;
+    transaction.set(counterRef, { count: nextCount });
+    return nextCount;
+  });
+
+  return `HD-${newNumber.toString().padStart(4, '0')}`;
+}
+
 // Add new invoice
 export async function addFirestoreInvoice(invoice: Omit<Invoice, 'id' | 'invoiceNumber'>): Promise<string> {
-  // Generate invoice number on the fly ( Firestore doesn't auto-generate sequential numbers)
-  const snapshot = await getDocs(collection(db, COLLECTION_NAME));
-  const nextNumber = snapshot.size + 1;
-  const invoiceNumber = `HD-${nextNumber.toString().padStart(4, '0')}`;
+  // Generate invoice number atomically to prevent duplicates under concurrent calls
+  const invoiceNumber = await getNextInvoiceNumber();
 
   const docRef = await addDoc(collection(db, COLLECTION_NAME), {
     ...invoice,

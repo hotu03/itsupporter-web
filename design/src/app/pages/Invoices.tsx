@@ -13,13 +13,32 @@ export default function Invoices() {
   const [dateTo, setDateTo] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
+  // Parse date from various formats (ISO "2026-04-15" or vi-VN "15/4/2026")
+  const parseDate = (dateStr: string): Date | null => {
+    if (!dateStr) return null;
+    // Try ISO format first (yyyy-mm-dd)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    // Try vi-VN format (d/m/yyyy or dd/mm/yyyy)
+    const parts = dateStr.split("/");
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      const d = new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  };
+
   useEffect(() => {
     async function loadInvoices() {
       const data = await getFirestoreInvoices();
       // Sort by created date (newest first)
       data.sort((a, b) => {
-        const dateA = new Date(a.createdAt.split("/").reverse().join("-"));
-        const dateB = new Date(b.createdAt.split("/").reverse().join("-"));
+        const dateA = parseDate(a.createdAt);
+        const dateB = parseDate(b.createdAt);
+        if (!dateA || !dateB) return 0;
         return dateB.getTime() - dateA.getTime();
       });
       setInvoices(data);
@@ -39,32 +58,36 @@ export default function Invoices() {
     // Date filtering
     let matchesDate = true;
     if (datePreset !== "all") {
-      const invoiceDate = new Date(invoice.createdAt.split("/").reverse().join("-"));
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const invoiceDate = parseDate(invoice.createdAt);
+      if (!invoiceDate) {
+        matchesDate = false;
+      } else {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-      if (datePreset === "today") {
-        matchesDate = invoiceDate.toDateString() === today.toDateString();
-      } else if (datePreset === "this-week") {
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay());
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-        matchesDate = invoiceDate >= startOfWeek && invoiceDate <= endOfWeek;
-      } else if (datePreset === "this-month") {
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        matchesDate = invoiceDate >= startOfMonth && invoiceDate <= endOfMonth;
-      } else if (datePreset === "custom" && (dateFrom || dateTo)) {
-        if (dateFrom) {
-          const from = new Date(dateFrom);
-          from.setHours(0, 0, 0, 0);
-          matchesDate = invoiceDate >= from;
-        }
-        if (dateTo && matchesDate) {
-          const to = new Date(dateTo);
-          to.setHours(23, 59, 59, 999);
-          matchesDate = invoiceDate <= to;
+        if (datePreset === "today") {
+          matchesDate = invoiceDate.toDateString() === today.toDateString();
+        } else if (datePreset === "this-week") {
+          const startOfWeek = new Date(today);
+          startOfWeek.setDate(today.getDate() - today.getDay());
+          const endOfWeek = new Date(startOfWeek);
+          endOfWeek.setDate(startOfWeek.getDate() + 6);
+          matchesDate = invoiceDate >= startOfWeek && invoiceDate <= endOfWeek;
+        } else if (datePreset === "this-month") {
+          const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+          const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          matchesDate = invoiceDate >= startOfMonth && invoiceDate <= endOfMonth;
+        } else if (datePreset === "custom" && (dateFrom || dateTo)) {
+          if (dateFrom) {
+            const from = new Date(dateFrom);
+            from.setHours(0, 0, 0, 0);
+            matchesDate = invoiceDate >= from;
+          }
+          if (dateTo && matchesDate) {
+            const to = new Date(dateTo);
+            to.setHours(23, 59, 59, 999);
+            matchesDate = invoiceDate <= to;
+          }
         }
       }
     }

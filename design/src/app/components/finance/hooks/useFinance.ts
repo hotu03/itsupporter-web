@@ -3,7 +3,8 @@ import type { ServiceData } from "../../../data/services";
 import { getFirestoreServices, addFirestoreService, updateFirestoreService, deleteFirestoreService } from "../../../data/firestoreServices";
 import type { DiscountCode } from "../../../data/discounts";
 import { getFirestoreDiscounts, addFirestoreDiscount, updateFirestoreDiscount, deleteFirestoreDiscount } from "../../../data/firestoreDiscounts";
-import { getMachines } from "../../../data/machines";
+import { getFirestoreMachines } from "../../../data/firestoreMachines";
+import type { Machine } from "../../../data/machines";
 import {
   getFirestoreTransactions,
   addFirestoreTransaction,
@@ -16,7 +17,7 @@ import {
 // Transaction schema matches data/finance.ts
 export interface Transaction {
   id: string;
-  machineId?: number;
+  machineId?: number | string;
   customerName: string;
   phone: string;
   service: string;
@@ -157,8 +158,6 @@ function isInDateRange(dateStr: string, start: string, end: string): boolean {
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
-// ─── Hook ────────────────────────────────────────────────────────────────────
-
 export function useFinance(): UseFinanceReturn {
   // Transaction state
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -174,6 +173,9 @@ export function useFinance(): UseFinanceReturn {
   const [discounts, setDiscounts] = useState<DiscountCode[]>([]);
   const [discPage, setDiscPage] = useState(1);
   const [discPageSize, setDiscPageSize] = useState(10);
+
+  // Machines state (for approval filter cross-reference)
+  const [machines, setMachines] = useState<Machine[]>([]);
 
   // Shared filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -220,14 +222,16 @@ export function useFinance(): UseFinanceReturn {
   // Load data from Firestore
   useEffect(() => {
     async function loadData() {
-      const [txs, svcs, discs] = await Promise.all([
+      const [txs, svcs, discs, ms] = await Promise.all([
         getFirestoreTransactions(),
         getFirestoreServices(),
         getFirestoreDiscounts(),
+        getFirestoreMachines(),
       ]);
       setTransactions(txs);
       setServices(svcs);
       setDiscounts(discs);
+      setMachines(ms);
     }
     loadData();
   }, []);
@@ -252,7 +256,6 @@ export function useFinance(): UseFinanceReturn {
 
     // Approval filter - cross-reference with Machines data
     if (approvalFilter !== "all") {
-      const machines = getMachines();
       result = result.filter((t) => {
         if (!t.machineId) return approvalFilter === "pending"; // manual tx = pending
         const machine = machines.find(m => m.id === t.machineId);
@@ -262,7 +265,7 @@ export function useFinance(): UseFinanceReturn {
     }
 
     return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, searchQuery, startDate, endDate, approvalFilter]);
+  }, [transactions, searchQuery, startDate, endDate, approvalFilter, machines]);
 
   const pagedTransactions = useMemo(() => {
     const start = (txPage - 1) * txPageSize;
@@ -580,6 +583,7 @@ export function useFinance(): UseFinanceReturn {
       discountPercent,
       maxDiscount,
       usageLimit,
+      usageCount: editingDiscount?.usageCount ?? 0,
       validFrom: discountFormData.validFrom,
       validUntil: discountFormData.validUntil,
       description: discountFormData.description || undefined,
@@ -590,7 +594,7 @@ export function useFinance(): UseFinanceReturn {
     };
 
     if (editingDiscount) {
-      await updateFirestoreDiscount(editingDiscount.id, { ...discountData, usageCount: editingDiscount.usageCount });
+      await updateFirestoreDiscount(editingDiscount.id, discountData);
       const updated = discounts.map((d) =>
         d.id === editingDiscount.id
           ? { ...d, ...discountData }
