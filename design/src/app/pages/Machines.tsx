@@ -8,12 +8,13 @@ import {
 } from "lucide-react";
 import { Machine, Status } from "../data/machines";
 import { getFirestoreMachines, addFirestoreMachine, updateFirestoreMachine } from "../data/firestoreMachines";
-import { getServicePrice } from "../data/services";
+import { getFirestoreCustomers, addFirestoreCustomer, updateFirestoreCustomer, getFirestoreCustomerByPhone } from "../data/firestoreCustomers";
 import { addFirestoreInvoice } from "../data/firestoreInvoices";
-import { addOrUpdateCustomer } from "../data/customers";
-import { addTransaction, updateTransactionByMachineId } from "../data/finance";
+import { addFirestoreTransaction, updateFirestoreTransaction } from "../data/firestoreTransactions";
+import { addFirestorePointHistory } from "../data/firestorePoints";
 import { calculatePoints } from "../data/points";
 import { createFirebaseCustomer, sendCustomerPasswordReset } from "../data/firebase-auth";
+import { getServicePrice } from "../data/services";
 import { CreateDrawer } from "../components/machines/CreateDrawer";
 import { MachineCard } from "../components/machines/MachineCard";
 import { MachineRow } from "../components/machines/MachineRow";
@@ -191,22 +192,46 @@ export default function Machines() {
       if (machine.phone !== "—" && machine.customerName !== "Khách hàng") {
         // Award points immediately for in-person (customer already brought machine)
         const pts = (machine.pointsEarned || 0) > 0 ? machine.pointsEarned : calculatePoints(machine.finalAmount || 0);
-        addOrUpdateCustomer(machine.customerName, machine.phone, pts, machine.customerEmail);
+
+        // Add or update customer in Firestore
+        const existingCustomer = await getFirestoreCustomerByPhone(machine.phone);
+        if (existingCustomer?.id) {
+          await updateFirestoreCustomer(existingCustomer.id, {
+            points: (existingCustomer.points || 0) + pts,
+            totalRepairs: (existingCustomer.totalRepairs || 0) + 1,
+          });
+        } else {
+          await addFirestoreCustomer({
+            name: machine.customerName,
+            phone: machine.phone,
+            email: machine.customerEmail || "",
+            points: pts,
+            totalRepairs: 1,
+            createdAt: new Date().toISOString().split('T')[0],
+          });
+        }
+
+        // Add point history
+        await addFirestorePointHistory({
+          customerPhone: machine.phone,
+          customerName: machine.customerName,
+          type: "earn",
+          points: pts,
+          date: new Date().toISOString(),
+          description: `Đơn hàng #${id} - ${machine.finalAmount || 0}`,
+          relatedId: String(id),
+        });
 
         // Create Firebase Auth account for customer if email exists (for customer portal login)
         if (machine.customerEmail) {
           const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
           try {
-            createFirebaseCustomer(machine.customerEmail, tempPassword).then(() => {
-              sendCustomerPasswordReset(machine.customerEmail);
-            }).catch((err: any) => {
-              // Ignore if already exists - user might already have an account
-              if (err.code !== 'auth/email-already-in-use') {
-                console.error('Firebase Auth error for customer:', err);
-              }
-            });
-          } catch (err) {
-            console.error('Failed to create Firebase customer account:', err);
+            await createFirebaseCustomer(machine.customerEmail, tempPassword);
+            await sendCustomerPasswordReset(machine.customerEmail);
+          } catch (err: any) {
+            if (err.code !== 'auth/email-already-in-use') {
+              console.error('Firebase Auth error for customer:', err);
+            }
           }
         }
       }
@@ -215,15 +240,15 @@ export default function Machines() {
       const serviceNames = machine.additionalServices?.length
         ? machine.additionalServices.join(", ")
         : (machine.description || "Dịch vụ khác");
-      addTransaction({
-        machineId: machine.id,
+      await addFirestoreTransaction({
+        machineId: id,
         customerName: machine.customerName,
         phone: machine.phone,
         service: serviceNames,
         amount: machine.finalAmount || 0,
         paymentStatus: (machine.finalAmount || 0) === 0 ? "free" : (machine.paymentStatus || "pending"),
-        date: now.toISOString().split("T")[0],
-        discountCode: machine.discountCode,
+        date: new Date().toISOString().split('T')[0],
+        discountCode: machine.discountCode || "",
         discountAmount: machine.discountAmount || 0,
       });
       }
@@ -231,28 +256,29 @@ export default function Machines() {
 
     if (editMachine) {
       // Update transaction - if not found, create new one
-      const now = new Date();
       const serviceNames = machine.additionalServices?.length
         ? machine.additionalServices.join(", ")
         : (machine.description || "Dịch vụ khác");
-      const updated = updateTransactionByMachineId(machine.id, {
-        paymentStatus: machine.paymentStatus,
-        discountCode: machine.discountCode,
-        discountAmount: machine.discountAmount || 0,
-        service: serviceNames,
-        amount: machine.finalAmount || 0,
-      });
-      // If transaction didn't exist, create it
-      if (!updated) {
-        addTransaction({
+      try {
+        // Try to update existing transaction
+        await updateFirestoreTransaction(String(machine.id), {
+          paymentStatus: machine.paymentStatus,
+          discountCode: machine.discountCode,
+          discountAmount: machine.discountAmount || 0,
+          service: serviceNames,
+          amount: machine.finalAmount || 0,
+        });
+      } catch {
+        // If transaction didn't exist, create it
+        await addFirestoreTransaction({
           machineId: machine.id,
           customerName: machine.customerName,
           phone: machine.phone,
           service: serviceNames,
           amount: machine.finalAmount || 0,
           paymentStatus: (machine.finalAmount || 0) === 0 ? "free" : (machine.paymentStatus || "pending"),
-          date: now.toISOString().split("T")[0],
-          discountCode: machine.discountCode,
+          date: new Date().toISOString().split('T')[0],
+          discountCode: machine.discountCode || "",
           discountAmount: machine.discountAmount || 0,
         });
       }
@@ -271,7 +297,37 @@ export default function Machines() {
 
     if (machineToApprove) {
       await updateFirestoreMachine(String(id), { isApproved: true, status: "WAITING" });
-      addOrUpdateCustomer(machineToApprove.customerName, machineToApprove.phone, machineToApprove.pointsEarned || 0, machineToApprove.customerEmail);
+
+      // Update customer points in Firestore
+      const pts = machineToApprove.pointsEarned || 0;
+      if (pts > 0 && machineToApprove.phone !== "—" && machineToApprove.customerName !== "Khách hàng") {
+        const existingCustomer = await getFirestoreCustomerByPhone(machineToApprove.phone);
+        if (existingCustomer?.id) {
+          await updateFirestoreCustomer(existingCustomer.id, {
+            points: (existingCustomer.points || 0) + pts,
+            totalRepairs: (existingCustomer.totalRepairs || 0) + 1,
+          });
+        } else {
+          await addFirestoreCustomer({
+            name: machineToApprove.customerName,
+            phone: machineToApprove.phone,
+            email: machineToApprove.customerEmail || "",
+            points: pts,
+            totalRepairs: 1,
+            createdAt: new Date().toISOString().split('T')[0],
+          });
+        }
+
+        await addFirestorePointHistory({
+          customerPhone: machineToApprove.phone,
+          customerName: machineToApprove.customerName,
+          type: "earn",
+          points: pts,
+          date: new Date().toISOString(),
+          description: `Đơn hàng #${id} - ${machineToApprove.finalAmount || 0}`,
+          relatedId: String(id),
+        });
+      }
     }
   };
 

@@ -35,6 +35,7 @@ interface ServiceRegistrationFormProps {
   onApplyDiscount: () => void;
   onSubmit: () => void;
   formatCurr: (amount: number) => string;
+  isSubmitting?: boolean;
 }
 
 export function ServiceRegistrationForm({
@@ -46,6 +47,7 @@ export function ServiceRegistrationForm({
   onApplyDiscount,
   onSubmit,
   formatCurr,
+  isSubmitting = false,
 }: ServiceRegistrationFormProps) {
   const set = <K extends keyof ServiceRegistrationForm>(key: K, value: ServiceRegistrationForm[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -372,10 +374,10 @@ export function ServiceRegistrationForm({
             <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-gray-200">
               <button
                 onClick={onSubmit}
-                className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-semibold text-sm hover:bg-orange-600 transition-colors shadow-md flex items-center gap-2"
+                disabled={isSubmitting}
+                className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-semibold text-sm hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-all shadow-md flex items-center gap-2"
               >
-                <CheckCircle2 size={16} />
-                Đặt dịch vụ
+                {isSubmitting ? "Đang xử lý..." : "Đặt dịch vụ"}
               </button>
             </div>
           </div>

@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { getServices, formatCurrency as formatCurr } from "../../data/services";
 import { validateDiscount, useDiscount } from "../../data/discounts";
 import { addFirestoreMachine } from "../../data/firestoreMachines";
-import { registerCustomer } from "../../data/customers";
-import { addTransaction } from "../../data/finance";
+import { addFirestoreCustomer } from "../../data/firestoreCustomers";
+import { addFirestoreTransaction } from "../../data/firestoreTransactions";
 import { calculatePoints } from "../../data/points";
 import { addFirestoreInvoice } from "../../data/firestoreInvoices";
 import { createFirebaseCustomer, sendCustomerPasswordReset } from "../../data/firebase-auth";
@@ -55,6 +55,7 @@ export default function ServiceRegistration() {
   const [form, setForm] = useState<ServiceRegistrationFormData>(initialForm);
   const [discountError, setDiscountError] = useState("");
   const [discountApplied, setDiscountApplied] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const availableServices = getServices();
 
@@ -99,112 +100,145 @@ export default function ServiceRegistration() {
       return;
     }
 
-    const pointsEarned = calculatePoints(form.finalAmount);
-    const now = new Date();
-    const currentTime = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) + " " + now.toLocaleDateString("vi-VN").replace(/\//g, "/");
-    const currentDate = now.toISOString().split("T")[0];
-
-    const expiry = new Date(now.getTime() + 3 * 60 * 60 * 1000);
-    const expiryTime = expiry.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-
-    const serviceNames = form.additionalServices.length > 0
-      ? form.additionalServices.join(", ")
-      : (form.needs || "Dịch vụ khác");
-
-    const id = await addFirestoreMachine({
-      status: "WAITING",
-      customerName: form.customerName,
-      customerEmail: form.customerEmail,
-      phone: form.phone,
-      time: currentTime,
-      description: serviceNames,
-      expired: form.appointmentTime || expiryTime,
-      category: form.category,
-      tester: "",
-      technician: "",
-      warranty: form.warranty,
-      password: form.password,
-      charger: form.charger === "co",
-      appointmentTime: form.appointmentTime,
-      dropOffTime: form.dropOffTime || undefined,
-      testerBefore: "",
-      testerAfter: "",
-      registrationType: "online",
-      isApproved: false,
-      machineCondition: form.machineCondition,
-      needs: form.needs,
-      additionalServices: form.additionalServices,
-      serviceAmount: form.serviceAmount,
-      discountCode: form.discountCode,
-      discountAmount: form.discountAmount,
-      paymentStatus: form.finalAmount === 0 ? "free" : "pending",
-      finalAmount: form.finalAmount,
-      pointsEarned: pointsEarned,
-    });
-
-    registerCustomer(form.customerName, form.phone, form.customerEmail);
+    setIsSubmitting(true);
 
     try {
-      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
-      await createFirebaseCustomer(form.customerEmail, tempPassword);
-      await sendCustomerPasswordReset(form.customerEmail);
-      toast.success("Tài khoản đã được tạo! Vui lòng kiểm tra email để đặt mật khẩu.");
-    } catch (err: any) {
-      if (err.code === 'auth/email-already-in-use') {
-        try {
-          await sendCustomerPasswordReset(form.customerEmail);
-          toast.success("Tài khoản đã tồn tại! Vui lòng kiểm tra email để đặt mật khẩu.");
-        } catch {
-          // Ignore email sending error
+      const pointsEarned = calculatePoints(form.finalAmount);
+      const now = new Date();
+      const currentTime = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) + " " + now.toLocaleDateString("vi-VN").replace(/\//g, "/");
+      const currentDate = now.toISOString().split("T")[0];
+
+      const expiry = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+      const expiryTime = expiry.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+      const serviceNames = form.additionalServices.length > 0
+        ? form.additionalServices.join(", ")
+        : (form.needs || "Dịch vụ khác");
+
+      console.log("[ServiceRegistration] Adding machine...");
+      const id = await addFirestoreMachine({
+        status: "WAITING",
+        customerName: form.customerName,
+        customerEmail: form.customerEmail,
+        phone: form.phone,
+        time: currentTime,
+        description: serviceNames,
+        expired: form.appointmentTime || expiryTime,
+        category: form.category,
+        tester: "",
+        technician: "",
+        warranty: form.warranty,
+        password: form.password || "",
+        charger: form.charger === "co",
+        appointmentTime: form.appointmentTime || "",
+        dropOffTime: form.dropOffTime || "",
+        testerBefore: "",
+        testerAfter: "",
+        registrationType: "online",
+        isApproved: false,
+        machineCondition: form.machineCondition || "",
+        needs: form.needs || "",
+        additionalServices: form.additionalServices,
+        serviceAmount: form.serviceAmount,
+        discountCode: form.discountCode || "",
+        discountAmount: form.discountAmount,
+        paymentStatus: form.finalAmount === 0 ? "free" : "pending",
+        finalAmount: form.finalAmount,
+        pointsEarned: pointsEarned,
+      });
+
+      console.log("[ServiceRegistration] Machine added, ID:", id);
+      console.log("[ServiceRegistration] Adding customer...", form.customerName, form.customerEmail);
+      await addFirestoreCustomer({
+        name: form.customerName,
+        phone: form.phone,
+        email: form.customerEmail,
+        createdAt: currentDate,
+        totalRepairs: 0,
+        points: 0,
+      });
+      toast.success("Đã thêm khách hàng!");
+
+      try {
+        const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+        await createFirebaseCustomer(form.customerEmail, tempPassword);
+        await sendCustomerPasswordReset(form.customerEmail);
+        toast.success("Tài khoản đã được tạo! Vui lòng kiểm tra email để đặt mật khẩu.");
+      } catch (err: any) {
+        if (err.code === 'auth/email-already-in-use') {
+          try {
+            await sendCustomerPasswordReset(form.customerEmail);
+            toast.success("Tài khoản đã tồn tại! Vui lòng kiểm tra email để đặt mật khẩu.");
+          } catch {
+            // Ignore email sending error
+          }
+        } else {
+          console.error("Firebase Auth error:", err);
         }
-      } else {
-        console.error("Firebase Auth error:", err);
       }
+
+      try {
+        console.log("[ServiceRegistration] Adding transaction...");
+        await addFirestoreTransaction({
+          machineId: id,
+          customerName: form.customerName,
+          phone: form.phone,
+          service: serviceNames,
+          amount: form.finalAmount,
+          paymentStatus: form.finalAmount === 0 ? "free" : "pending",
+          date: currentDate,
+          discountCode: form.discountCode || "",
+          discountAmount: form.discountAmount > 0 ? form.discountAmount : 0,
+        });
+        toast.success("Đã thêm giao dịch!");
+      } catch (err) {
+        console.error("Add transaction error:", err);
+        toast.error("Lỗi khi thêm giao dịch: " + (err as Error).message);
+      }
+
+      try {
+        await addFirestoreInvoice({
+          machineId: id,
+          customerName: form.customerName,
+          customerEmail: form.customerEmail,
+          phone: form.phone,
+          registrationType: "online",
+          services: form.additionalServices.map(serviceName => {
+            const service = availableServices.find(s => s.name === serviceName);
+            return { name: serviceName, price: service?.price || 0 };
+          }),
+          machineCondition: form.machineCondition || "",
+          needs: form.needs || "",
+          category: form.category,
+          warranty: form.warranty,
+          charger: form.charger === "co",
+          password: form.password || "",
+          createdAt: currentDate,
+          createdTime: currentTime,
+          dropOffTime: form.dropOffTime || "",
+          appointmentTime: form.appointmentTime || "",
+          serviceAmount: form.serviceAmount,
+          discountCode: form.discountCode || "",
+          discountAmount: form.discountAmount,
+          finalAmount: form.finalAmount,
+          paymentStatus: form.finalAmount === 0 ? "free" : "pending",
+          pointsEarned: pointsEarned,
+          createdBy: "Khách hàng (Online)",
+        });
+        toast.success("Đã thêm hóa đơn!");
+      } catch (err) {
+        console.error("Add invoice error:", err);
+        toast.error("Lỗi khi thêm hóa đơn: " + (err as Error).message);
+      }
+
+      setReceiptId(Number(id));
+      setShowReceipt(true);
+    } catch (err) {
+      console.error("Submit error:", err);
+      toast.error("Đã xảy ra lỗi khi đăng ký dịch vụ. Vui lòng thử lại.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    addTransaction({
-      machineId: id,
-      customerName: form.customerName,
-      phone: form.phone,
-      service: serviceNames,
-      amount: form.finalAmount,
-      paymentStatus: form.finalAmount === 0 ? "free" : "pending",
-      date: currentDate,
-      discountCode: form.discountCode || undefined,
-      discountAmount: form.discountAmount > 0 ? form.discountAmount : undefined,
-    });
-
-    addFirestoreInvoice({
-      machineId: id,
-      customerName: form.customerName,
-      customerEmail: form.customerEmail,
-      phone: form.phone,
-      registrationType: "online",
-      services: form.additionalServices.map(serviceName => {
-        const service = availableServices.find(s => s.name === serviceName);
-        return { name: serviceName, price: service?.price || 0 };
-      }),
-      machineCondition: form.machineCondition,
-      needs: form.needs,
-      category: form.category,
-      warranty: form.warranty,
-      charger: form.charger === "co",
-      password: form.password,
-      createdAt: currentDate,
-      createdTime: currentTime,
-      dropOffTime: form.dropOffTime,
-      appointmentTime: form.appointmentTime,
-      serviceAmount: form.serviceAmount,
-      discountCode: form.discountCode,
-      discountAmount: form.discountAmount,
-      finalAmount: form.finalAmount,
-      paymentStatus: form.finalAmount === 0 ? "free" : "pending",
-      pointsEarned: pointsEarned,
-      createdBy: "Khách hàng (Online)",
-    });
-
-    setReceiptId(Number(id));
-    setShowReceipt(true);
   };
 
   const handleNewRegistration = () => {
@@ -253,6 +287,7 @@ export default function ServiceRegistration() {
       onApplyDiscount={handleApplyDiscount}
       onSubmit={handleSubmit}
       formatCurr={formatCurr}
+      isSubmitting={isSubmitting}
     />
   );
 }

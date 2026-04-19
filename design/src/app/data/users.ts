@@ -73,44 +73,9 @@ export function initUsers(): User[] {
   const seeded = localStorage.getItem("its_root_seeded");
   if (!seeded) {
     localStorage.setItem("its_root_seeded", "true");
-    // Add some test accounts if none exist
-    if (users.length === 1) {
-      const testUsers: User[] = [
-        {
-          id: 1,
-          name: "Nguyễn Mạnh Cường",
-          username: "nguyenmanhcuong",
-          email: "cuong@itsupporter.com",
-          role: 'admin',
-          permissions: ['manage:personnel', 'view:finance'],
-          status: 'active',
-          registeredAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-          gender: "Male",
-          hometown: "Hà Nội",
-          position: "President",
-          techType: "Technician",
-          course: "K15",
-        },
-        {
-          id: 2,
-          name: "Hà Gia Linh",
-          username: "halinhit",
-          email: "linh@itsupporter.com",
-          role: 'technician',
-          permissions: ['execute:repair'],
-          status: 'active',
-          registeredAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-          gender: "Female",
-          hometown: "Hà Nội",
-          position: "Member",
-          techType: "Technician",
-          course: "K15",
-        },
-      ];
-      const allUsers = [ROOT_ADMIN, ...testUsers];
-      saveUsers(allUsers);
-      return allUsers;
-    }
+    // Only seed root admin, no test accounts
+    saveUsers([ROOT_ADMIN]);
+    return [ROOT_ADMIN];
   }
   return users;
 }
