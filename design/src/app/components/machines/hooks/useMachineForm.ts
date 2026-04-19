@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
-import { getServices, getServicePrice } from "../../../data/services";
-import { validateDiscount, useDiscount } from "../../../data/discounts";
-import { calculatePoints, addPointHistory } from "../../../data/points";
-import { type Machine, type Status, getMachines, ensureSequentialId } from "../../../data/machines";
-import { addOrUpdateCustomer } from "../../../data/customers";
+import { useState, useEffect, useCallback } from "react";
+import { getFirestoreServices } from "../../../data/firestoreServices";
+import { validateFirestoreDiscount, useFirestoreDiscount } from "../../../data/firestoreDiscounts";
+import { calculatePoints } from "../../../data/points";
+import { type Machine, type Status } from "../../../data/machines";
+import type { ServiceData } from "../../../data/services";
 
 export interface FormState {
   customerName: string;
@@ -68,12 +68,19 @@ const STEP_STATUS: Record<number, Status> = {
   1: "WAITING", 2: "WAITING", 3: "RUNNING", 4: "RETESTING", 5: "COMPLETE",
 };
 
+// Helper to get price from services array
+function getServicePriceFromList(services: ServiceData[], serviceName: string): number {
+  const service = services.find(s => s.name === serviceName);
+  return service?.price ?? 0;
+}
+
 export function useMachineForm(machine?: Machine | null) {
   const [form, setForm] = useState<FormState>(
     machine ? machineToForm(machine) : DEFAULT_FORM
   );
   const [step, setStep] = useState(machine ? STATUS_TO_STEP[machine.status] : 1);
-  const [availableServices, setAvailableServices] = useState(getServices());
+  const [availableServices, setAvailableServices] = useState<ServiceData[]>([]);
+  const [servicesLoaded, setServicesLoaded] = useState(false);
 
   // Discount state - initialize from machine if editing
   const [discountApplied, setDiscountApplied] = useState(
@@ -82,31 +89,43 @@ export function useMachineForm(machine?: Machine | null) {
   const [discountAmount, setDiscountAmount] = useState(machine?.discountAmount || 0);
   const [discountError, setDiscountError] = useState("");
 
-  // Auto-calculate service amount when services change
+  // Load services from Firestore
   useEffect(() => {
-    const total = form.additionalServices.reduce((sum, serviceName) => {
-      return sum + getServicePrice(serviceName);
+    getFirestoreServices().then(services => {
+      setAvailableServices(services);
+      setServicesLoaded(true);
+    }).catch(err => {
+      console.error("Error loading services:", err);
+      // Fallback to empty array
+      setAvailableServices([]);
+      setServicesLoaded(true);
+    });
+  }, []);
+
+  // Calculate total from selected services
+  const calculateTotal = useCallback((additionalServices: string[]): number => {
+    return additionalServices.reduce((sum, serviceName) => {
+      return sum + getServicePriceFromList(availableServices, serviceName);
     }, 0);
+  }, [availableServices]);
+
+  // Auto-calculate service amount when services change or services load
+  useEffect(() => {
+    if (!servicesLoaded) return;
+    const total = calculateTotal(form.additionalServices);
     setForm((prev) => ({ ...prev, serviceAmount: total.toString() }));
     // Reset discount when service amount changes (need to re-apply discount)
     setDiscountApplied(false);
     setDiscountAmount(0);
     setDiscountError("");
-  }, [form.additionalServices]);
-
-  // Reload services when component mounts
-  useEffect(() => {
-    setAvailableServices(getServices());
-  }, []);
+  }, [form.additionalServices, servicesLoaded, calculateTotal]);
 
   // Auto-update payment status based on final amount
   useEffect(() => {
     const currentFinalAmount = (parseFloat(form.serviceAmount) || 0) - discountAmount;
     if (currentFinalAmount === 0 && form.paymentStatus !== "free") {
-      // If no charge, set to free
       setForm((prev) => ({ ...prev, paymentStatus: "free" }));
     } else if (form.paymentStatus === "free" && currentFinalAmount > 0) {
-      // If was free but now has charge, set to pending
       setForm((prev) => ({ ...prev, paymentStatus: "pending" }));
     }
   }, [form.serviceAmount, discountAmount, form.paymentStatus]);
@@ -115,7 +134,7 @@ export function useMachineForm(machine?: Machine | null) {
     setForm((p) => ({ ...p, [key]: value }));
   };
 
-  const handleApplyDiscount = () => {
+  const handleApplyDiscount = async () => {
     const originalAmount = parseFloat(form.serviceAmount) || 0;
 
     if (originalAmount === 0) {
@@ -125,7 +144,7 @@ export function useMachineForm(machine?: Machine | null) {
       return;
     }
 
-    const result = validateDiscount(form.discountCode, originalAmount);
+    const result = await validateFirestoreDiscount(form.discountCode, originalAmount);
 
     if (!result.valid) {
       setDiscountError(result.error || "Mã giảm giá không hợp lệ");
@@ -150,32 +169,29 @@ export function useMachineForm(machine?: Machine | null) {
     set(field, arr);
   };
 
-  const totalServiceAmount = form.additionalServices.reduce((sum, serviceName) => {
-    return sum + getServicePrice(serviceName);
-  }, 0);
-
+  const totalServiceAmount = calculateTotal(form.additionalServices);
   const finalAmount = totalServiceAmount - discountAmount;
 
-  const submitForm = (finalStatus?: Status) => {
-    // If discount is applied, increment usage count and save discount amount
+  // Mark discount as used when submitting - caller should handle this via Firestore
+  const markDiscountUsed = async () => {
     if (discountApplied && form.discountCode) {
-      useDiscount(form.discountCode);
+      await useFirestoreDiscount(form.discountCode);
     }
+  };
 
+  const submitForm = (finalStatus?: Status) => {
     // Calculate points earned if order is completed/returned OR for in-person (already brought machine)
     let pointsEarned = 0;
     const isInPerson = machine?.registrationType === "in-person" || (!machine);
     if ((finalStatus === "COMPLETE" || finalStatus === "RETURNED") && finalAmount > 0) {
       pointsEarned = calculatePoints(finalAmount);
     } else if (isInPerson && finalAmount > 0) {
-      // For in-person: award points immediately when customer brings machine
       pointsEarned = calculatePoints(finalAmount);
     } else if (isInPerson && finalAmount === 0) {
-      // In-person free registration (no services selected): award 1 point since customer brought machine
       pointsEarned = 1;
     }
 
-    // Build the machine object with proper ID
+    // Build the machine object - ID is managed by parent (Machines.tsx) via Firestore
     const updatedForm = {
       ...form,
       discountAmount: discountApplied ? discountAmount : 0,
@@ -187,24 +203,6 @@ export function useMachineForm(machine?: Machine | null) {
 
     const resultMachine = formToMachine(updatedForm, machine);
 
-    // Save point history and award customer points after machine is created
-    if (pointsEarned > 0) {
-      addPointHistory({
-        id: Date.now().toString(),
-        customerPhone: form.phone,
-        customerName: form.customerName,
-        type: "earn",
-        points: pointsEarned,
-        date: new Date().toISOString(),
-        description: `Đơn hàng #${resultMachine.id} - ${finalAmount}`,
-        relatedId: resultMachine.id.toString(),
-      });
-      // Award points to customer for in-person (customer already brought machine)
-      if (form.phone && form.customerName && form.customerName !== "Khách hàng") {
-        addOrUpdateCustomer(form.customerName, form.phone, pointsEarned, form.customerEmail);
-      }
-    }
-
     return resultMachine;
   };
 
@@ -213,6 +211,7 @@ export function useMachineForm(machine?: Machine | null) {
     step,
     setStep,
     availableServices,
+    servicesLoaded,
     discountApplied,
     discountAmount,
     discountError,
@@ -223,6 +222,7 @@ export function useMachineForm(machine?: Machine | null) {
     totalServiceAmount,
     finalAmount,
     submitForm,
+    markDiscountUsed,
   };
 }
 
@@ -262,16 +262,11 @@ function machineToForm(m: Machine): FormState {
 
 function formToMachine(form: FormState, existing?: Machine | null): Machine {
   // Calculate final amount
-  const totalServiceAmount = form.additionalServices.reduce((sum, serviceName) => {
-    return sum + getServicePrice(serviceName);
-  }, 0);
+  const totalServiceAmount = 0; // Caller should calculate this before passing
   const finalAmount = totalServiceAmount - form.discountAmount;
 
-  // Use existing ID for edits, ensureSequentialId for new machines
-  const newId = existing?.id ?? ensureSequentialId(getMachines());
-
   return {
-    id: newId,
+    id: existing?.id ?? "",
     status: form.status,
     customerName: form.customerName || "Khách hàng",
     customerEmail: form.customerEmail,
@@ -286,30 +281,30 @@ function formToMachine(form: FormState, existing?: Machine | null): Machine {
     tester: form.testerBefore || "—",
     technician: form.technician || "—",
     warranty: form.warranty,
-    password: form.password,
+    password: form.password || "",
     charger: form.charger === "co",
-    appointmentTime: form.appointmentTime,
-    dropOffTime: form.dropOffTime || undefined,
+    appointmentTime: form.appointmentTime || "",
+    dropOffTime: form.dropOffTime || "",
     registrationType: existing?.registrationType ?? "in-person",
     isApproved: existing?.isApproved ?? true,
-    testerBefore: form.testerBefore,
-    testerAfter: form.testerAfter,
-    machineCondition: form.machineCondition,
-    needs: form.needs,
+    testerBefore: form.testerBefore || "",
+    testerAfter: form.testerAfter || "",
+    machineCondition: form.machineCondition || "",
+    needs: form.needs || "",
     checklistBefore: form.checklistBefore,
     checklistAfter: form.checklistAfter,
     notesBefore: form.notesBefore,
     notesAfter: form.notesAfter,
     techChecklist: form.techChecklist,
-    techNotes: form.techNotes,
-    adminConfirmNote: form.adminConfirmNote,
-    customerSignature: form.customerSignature,
-    additionalServices: form.additionalServices.length > 0 ? form.additionalServices : undefined,
-    serviceAmount: form.serviceAmount ? parseFloat(form.serviceAmount) : undefined,
-    discountCode: form.discountCode || undefined,
-    discountAmount: form.discountAmount > 0 ? form.discountAmount : undefined,
-    paymentStatus: form.paymentStatus,
-    finalAmount: finalAmount > 0 ? finalAmount : undefined,
-    pointsEarned: form.pointsEarned || undefined,
+    techNotes: form.techNotes || "",
+    adminConfirmNote: form.adminConfirmNote || "",
+    customerSignature: form.customerSignature || "",
+    additionalServices: form.additionalServices.length > 0 ? form.additionalServices : [],
+    serviceAmount: form.serviceAmount ? parseFloat(form.serviceAmount) : 0,
+    discountCode: form.discountCode || "",
+    discountAmount: form.discountAmount > 0 ? form.discountAmount : 0,
+    paymentStatus: form.paymentStatus || "pending",
+    finalAmount: finalAmount > 0 ? finalAmount : 0,
+    pointsEarned: form.pointsEarned || 0,
   };
 }

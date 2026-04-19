@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { Machine, Status } from "../../data/machines";
 import { getPointsExplanation } from "../../data/points";
-import { updateTransactionByMachineId } from "../../data/finance";
+import { updateFirestoreTransactionByMachineId } from "../../data/firestoreTransactions";
 import { useMachineForm } from "./hooks/useMachineForm";
 import { StepCustomerInfo } from "./form/StepCustomerInfo";
 import { StepTesterBefore } from "./form/StepTesterBefore";
@@ -229,10 +229,10 @@ export function CreateDrawer({ onClose, onSave, machine, members, checklistItems
             {/* P5: Lưu cập nhật thông tin P5 */}
             {step === TOTAL_STEPS && (
               <button
-                onClick={() => {
+                onClick={async () => {
                   // Cập nhật transaction trong Finance nếu có machineId
                   if (machine?.id) {
-                    updateTransactionByMachineId(machine.id, {
+                    await updateFirestoreTransactionByMachineId(machine.id, {
                       paymentStatus: form.paymentStatus as "paid" | "pending" | "free",
                       discountCode: form.discountCode,
                       discountAmount: form.discountAmount || 0,
