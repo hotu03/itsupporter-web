@@ -1,8 +1,9 @@
 import { useRef, useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { SignatureCanvas, SignatureCanvasHandle } from "../components/SignatureCanvas";
-import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
-import penIcon from "../../imports/image-0.png";
+import { CheckCircle2, AlertCircle, RefreshCw, Package, Clock, CreditCard } from "lucide-react";
+import { getFirestoreMachineById } from "../data/firestoreMachines";
+import type { Machine } from "../data/machines";
 
 const SESSION_USED_PREFIX = "its_session_used_";
 const DATABASE_URL = import.meta.env.VITE_FIREBASE_DATABASE_URL as string;
@@ -15,6 +16,7 @@ const dbUrl = (path: string) =>
 export default function SignPage() {
   const [params] = useSearchParams();
   const session = params.get("session") ?? "";
+  const machineIdParam = params.get("machineId");
   const customerName = params.get("name") ? decodeURIComponent(params.get("name")!) : "";
 
   const canvasRef = useRef<SignatureCanvasHandle>(null);
@@ -22,6 +24,7 @@ export default function SignPage() {
   const [sigData, setSigData] = useState("");
   const [sessionExpired, setSessionExpired] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [machine, setMachine] = useState<Machine | null>(null);
 
   // Firebase REST API helper functions
   const checkSession = async (): Promise<boolean> => {
@@ -61,6 +64,24 @@ export default function SignPage() {
       return false;
     }
   };
+
+  // Fetch machine info from Firestore
+  useEffect(() => {
+    if (!machineIdParam) return;
+
+    async function fetchMachine() {
+      try {
+        const machineData = await getFirestoreMachineById(machineIdParam!);
+        if (machineData) {
+          setMachine(machineData);
+        }
+      } catch (error) {
+        console.error("Failed to fetch machine:", error);
+      }
+    }
+
+    fetchMachine();
+  }, [machineIdParam]);
 
   // Check if session already used (one-time use) via Firebase REST
   useEffect(() => {
@@ -106,6 +127,33 @@ export default function SignPage() {
       setSubmitted(true);
       setSessionExpired(true);
     }
+  };
+
+  // Format date for display
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr) return "—";
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      minimumFractionDigits: 0,
+    }).format(amount);
   };
 
   if (!session) {
@@ -160,12 +208,79 @@ export default function SignPage() {
       <div className="flex-1 px-4 py-6 flex flex-col gap-5 max-w-lg mx-auto w-full">
         {!submitted ? (
           <>
-            {/* Customer info */}
-            {customerName && (
+            {/* Machine info card - show when available */}
+            {machine ? (
               <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <p className="text-xs text-gray-400 mb-2">Khách hàng</p>
-                <p className="text-sm text-gray-900 font-medium">{customerName}</p>
+                <div className="flex items-center gap-2 mb-3">
+                  <Package size={16} className="text-orange-500" />
+                  <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Thông tin máy</p>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                  <div>
+                    <span className="text-gray-400">Khách hàng: </span>
+                    <span className="text-gray-800 font-medium">{machine.customerName}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">SĐT: </span>
+                    <span className="text-gray-800 font-medium">{machine.phone}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-gray-400">Dịch vụ: </span>
+                    <span className="text-gray-800 font-medium">{machine.description || "—"}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-gray-400">Tình trạng: </span>
+                    <span className="text-gray-800 font-medium">{machine.machineCondition || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Bảo hành: </span>
+                    <span className="text-gray-800 font-medium">
+                      {machine.warranty === "con" ? "Còn bảo hành" : "Hết bảo hành"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Mang sạc: </span>
+                    <span className="text-gray-800 font-medium">{machine.charger ? "Có" : "Không"}</span>
+                  </div>
+                  {machine.dropOffTime && (
+                    <div className="col-span-2 flex items-center gap-1">
+                      <Clock size={12} className="text-gray-400" />
+                      <span className="text-gray-400">Đưa máy: </span>
+                      <span className="text-gray-800 font-medium">{formatDate(machine.dropOffTime)}</span>
+                    </div>
+                  )}
+                  {machine.appointmentTime && (
+                    <div className="col-span-2 flex items-center gap-1">
+                      <Clock size={12} className="text-gray-400" />
+                      <span className="text-gray-400">Hẹn trả: </span>
+                      <span className="text-gray-800 font-medium">{formatDate(machine.appointmentTime)}</span>
+                    </div>
+                  )}
+                </div>
+                {machine.needs && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <span className="text-gray-400 text-xs">Nhu cầu: </span>
+                    <span className="text-gray-700 text-xs">{machine.needs}</span>
+                  </div>
+                )}
+                {machine.finalAmount !== undefined && machine.finalAmount > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <CreditCard size={12} className="text-gray-400" />
+                      <span className="text-gray-400 text-xs">Tổng tiền:</span>
+                    </div>
+                    <span className="text-orange-600 font-semibold text-sm">{formatCurrency(machine.finalAmount)}</span>
+                  </div>
+                )}
               </div>
+            ) : (
+              // Fallback: show customer name from URL params
+              customerName && (
+                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                  <p className="text-xs text-gray-400 mb-1">Khách hàng</p>
+                  <p className="text-sm text-gray-900 font-medium">{customerName}</p>
+                </div>
+              )
             )}
 
             {/* Instructions */}
@@ -176,15 +291,12 @@ export default function SignPage() {
             </div>
 
             {/* Signature area */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-4">
-              <div className="flex flex-col items-center gap-2">
-                <img src={penIcon} alt="Ký vào đây" className="w-12 h-12 object-contain opacity-80" />
-                <p className="text-xs text-gray-400">Ký vào đây</p>
-              </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs text-gray-400 text-center mb-4">Ký vào đây</p>
 
               <SignatureCanvas
                 ref={canvasRef}
-                height={220}
+                height={200}
                 onEnd={setSigData}
                 showResetButton
                 disabled={submitted}
@@ -196,7 +308,7 @@ export default function SignPage() {
               disabled={!sigData}
               className="w-full py-4 rounded-xl bg-orange-500 text-white font-semibold text-sm hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-all shadow-sm"
             >
-              {sigData ? 'Xác nhận & Gửi chữ ký' : 'Vui lòng ký trước khi tiếp tục'}
+              {sigData ? "Xác nhận & Gửi chữ ký" : "Vui lòng ký trước khi tiếp tục"}
             </button>
           </>
         ) : (
@@ -210,7 +322,7 @@ export default function SignPage() {
                 Chữ ký đã được gửi thành công
               </p>
               <p className="text-xs text-gray-400 mt-3">
-                Tester sẽ xem và hoàn tất phiếu trên máy tính.<br/>
+                Tester sẽ xem và hoàn tất phiếu trên máy tính.<br />
                 Bạn có thể đóng trang này.
               </p>
             </div>
