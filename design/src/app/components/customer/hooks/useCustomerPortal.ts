@@ -106,6 +106,10 @@ export function useRedeemVoucher(
     }
 
     // Check if already redeemed (by email or phone)
+    if (!customer.email) {
+      toast.error("Không tìm thấy email khách hàng");
+      return;
+    }
     const byEmail = isVoucherRedeemedByCustomerEmail(customer.email, voucher.code);
     if (byEmail) {
       toast.error("Bạn đã đổi voucher này rồi");

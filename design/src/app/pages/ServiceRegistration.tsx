@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   X,
   CheckCircle2,
@@ -246,6 +246,7 @@ export default function ServiceRegistration() {
     setShowReceipt(false);
     setForm({
       customerName: "",
+      customerEmail: "",
       phone: "",
       machineCondition: "",
       warranty: "het",

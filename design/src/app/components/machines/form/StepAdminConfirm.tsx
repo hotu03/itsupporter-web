@@ -13,7 +13,7 @@ interface StepProps {
   discountApplied: boolean;
   discountAmount: number;
   onSubmit: (status: Status) => void;
-  machineId?: number;
+  machineId?: string | number;
 }
 
 export function StepAdminConfirm({
@@ -136,7 +136,7 @@ interface InvoiceSectionProps {
   finalAmount: number;
   discountApplied: boolean;
   discountAmount: number;
-  machineId?: number;
+  machineId?: string | number;
 }
 
 function InvoiceSection({ form, set, totalServiceAmount, finalAmount, discountApplied, discountAmount, machineId }: InvoiceSectionProps) {

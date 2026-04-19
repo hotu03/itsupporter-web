@@ -6,7 +6,7 @@ interface MachineCardProps {
   machine: Machine;
   stt: number;
   onClick: () => void;
-  onApprove?: (id: number) => void;
+  onApprove?: (id: string | number) => void;
 }
 
 export function MachineCard({ machine, stt, onClick, onApprove }: MachineCardProps) {

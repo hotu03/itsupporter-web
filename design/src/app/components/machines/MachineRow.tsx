@@ -6,7 +6,7 @@ interface MachineRowProps {
   machine: Machine;
   stt: number;
   onClick: () => void;
-  onApprove?: (id: number) => void;
+  onApprove?: (id: string | number) => void;
 }
 
 export function MachineRow({ machine, stt, onClick, onApprove }: MachineRowProps) {
