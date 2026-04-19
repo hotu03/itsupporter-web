@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search,
     X,
@@ -11,14 +11,24 @@ import {
 } from "lucide-react";
 import {
   PointRule,
-  getPointRules,
-  savePointRules,
   formatCurrency,
 } from "../data/points";
+import { getFirestorePointRules, saveFirestorePointRules } from "../data/firestorePoints";
 import { Pagination, usePagination } from "./Pagination";
 
 export default function PointRulesTab() {
-  const [rules, setRules] = useState<PointRule[]>(getPointRules());
+  const [rules, setRules] = useState<PointRule[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getFirestorePointRules()
+      .then(setRules)
+      .catch(err => {
+        console.error("Error loading point rules:", err);
+        setRules([]);
+      })
+      .finally(() => setLoading(false));
+  }, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingRule, setEditingRule] = useState<PointRule | null>(null);
@@ -86,7 +96,7 @@ export default function PointRulesTab() {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name.trim()) {
       alert("Vui lòng nhập tên quy tắc");
       return;
@@ -123,7 +133,7 @@ export default function PointRulesTab() {
           : r
       );
       setRules(updated);
-      savePointRules(updated);
+      await saveFirestorePointRules(updated);
     } else {
       const newRule: PointRule = {
         id: Date.now().toString(),
@@ -139,25 +149,25 @@ export default function PointRulesTab() {
       };
       const updated = [...rules, newRule];
       setRules(updated);
-      savePointRules(updated);
+      await saveFirestorePointRules(updated);
     }
     handleCloseModal();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Bạn có chắc muốn xoá quy tắc này?")) {
       const updated = rules.filter((r) => r.id !== id);
       setRules(updated);
-      savePointRules(updated);
+      await saveFirestorePointRules(updated);
     }
   };
 
-  const handleToggle = (id: string) => {
+  const handleToggle = async (id: string) => {
     const updated = rules.map((r) =>
       r.id === id ? { ...r, enabled: !r.enabled } : r
     );
     setRules(updated);
-    savePointRules(updated);
+    await saveFirestorePointRules(updated);
   };
 
   return (
@@ -206,7 +216,16 @@ export default function PointRulesTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {pagedRules.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <Award size={32} className="text-gray-300 animate-pulse" />
+                      <p className="text-sm text-gray-500">Đang tải...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : pagedRules.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
