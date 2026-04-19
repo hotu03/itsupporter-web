@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
-import { getMachines } from "../../../data/machines";
-import { getCustomers } from "../../../data/customers";
-import { getTransactions } from "../../../data/finance";
-import { getMembers } from "../../../data/members";
+import { getFirestoreMachines } from "../../../data/firestoreMachines";
+import { getFirestoreCustomers } from "../../../data/firestoreCustomers";
+import { getFirestoreTransactions } from "../../../data/firestoreTransactions";
+import { getFirestoreMembers } from "../../../data/firestoreMembers";
 import type { Machine } from "../../../data/machines";
 import type { Customer } from "../../../data/customers";
 import type { Transaction } from "../../../data/finance";
@@ -146,10 +146,19 @@ export function useDashboardData(): DashboardData {
   const [members, setMembers] = useState<Member[]>([]);
 
   useEffect(() => {
-    setMachines(getMachines());
-    setCustomers(getCustomers());
-    setTransactions(getTransactions());
-    setMembers(getMembers());
+    async function loadData() {
+      const [firestoreMachines, firestoreCustomers, firestoreTransactions, firestoreMembers] = await Promise.all([
+        getFirestoreMachines(),
+        getFirestoreCustomers(),
+        getFirestoreTransactions(),
+        getFirestoreMembers(),
+      ]);
+      setMachines(firestoreMachines);
+      setCustomers(firestoreCustomers);
+      setTransactions(firestoreTransactions);
+      setMembers(firestoreMembers);
+    }
+    loadData();
   }, []);
 
   // Re-compute whenever any data changes

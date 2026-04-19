@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Mail, ArrowLeft, Send } from "lucide-react";
-import { getCustomerByEmail } from "../data/customers";
+import { getFirestoreCustomerByEmail } from "../data/firestoreCustomers";
 import { sendCustomerPasswordReset } from "../data/firebase-auth";
 import { toast } from "sonner";
 
@@ -30,8 +30,8 @@ export default function CustomerForgot() {
       return;
     }
 
-    // Check if customer exists in localStorage
-    const customer = getCustomerByEmail(email.trim());
+    // Check if customer exists in Firestore
+    const customer = await getFirestoreCustomerByEmail(email.trim());
     if (!customer) {
       setError("Email chưa đăng ký dịch vụ sửa chữa");
       setLoading(false);

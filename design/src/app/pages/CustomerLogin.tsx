@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
-import { getCustomerByEmail } from "../data/customers";
+import { getFirestoreCustomerByEmail } from "../data/firestoreCustomers";
 import { signInCustomer } from "../data/firebase-auth";
 import { toast } from "sonner";
 
@@ -19,7 +19,7 @@ export default function CustomerLogin() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -34,16 +34,25 @@ export default function CustomerLogin() {
       return;
     }
 
-    // Check if customer exists
-    const customer = getCustomerByEmail(email.trim());
-    if (!customer) {
-      setError("Email chưa đăng ký dịch vụ sửa chữa");
-      return;
-    }
+    setLoading(true);
+    try {
+      // Check if customer exists
+      const customer = await getFirestoreCustomerByEmail(email.trim());
+      if (!customer) {
+        setError("Email chưa đăng ký dịch vụ sửa chữa");
+        setLoading(false);
+        return;
+      }
 
-    // Customer found - go to password step
-    setCustomerEmail(email.trim());
-    setStep("password");
+      // Customer found - go to password step
+      setCustomerEmail(email.trim());
+      setStep("password");
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Đã xảy ra lỗi. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {

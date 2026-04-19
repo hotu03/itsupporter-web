@@ -65,6 +65,9 @@ export interface UseFinanceReturn {
   endDate: string;
   approvalFilter: "all" | "approved" | "pending";
 
+  // Machines (for TransactionTable cross-reference)
+  machines: Machine[];
+
   // Transaction form
   showTransactionModal: boolean;
   editingTransaction: Transaction | null;
@@ -655,6 +658,9 @@ export function useFinance(): UseFinanceReturn {
     startDate,
     endDate,
     approvalFilter,
+
+    // Machines (for TransactionTable cross-reference)
+    machines,
 
     // Transaction form
     showTransactionModal,

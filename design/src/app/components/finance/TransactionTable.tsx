@@ -12,7 +12,7 @@ import {
 import { Pagination } from "../Pagination";
 import { formatCurrency as formatCurr } from "../../data/services";
 import type { Transaction, TransactionStats } from "./hooks/useFinance";
-import { getMachines } from "../../data/machines";
+import type { Machine } from "../../data/machines";
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -25,6 +25,7 @@ interface TransactionTableProps {
   page: number;
   pageSize: number;
   approvalFilter: "all" | "approved" | "pending";
+  machines: Machine[];
   onSearchChange: (q: string) => void;
   onStartDateChange: (d: string) => void;
   onEndDateChange: (d: string) => void;
@@ -46,6 +47,7 @@ export function TransactionTable({
   page,
   pageSize,
   approvalFilter,
+  machines,
   onSearchChange,
   onStartDateChange,
   onEndDateChange,

@@ -1,6 +1,7 @@
+import { useState, useEffect } from "react";
 import { X, History, Star, TrendingUp, Gift } from "lucide-react";
 import type { Customer } from "../../data/customers";
-import { getCustomerPointHistory } from "../../data/points";
+import { getFirestoreCustomerPointHistory, type PointHistory } from "../../data/firestorePoints";
 
 interface HistoryModalProps {
   customer: Customer | null;
@@ -9,9 +10,23 @@ interface HistoryModalProps {
 }
 
 export function HistoryModal({ customer, isOpen, onClose }: HistoryModalProps) {
-  if (!isOpen || !customer) return null;
+  const [history, setHistory] = useState<PointHistory[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const history = getCustomerPointHistory(customer.phone);
+  useEffect(() => {
+    if (!isOpen || !customer) return;
+
+    setLoading(true);
+    getFirestoreCustomerPointHistory(customer.phone)
+      .then(setHistory)
+      .catch(err => {
+        console.error("Error loading point history:", err);
+        setHistory([]);
+      })
+      .finally(() => setLoading(false));
+  }, [isOpen, customer?.phone]);
+
+  if (!isOpen || !customer) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -49,7 +64,11 @@ export function HistoryModal({ customer, isOpen, onClose }: HistoryModalProps) {
 
         {/* History List */}
         <div className="p-6">
-          {history.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-12">
+              <p className="text-sm text-gray-500">Đang tải...</p>
+            </div>
+          ) : history.length === 0 ? (
             <div className="text-center py-12">
               <History size={32} className="text-gray-300 mx-auto mb-2" />
               <p className="text-sm text-gray-500">Chưa có lịch sử điểm</p>

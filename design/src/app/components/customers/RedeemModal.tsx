@@ -1,7 +1,8 @@
+import { useState, useEffect } from "react";
 import { X, Gift, Star, Award } from "lucide-react";
 import type { Customer } from "../../data/customers";
 import type { DiscountCode } from "../../data/discounts";
-import { getDiscounts } from "../../data/discounts";
+import { getFirestoreDiscounts } from "../../data/firestoreDiscounts";
 import { formatCurrency } from "../../data/points";
 
 interface RedeemModalProps {
@@ -11,14 +12,27 @@ interface RedeemModalProps {
   onRedeem: (discountId: string) => void;
 }
 
-function getRedeemableDiscounts(): DiscountCode[] {
-  return getDiscounts().filter((d: DiscountCode) => d.isRedeemable && d.pointsRequired);
-}
-
 export function RedeemModal({ customer, isOpen, onClose, onRedeem }: RedeemModalProps) {
-  if (!isOpen || !customer) return null;
+  const [redeemable, setRedeemable] = useState<DiscountCode[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const redeemable = getRedeemableDiscounts();
+  useEffect(() => {
+    if (!isOpen || !customer) return;
+
+    setLoading(true);
+    getFirestoreDiscounts()
+      .then(discounts => {
+        const redeemableDiscounts = discounts.filter((d: DiscountCode) => d.isRedeemable && d.pointsRequired);
+        setRedeemable(redeemableDiscounts);
+      })
+      .catch(err => {
+        console.error("Error loading discounts:", err);
+        setRedeemable([]);
+      })
+      .finally(() => setLoading(false));
+  }, [isOpen, customer]);
+
+  if (!isOpen || !customer) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

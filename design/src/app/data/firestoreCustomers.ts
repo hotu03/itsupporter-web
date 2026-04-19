@@ -30,12 +30,20 @@ export async function getFirestoreCustomerByPhone(phone: string): Promise<Custom
 
 // Add new customer
 export async function addFirestoreCustomer(customer: Omit<Customer, 'id'>): Promise<string> {
-  const docRef = await addDoc(collection(db, COLLECTION_NAME), {
-    ...customer,
-    createdAt: customer.createdAt || new Date().toISOString().split('T')[0],
-    updatedAt: new Date().toISOString(),
-  });
-  return docRef.id;
+  console.log("[firestoreCustomers] Adding customer to collection:", COLLECTION_NAME);
+  console.log("[firestoreCustomers] Customer data:", JSON.stringify(customer));
+  try {
+    const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+      ...customer,
+      createdAt: customer.createdAt || new Date().toISOString().split('T')[0],
+      updatedAt: new Date().toISOString(),
+    });
+    console.log("[firestoreCustomers] Success! Doc ID:", docRef.id);
+    return docRef.id;
+  } catch (err) {
+    console.error("[firestoreCustomers] Error:", err);
+    throw err;
+  }
 }
 
 // Update customer

@@ -77,6 +77,7 @@ export default function Finance() {
     setTransactionFormData,
     setServiceFormData,
     setDiscountFormData,
+    machines,
   } = useFinance();
 
   const handleAdd = () => {
@@ -178,6 +179,7 @@ export default function Finance() {
             approvalFilter={approvalFilter}
             page={txPage}
             pageSize={txPageSize}
+            machines={machines}
             onSearchChange={setSearchQuery}
             onStartDateChange={setStartDate}
             onEndDateChange={setEndDate}

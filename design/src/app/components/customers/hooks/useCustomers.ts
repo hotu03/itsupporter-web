@@ -11,9 +11,9 @@ import {
   updateFirestoreDiscount,
 } from "../../../data/firestoreDiscounts";
 import {
-  getCustomerPointHistory,
-  addPointHistory,
-} from "../../../data/points";
+  getFirestoreCustomerPointHistory,
+  addFirestorePointHistory,
+} from "../../../data/firestorePoints";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -304,8 +304,7 @@ export function useCustomers(): UseCustomersReturn {
 
     await updateFirestoreDiscount(discount.id, { usageCount: discount.usageCount + 1 });
 
-    addPointHistory({
-      id: Date.now().toString(),
+    await addFirestorePointHistory({
       customerPhone: selectedCustomer.phone,
       customerName: selectedCustomer.name,
       type: "redeem",
@@ -375,4 +374,4 @@ export function useCustomers(): UseCustomersReturn {
 }
 
 // Re-export for convenience
-export { getCustomerPointHistory };
+export { getFirestoreCustomerPointHistory };

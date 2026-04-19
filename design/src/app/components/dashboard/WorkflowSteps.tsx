@@ -47,7 +47,7 @@ export function WorkflowSteps({ machineStats }: WorkflowStepsProps) {
                 <div className={`w-12 h-12 ${step.color} rounded-xl flex items-center justify-center mb-2 shadow-sm relative`}>
                   <Icon size={20} className="text-white" />
                   {step.count > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold border border-white">
+                    <span className="absolute -top-2 -right-2 min-w-[20px] h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold border-2 border-white px-1">
                       {step.count}
                     </span>
                   )}
