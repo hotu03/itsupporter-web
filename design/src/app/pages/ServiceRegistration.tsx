@@ -12,7 +12,7 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { getServices, formatCurrency as formatCurr } from "../data/services";
 import { validateDiscount, useDiscount } from "../data/discounts";
-import { addMachine } from "../data/machines";
+import { addFirestoreMachine } from "../data/firestoreMachines";
 import { registerCustomer } from "../data/customers";
 import { addTransaction } from "../data/finance";
 import { calculatePoints } from "../data/points";
@@ -246,7 +246,7 @@ export default function ServiceRegistration() {
       : (form.needs || "Dịch vụ khác");
 
     // Add machine to system with WAITING status (online registration)
-    const newMachine = addMachine({
+    const id = await addFirestoreMachine({
       status: "WAITING",
       customerName: form.customerName,
       customerEmail: form.customerEmail,
@@ -302,7 +302,7 @@ export default function ServiceRegistration() {
 
     // Add transaction to finance
     addTransaction({
-      machineId: newMachine.id,
+      machineId: id,
       customerName: form.customerName,
       phone: form.phone,
       service: serviceNames,
@@ -315,7 +315,7 @@ export default function ServiceRegistration() {
 
     // Create invoice for online registration
     addInvoice({
-      machineId: newMachine.id,
+      machineId: id,
       customerName: form.customerName,
       customerEmail: form.customerEmail,
       phone: form.phone,
@@ -347,7 +347,7 @@ export default function ServiceRegistration() {
     });
 
     // Generate receipt ID
-    setReceiptId(newMachine.id);
+    setReceiptId(Number(id));
     setShowReceipt(true);
   };
 

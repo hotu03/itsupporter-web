@@ -2,7 +2,7 @@
 
 export interface Transaction {
   id: string;
-  machineId?: number;
+  machineId?: string | number;
   customerName: string;
   phone: string;
   service: string;

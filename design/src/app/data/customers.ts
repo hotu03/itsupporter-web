@@ -1,10 +1,10 @@
 // Customer data management
 
 export interface Customer {
-  id: number;
+  id: string | number;
   name: string;
   phone: string;
-  email: string;
+  email?: string;
   createdAt: string;
   totalRepairs: number;
   lastRepair?: string;
@@ -83,7 +83,7 @@ export function verifyCustomerPassword(email: string, password: string): boolean
 // Add new customer
 export function addCustomer(customer: Omit<Customer, "id">): Customer {
   const customers = getCustomers();
-  const newId = customers.length > 0 ? Math.max(...customers.map((c) => c.id)) + 1 : 1;
+  const newId = customers.length > 0 ? Math.max(...customers.map((c) => Number(c.id))) + 1 : 1;
   const newCustomer: Customer = { ...customer, id: newId };
   saveCustomers([...customers, newCustomer]);
   return newCustomer;
@@ -127,7 +127,7 @@ export function addOrUpdateCustomer(
     saveCustomers(updated);
     return updated.find((c) => c.phone === phone)!;
   } else {
-    const newId = customers.length > 0 ? Math.max(...customers.map((c) => c.id)) + 1 : 1;
+    const newId = customers.length > 0 ? Math.max(...customers.map((c) => Number(c.id))) + 1 : 1;
     const newCustomer: Customer = {
       id: newId,
       name,
@@ -148,7 +148,7 @@ export function registerCustomer(name: string, phone: string, email: string = ""
   const existing = customers.find((c) => c.phone === phone);
   if (existing) return existing;
 
-  const newId = customers.length > 0 ? Math.max(...customers.map((c) => c.id)) + 1 : 1;
+  const newId = customers.length > 0 ? Math.max(...customers.map((c) => Number(c.id))) + 1 : 1;
   const newCustomer: Customer = {
     id: newId,
     name,

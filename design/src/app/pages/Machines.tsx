@@ -6,7 +6,8 @@ import {
   List,
   Plus,
 } from "lucide-react";
-import { Machine, Status, getMachines, saveMachines, ensureSequentialId } from "../data/machines";
+import { Machine, Status } from "../data/machines";
+import { getFirestoreMachines, addFirestoreMachine, updateFirestoreMachine } from "../data/firestoreMachines";
 import { getServicePrice } from "../data/services";
 import { addInvoice } from "../data/invoices";
 import { addOrUpdateCustomer } from "../data/customers";
@@ -84,7 +85,9 @@ export default function Machines() {
   const [selectedDate, setSelectedDate] = useState(getDefaultDate());
 
   useEffect(() => {
-    setMachines(getMachines());
+    getFirestoreMachines().then(data => {
+      setMachines(data as unknown as Machine[]);
+    });
   }, []);
 
   // Parse date from machine.time string (e.g. "20:02:32 15/4/2026" or "20:02 15/4/2026")
@@ -129,7 +132,7 @@ export default function Machines() {
 
   // Step 2: Assign fixed STT based on chronological order (oldest = 1, newest = highest)
   const chronological = [...baseFiltered].sort((a, b) => a.time.localeCompare(b.time));
-  const sttMap = new Map<number, number>();
+  const sttMap = new Map<string | number, number>();
   chronological.forEach((m, idx) => sttMap.set(m.id, idx + 1));
 
   // Step 3: Sort for display based on orderBy
@@ -141,17 +144,22 @@ export default function Machines() {
     return b.time.localeCompare(a.time);
   });
 
-  const handleSave = (machine: Machine) => {
-    const updated = editMachine
-      ? machines.map(m => m.id === machine.id ? machine : m)
-      : [machine, ...machines];
-    setMachines(updated);
-    saveMachines(updated);
+  const handleSave = async (machine: Machine) => {
+    if (editMachine) {
+      // Update existing machine in Firestore
+      await updateFirestoreMachine(String(machine.id), machine);
+      const updated = machines.map(m => m.id === machine.id ? machine : m);
+      setMachines(updated);
+    } else {
+      // Add new machine to Firestore
+      const id = await addFirestoreMachine(machine);
+      const newMachine = { ...machine, id };
+      setMachines([newMachine, ...machines]);
 
-    if (!editMachine && machine.registrationType === "in-person") {
-      const now = new Date();
-      addInvoice({
-        machineId: machine.id,
+      if (machine.registrationType === "in-person") {
+        const now = new Date();
+        addInvoice({
+          machineId: id,
         customerName: machine.customerName,
         customerEmail: machine.customerEmail || "",
         phone: machine.phone,
@@ -218,6 +226,7 @@ export default function Machines() {
         discountCode: machine.discountCode,
         discountAmount: machine.discountAmount || 0,
       });
+      }
     }
 
     if (editMachine) {
@@ -251,24 +260,17 @@ export default function Machines() {
     }
   };
 
-  const handleApproveMachine = (id: number) => {
+  const handleApproveMachine = async (id: number | string) => {
     if (!window.confirm("Xác nhận khách hàng đã đưa máy đến và duyệt vào hệ thống quản lý chính?")) return;
 
-    const current = getMachines();
-    let finalId = id;
-    const machineToApprove = current.find(m => m.id === id);
-    if (machineToApprove && (!machineToApprove.id || typeof machineToApprove.id !== "number" || machineToApprove.id > 1000000000)) {
-      finalId = ensureSequentialId(current, id);
-    }
-
+    const machineToApprove = machines.find(m => m.id === id);
     const updated = machines.map(m =>
-      m.id === id ? { ...m, id: finalId, isApproved: true, status: "WAITING" as Status } : m
+      m.id === id ? { ...m, isApproved: true, status: "WAITING" as Status } : m
     );
     setMachines(updated);
-    saveMachines(updated);
 
-    // Award points when machine is officially approved into management
-    if (machineToApprove && machineToApprove.phone !== "—" && machineToApprove.customerName) {
+    if (machineToApprove) {
+      await updateFirestoreMachine(String(id), { isApproved: true, status: "WAITING" });
       addOrUpdateCustomer(machineToApprove.customerName, machineToApprove.phone, machineToApprove.pointsEarned || 0, machineToApprove.customerEmail);
     }
   };

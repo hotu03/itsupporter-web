@@ -3,7 +3,7 @@
 export type Status = "COMPLETE" | "RUNNING" | "WAITING" | "RETURNING" | "RETESTING" | "RETURNED";
 
 export interface Machine {
-  id: number;
+  id: string | number;
   status: Status;
   customerName: string;
   customerEmail: string;

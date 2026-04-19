@@ -1,16 +1,15 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import type { Customer } from "../../../data/customers";
 import {
-  getCustomers,
-  addCustomer,
-  updateCustomer,
-  deleteCustomer,
-  saveCustomers,
-} from "../../../data/customers";
+  getFirestoreCustomers,
+  addFirestoreCustomer,
+  updateFirestoreCustomer,
+  deleteFirestoreCustomer,
+} from "../../../data/firestoreCustomers";
 import {
-  getDiscounts,
-  saveDiscounts,
-} from "../../../data/discounts";
+  getFirestoreDiscounts,
+  updateFirestoreDiscount,
+} from "../../../data/firestoreDiscounts";
 import {
   getCustomerPointHistory,
   addPointHistory,
@@ -112,17 +111,20 @@ export function useCustomers(): UseCustomersReturn {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // Load from localStorage
+  // Load from Firestore
   useEffect(() => {
-    setCustomers(getCustomers());
-    setLoading(false);
+    getFirestoreCustomers().then(data => {
+      setCustomers(data);
+      setLoading(false);
+    }).catch(err => {
+      console.error('Failed to load customers:', err);
+      setLoading(false);
+    });
   }, []);
 
-  // Persist when customers change
+  // Persist when customers change (Firestore auto-persists)
   useEffect(() => {
-    if (!loading) {
-      saveCustomers(customers);
-    }
+    // No-op for Firestore - data is already persisted
   }, [customers, loading]);
 
   // Filtered customers
@@ -210,32 +212,29 @@ export function useCustomers(): UseCustomersReturn {
     setFormData({ phone: "", name: "", email: "", notes: "" });
   }, []);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!formData.phone.trim() || !formData.name.trim()) {
       alert("Vui lòng nhập số điện thoại và tên khách hàng");
       return;
     }
 
     if (editingCustomer) {
-      // Update
-      const updated = updateCustomer(editingCustomer.phone, {
+      await updateFirestoreCustomer(editingCustomer.id, {
         name: formData.name,
         email: formData.email || undefined,
         notes: formData.notes || undefined,
       });
-      if (updated) {
-        setCustomers((prev) =>
-          prev.map((c) => (c.phone === editingCustomer.phone ? updated : c))
-        );
-      }
+      const updated = { ...editingCustomer, name: formData.name, email: formData.email || undefined, notes: formData.notes || undefined };
+      setCustomers((prev) =>
+        prev.map((c) => (c.phone === editingCustomer.phone ? updated : c))
+      );
     } else {
-      // Create
       const exists = customers.find((c) => c.phone === formData.phone);
       if (exists) {
         alert("Số điện thoại này đã tồn tại");
         return;
       }
-      const newCustomer = addCustomer({
+      const newCustomer = {
         phone: formData.phone,
         name: formData.name,
         email: formData.email || undefined,
@@ -243,18 +242,22 @@ export function useCustomers(): UseCustomersReturn {
         createdAt: new Date().toISOString().split("T")[0],
         totalRepairs: 0,
         points: 0,
-      });
-      setCustomers((prev) => [newCustomer, ...prev]);
+      };
+      const id = await addFirestoreCustomer(newCustomer);
+      setCustomers((prev) => [{ ...newCustomer, id }, ...prev]);
     }
     closeForm();
   }, [formData, editingCustomer, customers, closeForm]);
 
-  const handleDelete = useCallback((phone: string) => {
+  const handleDelete = useCallback(async (phone: string) => {
     if (confirm("Bạn có chắc muốn xoá khách hàng này?")) {
-      deleteCustomer(phone);
+      const customer = customers.find(c => c.phone === phone);
+      if (customer?.id) {
+        await deleteFirestoreCustomer(String(customer.id));
+      }
       setCustomers((prev) => prev.filter((c) => c.phone !== phone));
     }
-  }, []);
+  }, [customers]);
 
   const openRedeem = useCallback((customer: Customer) => {
     setSelectedCustomer(customer);
@@ -266,10 +269,10 @@ export function useCustomers(): UseCustomersReturn {
     setSelectedCustomer(null);
   }, []);
 
-  const handleRedeem = useCallback((discountId: string) => {
+  const handleRedeem = useCallback(async (discountId: string) => {
     if (!selectedCustomer) return;
 
-    const discounts = getDiscounts();
+    const discounts = await getFirestoreDiscounts();
     const discount = discounts.find((d) => d.id === discountId);
     if (!discount) return;
 
@@ -296,14 +299,10 @@ export function useCustomers(): UseCustomersReturn {
 
     setCustomers((prev) =>
       prev.map((c) =>
-        c.phone === selectedCustomer.phone ? { ...c, points: newPoints } : c
-      )
+        c.phone === selectedCustomer.phone ? { ...c, points: newPoints } : c)
     );
 
-    const updatedDiscounts = discounts.map((d) =>
-      d.id === discount.id ? { ...d, usageCount: d.usageCount + 1 } : d
-    );
-    saveDiscounts(updatedDiscounts);
+    await updateFirestoreDiscount(discount.id, { usageCount: discount.usageCount + 1 });
 
     addPointHistory({
       id: Date.now().toString(),
