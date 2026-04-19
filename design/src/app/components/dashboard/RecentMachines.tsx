@@ -1,5 +1,5 @@
 import { Monitor, Clock, ChevronRight } from "lucide-react";
-import type { Machine } from "../../../data/machines";
+import type { Machine } from "../../data/machines";
 
 interface RecentMachinesProps {
   machines: Machine[];

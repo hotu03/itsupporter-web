@@ -1,5 +1,5 @@
 import { CreditCard } from "lucide-react";
-import type { Transaction } from "../../../data/finance";
+import type { Transaction } from "../../data/finance";
 import type { FinanceStats } from "./hooks/useDashboardData";
 
 interface RecentTransactionsProps {

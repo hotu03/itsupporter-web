@@ -1,5 +1,5 @@
 import { Star } from "lucide-react";
-import type { Customer } from "../../../data/customers";
+import type { Customer } from "../../data/customers";
 
 interface TopCustomersProps {
   topCustomers: Customer[];

@@ -33,6 +33,15 @@ export interface RevenueTrendItem {
   transactions: number;
 }
 
+export interface PersonnelStats {
+  totalApproved: number;
+  technicians: number;
+  testers: number;
+  active: number;
+  inactive: number;
+  pending: number;
+}
+
 export interface DashboardData {
   // Raw data
   machines: Machine[];
@@ -49,14 +58,7 @@ export interface DashboardData {
   topTechnicians: Member[];
   topTesters: Member[];
   pendingMembers: Member[];
-  personnelStats: {
-    totalApproved: number;
-    technicians: number;
-    testers: number;
-    active: number;
-    inactive: number;
-    pending: number;
-  };
+  personnelStats: PersonnelStats;
 
   // Customers
   topCustomers: Customer[];

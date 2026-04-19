@@ -221,7 +221,7 @@ export function canEditMachine(user: User | null, machine: Machine): boolean {
   return false;
 }
 
-export function canDeleteMachine(user: User | null, machine: Machine): boolean {
+export function canDeleteMachine(user: User | null, _machine: Machine): boolean {
   if (!user) return false;
   // Only root and admin can delete machines
   return isRoot(user) || isAdmin(user);
@@ -231,7 +231,7 @@ export function canManagePersonnel(user: User | null): boolean {
   return hasPermission(user, 'manage:personnel');
 }
 
-export function canViewFinance(user: User | null): boolean {
+export function canViewFinance(_user: User | null): boolean {
   // All roles can view finance (edit is blocked at UI level)
   return true;
 }

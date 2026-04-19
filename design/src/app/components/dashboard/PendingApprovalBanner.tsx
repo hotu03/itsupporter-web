@@ -1,5 +1,5 @@
 import { UserCheck, ChevronRight } from "lucide-react";
-import type { Member } from "../../../data/members";
+import type { Member } from "../../data/members";
 
 interface PendingApprovalBannerProps {
   pendingMembers: Member[];

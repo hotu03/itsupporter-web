@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Smartphone, Monitor, CheckCircle2, RefreshCw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { SignatureCanvas, SignatureCanvasHandle } from "../SignatureCanvas";

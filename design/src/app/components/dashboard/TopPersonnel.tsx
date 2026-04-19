@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Cpu, FlaskConical } from "lucide-react";
-import type { Member } from "../../../data/members";
+import type { Member } from "../../data/members";
 import type { PersonnelStats } from "./hooks/useDashboardData";
 
 interface TopPersonnelProps {
@@ -10,7 +10,7 @@ interface TopPersonnelProps {
   personnelStats: PersonnelStats;
 }
 
-export function TopPersonnel({ topTechnicians, topTesters, pendingMembers, personnelStats }: TopPersonnelProps) {
+export function TopPersonnel({ topTechnicians, topTesters, pendingMembers: _pendingMembers, personnelStats }: TopPersonnelProps) {
   const [activeTab, setActiveTab] = useState<"technician" | "tester">("technician");
   const list = activeTab === "technician" ? topTechnicians : topTesters;
 
