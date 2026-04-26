@@ -75,7 +75,7 @@ export function getServicePriceSync(serviceName: string): number {
   return service?.price ?? 0;
 }
 
-export async function saveServices(services: ServiceData[]): Promise<void> {
+export async function saveServices(_services: ServiceData[]): Promise<void> {
   console.warn("[DEPRECATED] saveServices() from services.ts - This function is no longer needed with Firestore");
   // No-op - Firestore handles persistence automatically
 }

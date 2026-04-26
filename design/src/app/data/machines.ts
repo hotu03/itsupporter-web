@@ -88,22 +88,22 @@ export function ensureSequentialId(machines: Machine[]): number {
   return maxId + 1;
 }
 
-export function getMachineById(id: string | number): Machine | undefined {
+export function getMachineById(_id: string | number): Machine | undefined {
   console.warn("[DEPRECATED] getMachineById() from machines.ts");
   return undefined;
 }
 
-export function getMachinesByStatus(status: Status): Machine[] {
+export function getMachinesByStatus(_status: Status): Machine[] {
   console.warn("[DEPRECATED] getMachinesByStatus() from machines.ts");
   return [];
 }
 
-export function getMachinesByCustomerPhone(phone: string): Machine[] {
+export function getMachinesByCustomerPhone(_phone: string): Machine[] {
   console.warn("[DEPRECATED] getMachinesByCustomerPhone() from machines.ts");
   return [];
 }
 
-export function deleteMachine(id: string | number): void {
+export function deleteMachine(_id: string | number): void {
   console.warn("[DEPRECATED] deleteMachine() from machines.ts");
 }
 

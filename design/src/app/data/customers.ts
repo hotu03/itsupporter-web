@@ -25,17 +25,6 @@ export interface Customer {
   passwordHash?: string;
 }
 
-// Simple hash function for demo (not secure for production)
-function simpleHash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash.toString(16);
-}
-
 // ─── Deprecated Stubs (redirect to Firestore) ───────────────────────────────
 
 export async function getCustomers(): Promise<Customer[]> {
@@ -88,22 +77,22 @@ export async function addOrUpdateCustomer(
   }
 }
 
-export async function saveCustomers(customers: Customer[]): Promise<void> {
+export async function saveCustomers(_customers: Customer[]): Promise<void> {
   console.warn("[DEPRECATED] saveCustomers() from customers.ts - This function is no longer needed with Firestore");
   // No-op - Firestore handles persistence automatically
 }
 
-export function hasPassword(email: string): boolean {
+export function hasPassword(_email: string): boolean {
   console.warn("[DEPRECATED] hasPassword() from customers.ts - Password feature not fully migrated to Firestore yet");
   return false;
 }
 
-export function setCustomerPassword(email: string, password: string): boolean {
+export function setCustomerPassword(_email: string, _password: string): boolean {
   console.warn("[DEPRECATED] setCustomerPassword() from customers.ts - Password feature not fully migrated to Firestore yet");
   return false;
 }
 
-export function verifyCustomerPassword(email: string, password: string): boolean {
+export function verifyCustomerPassword(_email: string, _password: string): boolean {
   console.warn("[DEPRECATED] verifyCustomerPassword() from customers.ts - Password feature not fully migrated to Firestore yet");
   return false;
 }
