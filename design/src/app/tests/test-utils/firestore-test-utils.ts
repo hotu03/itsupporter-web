@@ -5,9 +5,12 @@
  * Uses Firebase Emulator for isolated testing.
  */
 
-import { initializeTestEnvironment, RulesTestEnvironment } from '@firebase/rules-unit-testing';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { vi } from 'vitest';
+import type { Customer } from '../../data/customers';
+import type { Machine } from '../../data/machines';
+import type { Transaction } from '../../data/finance';
+import type { PointHistory } from '../../data/points';
 
 let testEnv: RulesTestEnvironment | null = null;
 
@@ -44,10 +47,7 @@ export async function setupTestEnvironment(projectId = 'test-project'): Promise<
 export function getTestFirestore(uid = 'test-user') {
   if (!testEnv) throw new Error('Test environment not initialized');
 
-  const app = testEnv.authenticatedContext(uid).app;
-  const db = getFirestore(app);
-  connectFirestoreEmulator(db, 'localhost', 8080);
-  return db;
+  return testEnv.authenticatedContext(uid).firestore();
 }
 
 /**
@@ -80,7 +80,7 @@ export function mockFirestore() {
  * Create test data factory
  */
 export const TestDataFactory = {
-  createTestCustomer: (overrides = {}) => ({
+  createTestCustomer: (overrides: Partial<Omit<Customer, 'id'>> = {}): Omit<Customer, 'id'> => ({
     name: 'Test Customer',
     phone: '0123456789',
     email: 'test@example.com',
@@ -90,27 +90,60 @@ export const TestDataFactory = {
     ...overrides,
   }),
 
-  createTestMachine: (overrides = {}) => ({
-    customerName: 'Test Customer',
-    phone: '0123456789',
+  createTestMachine: (overrides: Partial<Omit<Machine, 'id'>> = {}): Omit<Machine, 'id'> => ({
     status: 'WAITING',
+    customerName: 'Test Customer',
+    customerEmail: 'test@example.com',
+    phone: '0123456789',
+    time: new Date().toLocaleString('vi-VN'),
+    description: 'Kiểm tra máy',
+    expired: '—',
+    category: 'Hardware',
+    tester: 'Tester A',
+    technician: 'Technician A',
+    warranty: 'het',
+    password: '',
+    charger: false,
+    appointmentTime: '',
+    dropOffTime: '',
+    testerBefore: '',
+    testerAfter: '',
     registrationType: 'in-person',
     isApproved: true,
-    time: new Date().toLocaleString('vi-VN'),
+    machineCondition: '',
+    needs: '',
+    additionalServices: [],
+    serviceAmount: 0,
+    discountCode: '',
+    discountAmount: 0,
+    paymentStatus: 'pending',
+    finalAmount: 0,
+    pointsEarned: 0,
+    checklistBefore: Array(10).fill(false),
+    checklistAfter: Array(10).fill(false),
+    notesBefore: Array(10).fill(''),
+    notesAfter: Array(10).fill(''),
+    techChecklist: Array(3).fill(false),
+    techNotes: '',
+    adminConfirmNote: '',
+    customerSignature: '',
     ...overrides,
   }),
 
-  createTestTransaction: (overrides = {}) => ({
+  createTestTransaction: (overrides: Partial<Omit<Transaction, 'id'>> = {}): Omit<Transaction, 'id'> => ({
+    machineId: 'test-machine-id',
     customerName: 'Test Customer',
     phone: '0123456789',
     service: 'Sửa chữa laptop',
     amount: 500000,
     paymentStatus: 'paid',
     date: new Date().toISOString().split('T')[0],
+    discountCode: '',
+    discountAmount: 0,
     ...overrides,
   }),
 
-  createTestPointHistory: (overrides = {}) => ({
+  createTestPointHistory: (overrides: Partial<Omit<PointHistory, 'id'>> = {}): Omit<PointHistory, 'id'> => ({
     customerPhone: '0123456789',
     customerName: 'Test Customer',
     type: 'earn',

@@ -9,12 +9,11 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { setupTestEnvironment, getTestFirestore, cleanupTestData, TestDataFactory } from '../test-utils/firestore-test-utils';
-import { addFirestoreMachine, getFirestoreMachines, updateFirestoreMachine } from '../../data/firestoreMachines';
+import { setupTestEnvironment, cleanupTestData, TestDataFactory } from '../test-utils/firestore-test-utils';
+import { addFirestoreMachine, getFirestoreMachines } from '../../data/firestoreMachines';
 import { addFirestoreCustomer, getFirestoreCustomers, updateFirestoreCustomer } from '../../data/firestoreCustomers';
 import { addFirestoreTransaction, getFirestoreTransactions } from '../../data/firestoreTransactions';
 import { addFirestorePointHistory, getFirestoreCustomerPointHistory } from '../../data/firestorePoints';
-import { calculatePoints } from '../../data/points';
 
 let testEnv: any;
 
@@ -133,7 +132,7 @@ describe('Firestore Integration - Data Consistency & Stability', () => {
 
   it('should maintain data consistency across modules', async () => {
     const customer = TestDataFactory.createTestCustomer({ points: 100 });
-    const customerId = await addFirestoreCustomer(customer);
+    await addFirestoreCustomer(customer);
 
     const machine = TestDataFactory.createTestMachine({
       customerName: customer.name,
