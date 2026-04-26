@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getMachines, saveMachines, type Machine } from "../../../data/machines";
+import { getMachines, updateMachine, type Machine } from "../../../data/machines";
 
 export function useMachines() {
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -7,15 +7,34 @@ export function useMachines() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"all" | "online" | "in-person">("all");
   const [gridView, setGridView] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load machines on mount
   useEffect(() => {
-    const loaded = getMachines();
-    setMachines(loaded);
-    setLoading(false);
+    let isMounted = true;
+
+    const loadMachines = async () => {
+      try {
+        const loaded = await getMachines();
+        if (!isMounted) return;
+        setMachines(loaded);
+        setError(null);
+      } catch {
+        if (!isMounted) return;
+        setError("Không thể tải danh sách máy");
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadMachines();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Filter machines based on search and view mode
   const filtered = machines.filter((m) => {
     const matchesSearch =
       searchQuery === "" ||
@@ -31,31 +50,45 @@ export function useMachines() {
     return matchesSearch && matchesView;
   });
 
-  // Approve machine (for online registrations)
-  const approveMachine = (id: number) => {
+  const approveMachine = async (id: string | number) => {
+    let previousApproval: boolean | undefined;
+    setError(null);
     setMachines((prev) =>
-      prev.map((m) =>
-        m.id === id ? { ...m, isApproved: true } : m
-      )
+      prev.map((m) => {
+        if (m.id !== id) return m;
+        previousApproval = m.isApproved;
+        return { ...m, isApproved: true };
+      }),
     );
-    const updatedMachines = machines.map((m) =>
-      m.id === id ? { ...m, isApproved: true } : m
-    );
-    saveMachines(updatedMachines);
+
+    try {
+      await updateMachine(id, { isApproved: true });
+    } catch {
+      setMachines((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, isApproved: previousApproval } : m)),
+      );
+      setError("Không thể duyệt máy");
+    }
   };
 
-  // Refresh machines (reload from storage)
-  const refreshMachines = () => {
+  const refreshMachines = async () => {
     setLoading(true);
-    const loaded = getMachines();
-    setMachines(loaded);
-    setLoading(false);
+    setError(null);
+    try {
+      const loaded = await getMachines();
+      setMachines(loaded);
+    } catch {
+      setError("Không thể tải danh sách máy");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return {
     machines,
     filtered,
     loading,
+    error,
     searchQuery,
     setSearchQuery,
     viewMode,

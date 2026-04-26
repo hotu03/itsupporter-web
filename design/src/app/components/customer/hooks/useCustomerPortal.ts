@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getFirestoreMachines } from "../../../data/firestoreMachines";
-import { getFirestoreCustomers, getFirestoreCustomerByEmail, updateFirestoreCustomer, type Customer } from "../../../data/firestoreCustomers";
+import { getFirestoreCustomerByEmail, updateFirestoreCustomer, type Customer } from "../../../data/firestoreCustomers";
 import { getFirestoreCustomerPointHistoryByEmail, getFirestoreCustomerPointHistory, addFirestorePointHistory, type PointHistory } from "../../../data/firestorePoints";
 import { getFirestoreDiscounts, type DiscountCode } from "../../../data/firestoreDiscounts";
 import { getFirestoreInvoicesByEmail, type Invoice } from "../../../data/firestoreInvoices";
@@ -10,6 +10,7 @@ import {
   addFirestoreRedeemedVoucher,
   type RedeemedVoucher,
 } from "../../../data/firestoreRedeemedVouchers";
+import type { Machine } from "../../../data/machines";
 import { toast } from "sonner";
 
 export interface CustomerPortalData {

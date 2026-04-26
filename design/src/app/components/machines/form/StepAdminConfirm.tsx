@@ -2,6 +2,7 @@ import { Star, CreditCard } from "lucide-react";
 import { calculatePoints, getPointsExplanation, formatCurrency as formatCurr } from "../../../data/points";
 import { updateFirestoreTransactionByMachineId } from "../../../data/firestoreTransactions";
 import type { Status } from "../../../data/machines";
+import type { ServiceData } from "../../../data/services";
 import type { FormState } from "../hooks/useMachineForm";
 
 interface StepProps {
@@ -13,10 +14,11 @@ interface StepProps {
   discountAmount: number;
   onSubmit: (status: Status) => void;
   machineId?: string | number;
+  availableServices: ServiceData[];
 }
 
 export function StepAdminConfirm({
-  form, set, totalServiceAmount, finalAmount, discountApplied, discountAmount, onSubmit, machineId,
+  form, set, totalServiceAmount, finalAmount, discountApplied, discountAmount, onSubmit, machineId, availableServices,
 }: StepProps) {
   return (
     <div className="flex flex-col gap-5">
@@ -37,6 +39,7 @@ export function StepAdminConfirm({
           discountApplied={discountApplied}
           discountAmount={discountAmount}
           machineId={machineId}
+          availableServices={availableServices}
         />
       )}
 
@@ -136,9 +139,15 @@ interface InvoiceSectionProps {
   discountApplied: boolean;
   discountAmount: number;
   machineId?: string | number;
+  availableServices: ServiceData[];
 }
 
-function InvoiceSection({ form, set, totalServiceAmount, finalAmount, discountApplied, discountAmount, machineId }: InvoiceSectionProps) {
+function getServicePriceFromList(services: ServiceData[], serviceName: string): number {
+  const service = services.find((s) => s.name === serviceName);
+  return service?.price ?? 0;
+}
+
+function InvoiceSection({ form, set, totalServiceAmount, finalAmount, discountApplied, discountAmount, machineId, availableServices }: InvoiceSectionProps) {
   return (
     <div className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden">
       <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
@@ -194,7 +203,7 @@ function InvoiceSection({ form, set, totalServiceAmount, finalAmount, discountAp
               {form.additionalServices.map((service, idx) => (
                 <div key={idx} className="flex items-center justify-between text-xs">
                   <span className="text-gray-700">{service}</span>
-                  <span className="font-semibold text-gray-900">{formatCurr(getServicePrice(service))}</span>
+                  <span className="font-semibold text-gray-900">{formatCurr(getServicePriceFromList(availableServices, service))}</span>
                 </div>
               ))}
             </div>

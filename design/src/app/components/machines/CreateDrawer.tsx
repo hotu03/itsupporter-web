@@ -188,6 +188,7 @@ export function CreateDrawer({ onClose, onSave, machine, members, checklistItems
               discountAmount={discountAmount}
               onSubmit={handleSubmit}
               machineId={machine?.id}
+              availableServices={availableServices}
             />
           )}
         </div>
