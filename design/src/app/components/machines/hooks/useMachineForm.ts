@@ -261,9 +261,9 @@ function machineToForm(m: Machine): FormState {
 }
 
 function formToMachine(form: FormState, existing?: Machine | null): Machine {
-  // Calculate final amount
-  const totalServiceAmount = 0; // Caller should calculate this before passing
-  const finalAmount = totalServiceAmount - form.discountAmount;
+  // Use pre-calculated values from form (fixed during Firestore migration)
+  const totalServiceAmount = parseFloat(form.serviceAmount || '0');
+  const finalAmount = totalServiceAmount - (form.discountAmount || 0);
 
   return {
     id: existing?.id ?? "",
