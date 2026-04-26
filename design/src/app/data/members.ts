@@ -4,7 +4,7 @@ export type MemberType = "technician" | "tester";
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 export interface Member {
-  id: number;
+  id: string | number;
   name: string;
   username: string;
   dob: string;
@@ -95,21 +95,24 @@ export function saveMembers(members: Member[]): void {
 
 export function addMember(member: Omit<Member, "id">): Member {
   const members = getMembers();
-  const maxId = members.length > 0 ? Math.max(...members.map(m => m.id)) : 0;
+  const numericIds = members
+    .map((m) => typeof m.id === "number" ? m.id : Number.parseInt(String(m.id), 10))
+    .filter((id) => Number.isFinite(id));
+  const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
   const newMember: Member = { ...member, id: maxId + 1 };
   const updated = [...members, newMember];
   saveMembers(updated);
   return newMember;
 }
 
-export function updateMember(id: number, updates: Partial<Member>): Member[] {
+export function updateMember(id: string | number, updates: Partial<Member>): Member[] {
   const members = getMembers();
-  const updated = members.map(m => m.id === id ? { ...m, ...updates } : m);
+  const updated = members.map(m => String(m.id) === String(id) ? { ...m, ...updates } : m);
   saveMembers(updated);
   return updated;
 }
 
-export function deleteMember(id: number): void {
+export function deleteMember(id: string | number): void {
   const members = getMembers();
-  saveMembers(members.filter(m => m.id !== id));
+  saveMembers(members.filter(m => String(m.id) !== String(id)));
 }

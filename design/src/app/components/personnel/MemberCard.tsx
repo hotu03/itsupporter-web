@@ -6,7 +6,7 @@ import { POSITION_COLORS } from "../../data/members";
 interface MemberCardProps {
   member: Member;
   onEdit: (m: Member) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string | number) => void;
 }
 
 export function MemberCard({ member, onEdit, onDelete }: MemberCardProps) {

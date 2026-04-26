@@ -180,7 +180,7 @@ export default function SignUp() {
         firebaseUid = credential.user.uid;
       }
 
-      registerUserAndPendingMember({
+      await registerUserAndPendingMember({
         name: fullName,
         username: username.trim(),
         email: normalizedEmail,

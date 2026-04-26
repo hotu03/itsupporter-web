@@ -29,7 +29,7 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
   const [isAdmin, setIsAdmin] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
-  const prevIdRef = useRef<number | null>(null);
+  const prevIdRef = useRef<string | number | null>(null);
 
   // Sync form fields when member changes
   if (member && member.id !== prevIdRef.current) {

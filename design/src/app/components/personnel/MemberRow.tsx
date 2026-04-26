@@ -7,7 +7,7 @@ interface MemberRowProps {
   member: Member;
   rank?: number;
   onEdit: (m: Member) => void;
-  onDelete?: (id: number) => void;
+  onDelete?: (id: string | number) => void;
 }
 
 export function MemberRow({ member, rank, onEdit, onDelete }: MemberRowProps) {

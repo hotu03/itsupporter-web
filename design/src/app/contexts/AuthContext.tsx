@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       provider.addScope('email');
       const result = await signInWithPopup(staffAuth, provider);
       const email = result.user.email || '';
-      const registrationStatus = getRegistrationStatusByEmail(email);
+      const registrationStatus = await getRegistrationStatusByEmail(email);
 
       const mappedUser = mapFirebaseToLocalUser(result.user);
       if (registrationStatus === 'not_registered') {

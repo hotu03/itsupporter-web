@@ -5,7 +5,7 @@ import { POSITION_COLORS } from "../../data/members";
 
 interface AdminManagementTabProps {
   members: Member[];
-  onSetAdmin: (id: number, isAdmin: boolean) => void;
+  onSetAdmin: (id: string | number, isAdmin: boolean) => void;
 }
 
 function ConfirmDialog({
@@ -112,7 +112,7 @@ export function AdminManagementTab({ members, onSetAdmin }: AdminManagementTabPr
 
 interface AdminMemberCardProps {
   member: Member;
-  onSetAdmin: (id: number, isAdmin: boolean) => void;
+  onSetAdmin: (id: string | number, isAdmin: boolean) => void;
 }
 
 function AdminMemberCard({ member, onSetAdmin }: AdminMemberCardProps) {

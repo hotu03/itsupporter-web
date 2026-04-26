@@ -1,11 +1,13 @@
-// Registration orchestration layer - links User (auth/roles) and Member (personnel/approval)
-// Reuses patterns from users.ts, members.ts, and AuthContext mapFirebaseToLocalUser
-// Supports both email/password and Google signup with completion modal
-
 import type { Member } from "./members";
 import type { User, UserRole } from "./users";
-import { addMember, updateMember, getMembers, saveMembers } from "./members";
+import { updateMember, getMembers, saveMembers } from "./members";
 import { getUsers, saveUsers, getCurrentUser, hasPermission, setCurrentUser } from "./users";
+import {
+  getFirestoreMemberByEmail,
+  addFirestoreMember,
+  updateFirestoreMember,
+  getFirestoreMembers,
+} from "./firestoreMembers";
 
 export type RegistrationStatus = "not_registered" | "pending" | "approved" | "rejected";
 
@@ -15,7 +17,7 @@ export function generateMockUid(email: string): string {
 
 function getNextUserId(users: User[]): number {
   if (users.length === 0) return 1;
-  return Math.max(...users.map(user => user.id)) + 1;
+  return Math.max(...users.map((user) => user.id)) + 1;
 }
 
 export function mapMemberToUserRoleAndPermissions(member: Member): { role: UserRole; permissions: string[]; isRoot?: boolean } {
@@ -26,27 +28,27 @@ export function mapMemberToUserRoleAndPermissions(member: Member): { role: UserR
     return {
       role: "admin",
       permissions: ["manage:personnel", "view:finance", "execute:repair", "view:machines"],
-      isRoot: position.includes("president")
+      isRoot: position.includes("president"),
     };
   }
 
   if (member.type === "technician") {
     return {
       role: "technician",
-      permissions: ["execute:repair", "view:machines"]
+      permissions: ["execute:repair", "view:machines"],
     };
   }
 
   if (member.type === "tester") {
     return {
       role: "tester",
-      permissions: ["execute:test", "view:machines"]
+      permissions: ["execute:test", "view:machines"],
     };
   }
 
   return {
     role: "member",
-    permissions: ["view:machines"]
+    permissions: ["view:machines"],
   };
 }
 
@@ -56,7 +58,7 @@ export function linkExistingSeeds(): void {
   const users = getUsers();
   let changed = false;
 
-  const updatedMembers = members.map(member => {
+  const updatedMembers = members.map((member) => {
     if (!member.uid) {
       const uid = generateMockUid(member.email || member.username || "");
       changed = true;
@@ -70,15 +72,13 @@ export function linkExistingSeeds(): void {
   });
 
   if (changed) {
-    // Persist the uid updates to members (critical fix)
     saveMembers(updatedMembers);
 
-    // Ensure corresponding users exist (immutable)
     let nextUserId = getNextUserId(users);
     const newUsers = updatedMembers
-      .filter(m => m.email)
-      .filter(m => !users.some(u => u.uid === m.uid || u.email === m.email || u.username === m.username))
-      .map(m => {
+      .filter((m) => m.email)
+      .filter((m) => !users.some((u) => u.uid === m.uid || u.email === m.email || u.username === m.username))
+      .map((m) => {
         const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(m);
         return {
           id: nextUserId++,
@@ -87,30 +87,41 @@ export function linkExistingSeeds(): void {
           username: m.username,
           email: m.email!,
           role,
-          permissions: [...permissions], // immutable copy
+          permissions: [...permissions],
           isRoot,
           status: m.status || "active",
           registeredAt: m.registeredAt || new Date().toISOString(),
         } as User;
       });
+
     if (newUsers.length > 0) {
       saveUsers([...users, ...newUsers]);
     }
   }
 }
 
-export function getRegistrationStatusByEmail(email: string): RegistrationStatus {
+export async function getRegistrationStatusByEmail(email: string): Promise<RegistrationStatus> {
   if (!email) return "not_registered";
   const normalized = email.trim().toLowerCase();
+
+  try {
+    const firestoreMember = await getFirestoreMemberByEmail(normalized);
+    if (firestoreMember) {
+      return firestoreMember.approvalStatus;
+    }
+  } catch {
+    // Fallback to local data when Firestore is temporarily unavailable
+  }
+
   const members = getMembers();
-  const existing = members.find(m => m.email?.trim().toLowerCase() === normalized);
+  const existing = members.find((m) => m.email?.trim().toLowerCase() === normalized);
   if (!existing) return "not_registered";
   return existing.approvalStatus;
 }
 
-export function registerUserAndPendingMember(
-  formData: Omit<Member, "id" | "approvalStatus" | "status" | "machinesDone" | "testsRun"> & { uid?: string }
-): { user: User; member: Member } {
+export async function registerUserAndPendingMember(
+  formData: Omit<Member, "id" | "approvalStatus" | "status" | "machinesDone" | "testsRun"> & { uid?: string },
+): Promise<{ user: User; member: Member }> {
   const normalizedEmail = (formData.email || "").trim().toLowerCase();
   const normalizedUsername = formData.username.trim().toLowerCase();
   const uid = formData.uid || generateMockUid(normalizedEmail || normalizedUsername);
@@ -118,21 +129,20 @@ export function registerUserAndPendingMember(
   const existingMembers = getMembers();
   const users = getUsers();
   const duplicateMember = existingMembers.find(
-    m => m.email?.trim().toLowerCase() === normalizedEmail || m.username.trim().toLowerCase() === normalizedUsername
+    (m) => m.email?.trim().toLowerCase() === normalizedEmail || m.username.trim().toLowerCase() === normalizedUsername,
   );
   if (duplicateMember) {
     throw new Error("Email hoặc username đã tồn tại trong danh sách đăng ký.");
   }
 
   const existingUser = users.find(
-    u => u.uid === uid || u.email.trim().toLowerCase() === normalizedEmail || u.username.trim().toLowerCase() === normalizedUsername
+    (u) => u.uid === uid || u.email.trim().toLowerCase() === normalizedEmail || u.username.trim().toLowerCase() === normalizedUsername,
   );
 
   if (existingUser) {
     throw new Error("Tài khoản user đã tồn tại. Vui lòng dùng email/username khác.");
   }
 
-  // Create pending Member
   const memberData: Omit<Member, "id"> = {
     name: formData.name.trim(),
     username: formData.username.trim(),
@@ -154,11 +164,15 @@ export function registerUserAndPendingMember(
     testsRun: 0,
   };
 
-  const member = addMember(memberData);
+  const firestoreId = await addFirestoreMember(memberData);
+  const member: Member = {
+    ...memberData,
+    id: firestoreId,
+  };
 
-  // Create linked User (pending => inactive until approval)
+  saveMembers([...existingMembers, member]);
+
   const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(member);
-
   const user: User = {
     id: getNextUserId(users),
     uid,
@@ -176,37 +190,52 @@ export function registerUserAndPendingMember(
   return { user, member };
 }
 
-export function approveAndLinkMember(
-  id: number,
-  updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>
-): { success: boolean; member: Member; user?: User; error?: string } {
+export async function approveAndLinkMember(
+  id: string | number,
+  updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>,
+): Promise<{ success: boolean; member?: Member; user?: User; error?: string }> {
   const currentUser = getCurrentUser();
   if (!currentUser || !hasPermission(currentUser, "manage:personnel")) {
-    return { success: false, member: {} as Member, error: "Unauthorized" };
+    return { success: false, error: "Unauthorized" };
   }
 
   const members = getMembers();
-  const memberIndex = members.findIndex(m => m.id === id);
-  if (memberIndex === -1) {
-    return { success: false, member: {} as Member, error: "Member not found" };
+  const originalMember = members.find((m) => String(m.id) === String(id));
+  if (!originalMember) {
+    return { success: false, error: "Member not found" };
   }
 
-  const originalMember = members[memberIndex];
   const approvedMember: Member = {
     ...originalMember,
     ...updates,
-    approvalStatus: "approved" as const,
+    approvalStatus: "approved",
     status: updates?.status ?? "active",
   };
 
-  const updatedMembers = members.map((member, index) =>
-    index === memberIndex ? approvedMember : member
+  const updatedMembers = members.map((member) =>
+    String(member.id) === String(id) ? approvedMember : member,
+  );
+  saveMembers(updatedMembers);
+
+  try {
+    await updateFirestoreMember(String(originalMember.id), {
+      type: approvedMember.type,
+      isAdmin: approvedMember.isAdmin,
+      position: approvedMember.position,
+      status: approvedMember.status,
+      approvalStatus: "approved",
+    });
+  } catch {
+    // Keep local sync even if Firestore update fails temporarily
+  }
+
+  const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(approvedMember);
+  const users = getUsers();
+  const existingUser = users.find(
+    (user) => user.uid === approvedMember.uid || user.email === approvedMember.email,
   );
 
   let linkedUser: User | undefined;
-  const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(approvedMember);
-  const users = getUsers();
-  const existingUser = users.find(user => user.uid === approvedMember.uid || user.email === approvedMember.email);
 
   if (existingUser) {
     const updatedUsers: User[] = users.map((user): User =>
@@ -222,10 +251,10 @@ export function approveAndLinkMember(
             isRoot,
             status: approvedMember.status === "inactive" ? "inactive" : "active",
           }
-        : user
+        : user,
     );
     saveUsers(updatedUsers);
-    linkedUser = updatedUsers.find(user => user.id === existingUser.id);
+    linkedUser = updatedUsers.find((user) => user.id === existingUser.id);
   } else if (approvedMember.email) {
     const newUser: User = {
       id: getNextUserId(users),
@@ -243,14 +272,12 @@ export function approveAndLinkMember(
     linkedUser = newUser;
   }
 
-  saveMembers(updatedMembers);
-
   return { success: true, member: approvedMember, user: linkedUser };
 }
 
 export function syncMemberRoleToUser(
-  id: number,
-  updates: Partial<Member>
+  id: string | number,
+  updates: Partial<Member>,
 ): { success: boolean; member?: Member; user?: User; error?: string } {
   const currentUser = getCurrentUser();
   if (!currentUser || !hasPermission(currentUser, "manage:personnel")) {
@@ -258,7 +285,7 @@ export function syncMemberRoleToUser(
   }
 
   const members = getMembers();
-  const originalMember = members.find(member => member.id === id);
+  const originalMember = members.find((member) => String(member.id) === String(id));
   if (!originalMember) {
     return { success: false, error: "Member not found" };
   }
@@ -269,10 +296,10 @@ export function syncMemberRoleToUser(
   };
 
   const updatedMembers = updateMember(id, updates);
-  const savedMember = updatedMembers.find(member => member.id === id) || nextMember;
+  const savedMember = updatedMembers.find((member) => String(member.id) === String(id)) || nextMember;
   const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(savedMember);
   const users = getUsers();
-  const existingUser = users.find(user => user.uid === savedMember.uid || user.email === savedMember.email);
+  const existingUser = users.find((user) => user.uid === savedMember.uid || user.email === savedMember.email);
 
   if (!existingUser) {
     if (!savedMember.email) {
@@ -313,11 +340,11 @@ export function syncMemberRoleToUser(
           isRoot,
           status: savedMember.status === "inactive" ? "inactive" : "active",
         }
-      : user
+      : user,
   );
 
   saveUsers(updatedUsers);
-  const syncedUser = updatedUsers.find(user => user.id === existingUser.id);
+  const syncedUser = updatedUsers.find((user) => user.id === existingUser.id);
   if (currentUser.id === existingUser.id && syncedUser) {
     setCurrentUser(syncedUser);
   }
@@ -329,11 +356,39 @@ export function syncMemberRoleToUser(
   };
 }
 
-export function rejectMember(id: number): Member[] {
+export async function rejectMember(id: string | number): Promise<Member[]> {
   const currentUser = getCurrentUser();
   if (!currentUser || !hasPermission(currentUser, "manage:personnel")) {
     return getMembers();
   }
 
-  return updateMember(id, { approvalStatus: "rejected" as const, status: "inactive" });
+  const members = getMembers();
+  const member = members.find((m) => String(m.id) === String(id));
+  if (!member) {
+    return members;
+  }
+
+  const updated = updateMember(id, { approvalStatus: "rejected", status: "inactive" });
+
+  try {
+    await updateFirestoreMember(String(member.id), {
+      approvalStatus: "rejected",
+      status: "inactive",
+    });
+  } catch {
+    // Keep local sync even if Firestore update fails temporarily
+  }
+
+  return updated;
+}
+
+export async function syncMembersFromFirestore(): Promise<void> {
+  try {
+    const firestoreMembers = await getFirestoreMembers();
+    if (firestoreMembers.length > 0) {
+      saveMembers(firestoreMembers);
+    }
+  } catch {
+    // Keep existing local cache when Firestore is temporarily unavailable
+  }
 }

@@ -12,6 +12,7 @@ import {
   rejectMember as rejectMemberReg,
   linkExistingSeeds,
   syncMemberRoleToUser,
+  syncMembersFromFirestore,
 } from "../../../data/registration";
 
 export function useMembers() {
@@ -19,10 +20,10 @@ export function useMembers() {
   const [courses, setCourses] = useState<string[]>(COURSES_DEFAULT);
   const [loading, setLoading] = useState(true);
 
-  // Load from Firestore + link seeds for User-Member architecture
   useEffect(() => {
-    linkExistingSeeds(); // idempotent migration for uid + users
+    linkExistingSeeds();
     async function loadData() {
+      await syncMembersFromFirestore();
       const firestoreMembers = await getFirestoreMembers();
       setMembers(firestoreMembers);
       const storedCourses = localStorage.getItem("its_member_courses");
@@ -35,10 +36,9 @@ export function useMembers() {
       }
       setLoading(false);
     }
-    loadData();
+    void loadData();
   }, []);
 
-  // Sync courses to localStorage when changed
   useEffect(() => {
     if (!loading) {
       localStorage.setItem("its_member_courses", JSON.stringify(courses));
@@ -52,12 +52,10 @@ export function useMembers() {
 
   const handleAddMember = useCallback(async (member: Omit<Member, "id">) => {
     const id = await addFirestoreMember(member);
-    const newMember = { ...member, id: Number(id) } as Member;
-    syncMemberRoleToUser(Number(id), newMember);
+    const newMember = { ...member, id } as Member;
     await refreshMembers();
     return newMember;
   }, [refreshMembers]);
-
 
   const handleDeleteMember = useCallback(async (id: number | string) => {
     await deleteFirestoreMember(String(id));
@@ -68,15 +66,16 @@ export function useMembers() {
     id: number | string,
     updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>
   ) => {
-    const result = approveAndLinkMember(Number(id), updates);
+    const result = await approveAndLinkMember(id, updates);
     if (result.success) {
       await refreshMembers();
     }
   }, [refreshMembers]);
 
   const handleSetAdmin = useCallback(async (id: number | string, isAdminFlag: boolean) => {
-    const result = syncMemberRoleToUser(Number(id), { isAdmin: isAdminFlag });
+    const result = syncMemberRoleToUser(id, { isAdmin: isAdminFlag });
     if (result.success) {
+      await updateFirestoreMember(String(id), { isAdmin: isAdminFlag });
       await refreshMembers();
     }
   }, [refreshMembers]);
@@ -100,38 +99,41 @@ export function useMembers() {
   }, [refreshMembers]);
 
   const handleReject = useCallback(async (id: number | string) => {
-    // Use registration reject which sets inactive
-    const updated = rejectMemberReg(Number(id));
+    const updated = await rejectMemberReg(id);
     await refreshMembers();
     return updated;
   }, [refreshMembers]);
 
   const handleApproveAll = useCallback(async () => {
     const pendingIds = members
-      .filter(m => m.approvalStatus === "pending")
-      .map(m => m.id);
-    pendingIds.forEach(id => {
-      approveAndLinkMember(Number(id)); // links user + role for each
-    });
-    await refreshMembers(); // final refresh
+      .filter((m) => m.approvalStatus === "pending")
+      .map((m) => m.id);
+
+    for (const id of pendingIds) {
+      await approveAndLinkMember(id);
+    }
+
+    await refreshMembers();
   }, [members, refreshMembers]);
 
   const handleRejectAll = useCallback(async () => {
     const pendingIds = members
-      .filter(m => m.approvalStatus === "pending")
-      .map(m => m.id);
-    pendingIds.forEach(id => {
-      rejectMemberReg(Number(id));
-    });
+      .filter((m) => m.approvalStatus === "pending")
+      .map((m) => m.id);
+
+    for (const id of pendingIds) {
+      await rejectMemberReg(id);
+    }
+
     await refreshMembers();
   }, [members, refreshMembers]);
 
   const handleAddCourse = useCallback((c: string) => {
-    setCourses(prev => [...prev, c]);
+    setCourses((prev) => [...prev, c]);
   }, []);
 
   const handleDeleteCourse = useCallback((c: string) => {
-    setCourses(prev => prev.filter(x => x !== c));
+    setCourses((prev) => prev.filter((x) => x !== c));
   }, []);
 
   return {

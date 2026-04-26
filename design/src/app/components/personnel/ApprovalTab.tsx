@@ -5,8 +5,8 @@ import { POSITION_COLORS } from "../../data/members";
 
 interface ApprovalTabProps {
   members: Member[];
-  onApprove: (id: number, updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>) => void;
-  onReject: (id: number) => void;
+  onApprove: (id: string | number, updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>) => void;
+  onReject: (id: string | number) => void;
   onApproveAll: () => void;
   onRejectAll: () => void;
 }
@@ -108,8 +108,8 @@ export function ApprovalTab({ members, onApprove, onReject, onApproveAll, onReje
 // ─── Extracted: Pending Member Card ───────────────────────────────────────────
 function PendingMemberCard({ member, onApprove, onReject }: {
   member: Member;
-  onApprove: (id: number, updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>) => void;
-  onReject: (id: number) => void;
+  onApprove: (id: string | number, updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>) => void;
+  onReject: (id: string | number) => void;
 }) {
   const [selectedType, setSelectedType] = useState<Member["type"]>(member.type);
   const gradient = POSITION_COLORS[member.position] ?? "from-orange-400 to-orange-500";

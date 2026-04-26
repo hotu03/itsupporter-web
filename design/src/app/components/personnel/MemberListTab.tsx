@@ -13,7 +13,7 @@ interface MemberListTabProps {
   members: Member[];
   onAddMember: (member: Omit<Member, "id">) => void;
   onUpdateMember: (updated: Member) => void;
-  onDeleteMember: (id: number) => void;
+  onDeleteMember: (id: string | number) => void;
 }
 
 export function MemberListTab({ type, courses, members, onAddMember, onUpdateMember, onDeleteMember }: MemberListTabProps) {
