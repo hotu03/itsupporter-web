@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Machine, Status } from "../data/machines";
 import { getFirestoreMachines, addFirestoreMachine, updateFirestoreMachine } from "../data/firestoreMachines";
-import { getFirestoreCustomers, addFirestoreCustomer, updateFirestoreCustomer, getFirestoreCustomerByPhone } from "../data/firestoreCustomers";
+import { addFirestoreCustomer, updateFirestoreCustomer, getFirestoreCustomerByPhone } from "../data/firestoreCustomers";
 import { addFirestoreInvoice } from "../data/firestoreInvoices";
 import { addFirestoreTransaction, updateFirestoreTransaction } from "../data/firestoreTransactions";
 import { addFirestorePointHistory } from "../data/firestorePoints";
@@ -159,16 +159,20 @@ export default function Machines() {
 
       if (machine.registrationType === "in-person") {
         const now = new Date();
-        addFirestoreInvoice({
+        const invoiceServices = await Promise.all(
+          (machine.additionalServices || []).map(async (name) => ({
+            name,
+            price: await getServicePrice(name),
+          })),
+        );
+
+        await addFirestoreInvoice({
           machineId: id,
         customerName: machine.customerName,
         customerEmail: machine.customerEmail || "",
         phone: machine.phone,
         registrationType: "in-person",
-        services: (machine.additionalServices || []).map(name => ({
-          name,
-          price: getServicePrice(name),
-        })),
+        services: invoiceServices,
         machineCondition: machine.machineCondition,
         needs: machine.needs,
         category: machine.category,
@@ -191,12 +195,14 @@ export default function Machines() {
 
       if (machine.phone !== "—" && machine.customerName !== "Khách hàng") {
         // Award points immediately for in-person (customer already brought machine)
-        const pts = (machine.pointsEarned || 0) > 0 ? machine.pointsEarned : calculatePoints(machine.finalAmount || 0);
+        const pts: number = machine.pointsEarned && machine.pointsEarned > 0
+          ? machine.pointsEarned
+          : calculatePoints(machine.finalAmount || 0);
 
         // Add or update customer in Firestore
         const existingCustomer = await getFirestoreCustomerByPhone(machine.phone);
         if (existingCustomer?.id) {
-          await updateFirestoreCustomer(existingCustomer.id, {
+          await updateFirestoreCustomer(String(existingCustomer.id), {
             points: (existingCustomer.points || 0) + pts,
             totalRepairs: (existingCustomer.totalRepairs || 0) + 1,
           });
@@ -303,7 +309,7 @@ export default function Machines() {
       if (pts > 0 && machineToApprove.phone !== "—" && machineToApprove.customerName !== "Khách hàng") {
         const existingCustomer = await getFirestoreCustomerByPhone(machineToApprove.phone);
         if (existingCustomer?.id) {
-          await updateFirestoreCustomer(existingCustomer.id, {
+          await updateFirestoreCustomer(String(existingCustomer.id), {
             points: (existingCustomer.points || 0) + pts,
             totalRepairs: (existingCustomer.totalRepairs || 0) + 1,
           });
