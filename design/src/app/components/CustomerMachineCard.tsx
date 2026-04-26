@@ -1,5 +1,5 @@
 import { Clock, User, Wrench, CheckCircle2, RefreshCw, Package, AlertCircle } from "lucide-react";
-import { type Machine } from "../data/machines";
+import type { Machine } from "../data/firestoreMachines";
 
 interface CustomerMachineCardProps {
   machine: Machine;

@@ -14,12 +14,10 @@ interface RedeemModalProps {
 
 export function RedeemModal({ customer, isOpen, onClose, onRedeem }: RedeemModalProps) {
   const [redeemable, setRedeemable] = useState<DiscountCode[]>([]);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !customer) return;
 
-    setLoading(true);
     getFirestoreDiscounts()
       .then(discounts => {
         const redeemableDiscounts = discounts.filter((d: DiscountCode) => d.isRedeemable && d.pointsRequired);
@@ -28,8 +26,7 @@ export function RedeemModal({ customer, isOpen, onClose, onRedeem }: RedeemModal
       .catch(err => {
         console.error("Error loading discounts:", err);
         setRedeemable([]);
-      })
-      .finally(() => setLoading(false));
+      });
   }, [isOpen, customer]);
 
   if (!isOpen || !customer) return null;

@@ -315,7 +315,6 @@ export function TransactionTable({
                         if (!tx.machineId) {
                           return <span className="text-gray-300 text-xs">—</span>;
                         }
-                        const machines = getMachines();
                         const machine = machines.find(m => m.id === tx.machineId);
                         if (!machine) {
                           return <span className="text-gray-300 text-xs">—</span>;

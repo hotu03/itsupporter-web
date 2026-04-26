@@ -1,7 +1,6 @@
 import { Star, CreditCard } from "lucide-react";
-import { getServicePrice, formatCurrency as formatCurr } from "../../../data/services";
-import { calculatePoints, getPointsExplanation } from "../../../data/points";
-import { updateTransactionByMachineId } from "../../../data/finance";
+import { calculatePoints, getPointsExplanation, formatCurrency as formatCurr } from "../../../data/points";
+import { updateFirestoreTransactionByMachineId } from "../../../data/firestoreTransactions";
 import type { Status } from "../../../data/machines";
 import type { FormState } from "../hooks/useMachineForm";
 
@@ -167,9 +166,9 @@ function InvoiceSection({ form, set, totalServiceAmount, finalAmount, discountAp
               </select>
               {machineId && (
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (finalAmount > 0) {
-                      updateTransactionByMachineId(machineId, {
+                      await updateFirestoreTransactionByMachineId(machineId, {
                         paymentStatus: form.paymentStatus as "paid" | "pending" | "free",
                         discountCode: form.discountCode,
                         discountAmount: discountAmount,
