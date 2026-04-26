@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getServices, formatCurrency as formatCurr } from "../../data/services";
+import { getServices, formatCurrency as formatCurr, type ServiceData } from "../../data/services";
 import { validateDiscount, useDiscount } from "../../data/discounts";
 import { addFirestoreMachine } from "../../data/firestoreMachines";
 import { addFirestoreCustomer } from "../../data/firestoreCustomers";
@@ -56,13 +56,36 @@ export default function ServiceRegistration() {
   const [discountError, setDiscountError] = useState("");
   const [discountApplied, setDiscountApplied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [availableServices, setAvailableServices] = useState<ServiceData[]>([]);
+  const [servicesLoadError, setServicesLoadError] = useState("");
 
-  const availableServices = getServices();
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadServices = async () => {
+      try {
+        const services = await getServices();
+        if (!isMounted) return;
+        setAvailableServices(services);
+        setServicesLoadError("");
+      } catch {
+        if (!isMounted) return;
+        setAvailableServices([]);
+        setServicesLoadError("Không thể tải danh sách dịch vụ");
+      }
+    };
+
+    void loadServices();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Auto-calculate service amount
   useEffect(() => {
     const total = form.additionalServices.reduce((sum, serviceName) => {
-      const service = availableServices.find(s => s.name === serviceName);
+      const service = availableServices.find((s) => s.name === serviceName);
       return sum + (service?.price || 0);
     }, 0);
     setForm(prev => ({ ...prev, serviceAmount: total }));
@@ -89,6 +112,11 @@ export default function ServiceRegistration() {
   };
 
   const handleSubmit = async () => {
+    if (servicesLoadError && form.additionalServices.length > 0) {
+      toast.error("Không thể gửi đăng ký khi chưa tải được giá dịch vụ đã chọn");
+      return;
+    }
+
     if (!form.customerName || !form.phone || !form.customerEmail) {
       alert("Vui lòng điền đầy đủ thông tin khách hàng (tên, email, SĐT)!");
       return;
@@ -115,7 +143,6 @@ export default function ServiceRegistration() {
         ? form.additionalServices.join(", ")
         : (form.needs || "Dịch vụ khác");
 
-      console.log("[ServiceRegistration] Adding machine...");
       const id = await addFirestoreMachine({
         status: "WAITING",
         customerName: form.customerName,
@@ -147,8 +174,6 @@ export default function ServiceRegistration() {
         pointsEarned: pointsEarned,
       });
 
-      console.log("[ServiceRegistration] Machine added, ID:", id);
-      console.log("[ServiceRegistration] Adding customer...", form.customerName, form.customerEmail);
       await addFirestoreCustomer({
         name: form.customerName,
         phone: form.phone,
@@ -178,7 +203,6 @@ export default function ServiceRegistration() {
       }
 
       try {
-        console.log("[ServiceRegistration] Adding transaction...");
         await addFirestoreTransaction({
           machineId: id,
           customerName: form.customerName,
@@ -204,7 +228,7 @@ export default function ServiceRegistration() {
           phone: form.phone,
           registrationType: "online",
           services: form.additionalServices.map(serviceName => {
-            const service = availableServices.find(s => s.name === serviceName);
+            const service = availableServices.find((s) => s.name === serviceName);
             return { name: serviceName, price: service?.price || 0 };
           }),
           machineCondition: form.machineCondition || "",
