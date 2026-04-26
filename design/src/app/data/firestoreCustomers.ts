@@ -2,6 +2,9 @@ import { collection, doc, getDocs, query, where, addDoc, updateDoc, deleteDoc } 
 import { db } from '../utils/firebase';
 import type { Customer } from './customers';
 
+// Re-export types for convenience
+export type { Customer };
+
 const COLLECTION_NAME = 'customers';
 
 // Get all customers from Firestore

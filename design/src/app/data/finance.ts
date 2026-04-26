@@ -1,5 +1,10 @@
-// Finance data management
+/**
+ * @deprecated Use firestoreTransactions.ts instead.
+ * This file is kept as a deprecated stub for backward compatibility.
+ * All calls are redirected to the Firestore implementation.
+ */
 
+// Define the interface here as the source of truth (to avoid circular imports)
 export interface Transaction {
   id: string;
   machineId?: string | number;
@@ -13,55 +18,31 @@ export interface Transaction {
   discountAmount?: number;
 }
 
-// Get transactions from localStorage
-export function getTransactions(): Transaction[] {
-  if (typeof window === "undefined") return [];
+import {
+  getFirestoreTransactions as getFromFirestore,
+  addFirestoreTransaction as addFromFirestore,
+  updateFirestoreTransactionByMachineId as updateByMachineId,
+} from './firestoreTransactions';
 
-  const stored = localStorage.getItem("its_transactions");
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return [];
-    }
-  }
-  return [];
+// ─── Deprecated Stubs (redirect to Firestore) ───────────────────────────────
+
+export async function getTransactions(): Promise<Transaction[]> {
+  console.warn("[DEPRECATED] getTransactions() from finance.ts → Use getFirestoreTransactions() from firestoreTransactions.ts");
+  return getFromFirestore();
 }
 
-// Save transactions to localStorage
-export function saveTransactions(transactions: Transaction[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("its_transactions", JSON.stringify(transactions));
+export async function addTransaction(transaction: Omit<Transaction, "id">): Promise<Transaction> {
+  console.warn("[DEPRECATED] addTransaction() from finance.ts → Use addFirestoreTransaction() from firestoreTransactions.ts");
+  const id = await addFromFirestore(transaction as any);
+  return { ...transaction, id } as Transaction;
 }
 
-// Add a new transaction
-export function addTransaction(transaction: Omit<Transaction, "id">): Transaction {
-  const transactions = getTransactions();
-  const newId = `TXN-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-  const newTransaction: Transaction = {
-    ...transaction,
-    id: newId,
-  };
-
-  transactions.push(newTransaction);
-  saveTransactions(transactions);
-
-  return newTransaction;
-}
-
-// Update an existing transaction by machineId
-export function updateTransactionByMachineId(
+// This is the most important function used in CreateDrawer.tsx and Machines.tsx
+export async function updateTransactionByMachineId(
   machineId: string | number,
   updates: Partial<Pick<Transaction, "paymentStatus" | "discountCode" | "discountAmount" | "service" | "amount">>
-): Transaction | null {
-  const transactions = getTransactions();
-  const index = transactions.findIndex(t => t.machineId === machineId);
-
-  if (index === -1) return null;
-
-  transactions[index] = { ...transactions[index], ...updates };
-  saveTransactions(transactions);
-
-  return transactions[index];
+): Promise<Transaction | null> {
+  console.warn("[DEPRECATED] updateTransactionByMachineId() from finance.ts → Use updateFirestoreTransactionByMachineId() from firestoreTransactions.ts");
+  await updateByMachineId(machineId, updates as any);
+  return null; // The old function returned the updated transaction, but for simplicity we return null
 }

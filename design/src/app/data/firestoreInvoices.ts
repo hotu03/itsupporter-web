@@ -2,6 +2,9 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, query, 
 import { db } from '../utils/firebase';
 import type { Invoice } from './invoices';
 
+// Re-export types for convenience
+export type { Invoice };
+
 const COLLECTION_NAME = 'invoices';
 const COUNTER_COLLECTION = 'counters';
 

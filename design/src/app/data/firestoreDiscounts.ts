@@ -2,6 +2,9 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, query, 
 import { db } from '../utils/firebase';
 import type { DiscountCode } from './discounts';
 
+// Re-export types for convenience
+export type { DiscountCode };
+
 const COLLECTION_NAME = 'discounts';
 
 // Default discount codes

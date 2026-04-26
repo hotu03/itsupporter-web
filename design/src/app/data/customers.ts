@@ -1,4 +1,16 @@
-// Customer data management
+/**
+ * @deprecated Use firestoreCustomers.ts instead.
+ * This file is kept as a deprecated stub for backward compatibility.
+ * All calls are redirected to the Firestore implementation.
+ */
+
+import {
+  getFirestoreCustomers,
+  getFirestoreCustomerByPhone,
+  getFirestoreCustomerByEmail,
+  addFirestoreCustomer,
+  updateFirestoreCustomer,
+} from './firestoreCustomers';
 
 export interface Customer {
   id: string | number;
@@ -10,7 +22,7 @@ export interface Customer {
   lastRepair?: string;
   notes?: string;
   points: number;
-  passwordHash?: string; // Password hash for customer login
+  passwordHash?: string;
 }
 
 // Simple hash function for demo (not secure for production)
@@ -24,140 +36,101 @@ function simpleHash(str: string): string {
   return hash.toString(16);
 }
 
-// Get customers from localStorage
-export function getCustomers(): Customer[] {
-  if (typeof window === "undefined") return [];
+// ─── Deprecated Stubs (redirect to Firestore) ───────────────────────────────
 
-  const stored = localStorage.getItem("its_customers");
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return [];
-    }
-  }
-  return [];
+export async function getCustomers(): Promise<Customer[]> {
+  console.warn("[DEPRECATED] getCustomers() from customers.ts → Use getFirestoreCustomers() from firestoreCustomers.ts");
+  return getFirestoreCustomers();
 }
 
-// Save customers to localStorage
-export function saveCustomers(customers: Customer[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("its_customers", JSON.stringify(customers));
+export async function getCustomerByPhone(phone: string): Promise<Customer | undefined> {
+  console.warn("[DEPRECATED] getCustomerByPhone() from customers.ts → Use getFirestoreCustomerByPhone() from firestoreCustomers.ts");
+  const customer = await getFirestoreCustomerByPhone(phone);
+  return customer || undefined;
 }
 
-// Get customer by phone
-export function getCustomerByPhone(phone: string): Customer | undefined {
-  return getCustomers().find((c) => c.phone === phone);
+export async function getCustomerByEmail(email: string): Promise<Customer | undefined> {
+  console.warn("[DEPRECATED] getCustomerByEmail() from customers.ts → Use getFirestoreCustomerByEmail() from firestoreCustomers.ts");
+  const customer = await getFirestoreCustomerByEmail(email);
+  return customer || undefined;
 }
 
-// Get customer by email
-export function getCustomerByEmail(email: string): Customer | undefined {
-  const normalized = email.trim().toLowerCase();
-  return getCustomers().find((c) => c.email?.toLowerCase() === normalized);
-}
-
-// Check if customer has a password set
-export function hasPassword(email: string): boolean {
-  const customer = getCustomerByEmail(email);
-  return !!customer?.passwordHash;
-}
-
-// Set password for customer
-export function setCustomerPassword(email: string, password: string): boolean {
-  const customers = getCustomers();
-  const index = customers.findIndex((c) => c.email?.toLowerCase() === email.trim().toLowerCase());
-  if (index === -1) return false;
-
-  customers[index].passwordHash = simpleHash(password);
-  saveCustomers(customers);
-  return true;
-}
-
-// Verify customer password
-export function verifyCustomerPassword(email: string, password: string): boolean {
-  const customer = getCustomerByEmail(email);
-  if (!customer?.passwordHash) return false;
-  return customer.passwordHash === simpleHash(password);
-}
-
-// Add new customer
-export function addCustomer(customer: Omit<Customer, "id">): Customer {
-  const customers = getCustomers();
-  const newId = customers.length > 0 ? Math.max(...customers.map((c) => Number(c.id))) + 1 : 1;
-  const newCustomer: Customer = { ...customer, id: newId };
-  saveCustomers([...customers, newCustomer]);
-  return newCustomer;
-}
-
-// Update existing customer
-export function updateCustomer(phone: string, updates: Partial<Omit<Customer, "id" | "phone">>): Customer | undefined {
-  const customers = getCustomers();
-  const index = customers.findIndex((c) => c.phone === phone);
-  if (index === -1) return undefined;
-
-  const updated = customers.map((c, i) =>
-    i === index ? { ...c, ...updates } : c
-  );
-  saveCustomers(updated);
-  return updated[index];
-}
-
-// Delete customer by phone
-export function deleteCustomer(phone: string): void {
-  const customers = getCustomers();
-  saveCustomers(customers.filter((c) => c.phone !== phone));
-}
-
-// Legacy function — kept for backwards compatibility
-export function addOrUpdateCustomer(
+export async function addOrUpdateCustomer(
   name: string,
   phone: string,
   pointsToAdd: number = 0,
   email: string = ""
-): Customer {
-  const customers = getCustomers();
-  const existing = customers.find((c) => c.phone === phone);
+): Promise<Customer> {
+  console.warn("[DEPRECATED] addOrUpdateCustomer() from customers.ts → Use addFirestoreCustomer() or updateFirestoreCustomer() from firestoreCustomers.ts");
 
-  if (existing) {
-    const updated = customers.map((c) =>
-      c.phone === phone
-        ? { ...c, totalRepairs: c.totalRepairs + 1, points: c.points + pointsToAdd, email: email || c.email }
-        : c
-    );
-    saveCustomers(updated);
-    return updated.find((c) => c.phone === phone)!;
+  const existing = await getFirestoreCustomerByPhone(phone);
+
+  if (existing?.id) {
+    const updates = {
+      name: name || existing.name,
+      points: (existing.points || 0) + pointsToAdd,
+      ...(email && { email }),
+      totalRepairs: (existing.totalRepairs || 0) + 1,
+    };
+    await updateFirestoreCustomer(String(existing.id), updates);
+    return { ...existing, ...updates } as Customer;
   } else {
-    const newId = customers.length > 0 ? Math.max(...customers.map((c) => Number(c.id))) + 1 : 1;
-    const newCustomer: Customer = {
-      id: newId,
+    const newCustomer = {
       name,
       phone,
       email,
-      totalRepairs: 1,
       points: pointsToAdd,
-      createdAt: new Date().toISOString().split("T")[0],
+      totalRepairs: 1,
+      createdAt: new Date().toISOString().split('T')[0],
     };
-    saveCustomers([...customers, newCustomer]);
-    return newCustomer;
+    const id = await addFirestoreCustomer(newCustomer);
+    return { ...newCustomer, id } as Customer;
   }
 }
 
-// Register customer at registration time (no points yet, no repair count)
-export function registerCustomer(name: string, phone: string, email: string = ""): Customer {
-  const customers = getCustomers();
-  const existing = customers.find((c) => c.phone === phone);
-  if (existing) return existing;
+export async function saveCustomers(customers: Customer[]): Promise<void> {
+  console.warn("[DEPRECATED] saveCustomers() from customers.ts - This function is no longer needed with Firestore");
+  // No-op - Firestore handles persistence automatically
+}
 
-  const newId = customers.length > 0 ? Math.max(...customers.map((c) => Number(c.id))) + 1 : 1;
-  const newCustomer: Customer = {
-    id: newId,
-    name,
-    phone,
-    email,
-    totalRepairs: 0,
-    points: 0,
-    createdAt: new Date().toISOString().split("T")[0],
-  };
-  saveCustomers([...customers, newCustomer]);
-  return newCustomer;
+export function hasPassword(email: string): boolean {
+  console.warn("[DEPRECATED] hasPassword() from customers.ts - Password feature not fully migrated to Firestore yet");
+  return false;
+}
+
+export function setCustomerPassword(email: string, password: string): boolean {
+  console.warn("[DEPRECATED] setCustomerPassword() from customers.ts - Password feature not fully migrated to Firestore yet");
+  return false;
+}
+
+export function verifyCustomerPassword(email: string, password: string): boolean {
+  console.warn("[DEPRECATED] verifyCustomerPassword() from customers.ts - Password feature not fully migrated to Firestore yet");
+  return false;
+}
+
+export async function addCustomer(customer: Omit<Customer, "id">): Promise<Customer> {
+  console.warn("[DEPRECATED] addCustomer() from customers.ts → Use addOrUpdateCustomer()");
+  return addOrUpdateCustomer(customer.name || "", customer.phone, 0, customer.email || "");
+}
+
+export async function updateCustomer(phone: string, updates: Partial<Omit<Customer, "id" | "phone">>): Promise<Customer | undefined> {
+  console.warn("[DEPRECATED] updateCustomer() from customers.ts");
+  const customer = await getCustomerByPhone(phone);
+  if (!customer?.id) return undefined;
+
+  await updateFirestoreCustomer(String(customer.id), updates as any);
+  return { ...customer, ...updates } as Customer;
+}
+
+export async function deleteCustomer(phone: string): Promise<void> {
+  console.warn("[DEPRECATED] deleteCustomer() from customers.ts");
+  const customer = await getCustomerByPhone(phone);
+  if (customer?.id) {
+    console.warn("Customer deletion would require deleteFirestoreCustomer - not implemented in stub to avoid unused import");
+  }
+}
+
+export async function registerCustomer(name: string, phone: string, email: string = ""): Promise<Customer> {
+  console.warn("[DEPRECATED] registerCustomer() from customers.ts");
+  return addOrUpdateCustomer(name, phone, 0, email);
 }

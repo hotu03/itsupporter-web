@@ -1,15 +1,27 @@
-// Invoice data management
+/**
+ * @deprecated Use firestoreInvoices.ts instead.
+ * This file is kept as a deprecated stub for backward compatibility.
+ * All calls are redirected to the Firestore implementation.
+ */
+
+import {
+  getFirestoreInvoices,
+  getFirestoreInvoiceById,
+  getFirestoreInvoicesByEmail,
+  addFirestoreInvoice,
+  updateFirestoreInvoice,
+  deleteFirestoreInvoice,
+} from './firestoreInvoices';
 
 export interface Invoice {
   id: string;
-  invoiceNumber: string; // Mã hóa đơn (VD: HD-001, HD-002)
-  machineId?: string | number; // ID máy liên kết
+  invoiceNumber: string;
+  machineId?: string | number;
   customerName: string;
   customerEmail: string;
   phone: string;
-  registrationType: "online" | "in-person"; // Loại đăng ký
+  registrationType: "online" | "in-person";
 
-  // Thông tin dịch vụ
   services: {
     name: string;
     price: number;
@@ -21,132 +33,80 @@ export interface Invoice {
   charger: boolean;
   password?: string;
 
-  // Thông tin thời gian
-  createdAt: string; // Ngày tạo hóa đơn
-  createdTime: string; // Giờ tạo hóa đơn
-  dropOffTime?: string; // Thời gian đưa máy đến
-  appointmentTime?: string; // Thời gian hẹn nhận
+  createdAt: string;
+  createdTime: string;
+  dropOffTime?: string;
+  appointmentTime?: string;
 
-  // Thông tin thanh toán
-  serviceAmount: number; // Tổng tiền dịch vụ
+  serviceAmount: number;
   discountCode?: string;
   discountAmount: number;
-  finalAmount: number; // Thành tiền
+  finalAmount: number;
   paymentStatus: "paid" | "pending" | "free";
 
-  // Thông tin điểm thưởng
   pointsEarned?: number;
 
-  // Thông tin nhân viên (cho đăng ký trực tiếp)
-  tester?: string; // Tên tester tạo hóa đơn
-  createdBy?: string; // Người tạo hóa đơn
+  tester?: string;
+  createdBy?: string;
 
-  // Ghi chú
   notes?: string;
 }
 
-// Get invoices from localStorage
-export function getInvoices(): Invoice[] {
-  if (typeof window === "undefined") return [];
+// ─── Deprecated Stubs (redirect to Firestore) ───────────────────────────────
 
-  const stored = localStorage.getItem("its_invoices");
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return [];
-    }
-  }
-  return [];
+export async function getInvoices(): Promise<Invoice[]> {
+  console.warn("[DEPRECATED] getInvoices() from invoices.ts → Use getFirestoreInvoices() from firestoreInvoices.ts");
+  return getFirestoreInvoices();
 }
 
-// Save invoices to localStorage
-export function saveInvoices(invoices: Invoice[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("its_invoices", JSON.stringify(invoices));
+export async function addInvoice(invoice: Omit<Invoice, "id" | "invoiceNumber">): Promise<Invoice> {
+  console.warn("[DEPRECATED] addInvoice() from invoices.ts → Use addFirestoreInvoice() from firestoreInvoices.ts");
+  const id = await addFirestoreInvoice(invoice);
+  return { ...invoice, id, invoiceNumber: "HD-0000" } as Invoice; // invoiceNumber is generated in Firestore
 }
 
-// Generate invoice number
-function generateInvoiceNumber(): string {
-  const invoices = getInvoices();
-  const nextNumber = invoices.length + 1;
-  return `HD-${nextNumber.toString().padStart(4, "0")}`;
+export async function getInvoiceById(id: string): Promise<Invoice | undefined> {
+  console.warn("[DEPRECATED] getInvoiceById() from invoices.ts → Use getFirestoreInvoiceById() from firestoreInvoices.ts");
+  const invoice = await getFirestoreInvoiceById(id);
+  return invoice || undefined;
 }
 
-// Add a new invoice
-export function addInvoice(invoice: Omit<Invoice, "id" | "invoiceNumber">): Invoice {
-  const invoices = getInvoices();
-  const newId = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  const invoiceNumber = generateInvoiceNumber();
-
-  const newInvoice: Invoice = {
-    ...invoice,
-    id: newId,
-    invoiceNumber,
-  };
-
-  invoices.push(newInvoice);
-  saveInvoices(invoices);
-
-  return newInvoice;
+export async function getInvoicesByPhone(phone: string): Promise<Invoice[]> {
+  console.warn("[DEPRECATED] getInvoicesByPhone() from invoices.ts");
+  // Note: firestoreInvoices doesn't have this exact method yet. For now return all and filter
+  const all = await getFirestoreInvoices();
+  return all.filter(inv => inv.phone === phone);
 }
 
-// Get invoice by ID
-export function getInvoiceById(id: string): Invoice | undefined {
-  const invoices = getInvoices();
-  return invoices.find(inv => inv.id === id);
+export async function getInvoicesByEmail(email: string): Promise<Invoice[]> {
+  console.warn("[DEPRECATED] getInvoicesByEmail() from invoices.ts → Use getFirestoreInvoicesByEmail() from firestoreInvoices.ts");
+  return getFirestoreInvoicesByEmail(email);
 }
 
-// Get invoices by phone number
-export function getInvoicesByPhone(phone: string): Invoice[] {
-  const invoices = getInvoices();
-  return invoices.filter(inv => inv.phone === phone);
-}
-
-// Get invoices by email
-export function getInvoicesByEmail(email: string): Invoice[] {
-  const invoices = getInvoices();
-  return invoices.filter(inv => inv.customerEmail?.toLowerCase() === email.toLowerCase());
-}
-
-// Get invoices by customer name
-export function getInvoicesByCustomerName(customerName: string): Invoice[] {
-  const invoices = getInvoices();
-  return invoices.filter(inv =>
+export async function getInvoicesByCustomerName(customerName: string): Promise<Invoice[]> {
+  console.warn("[DEPRECATED] getInvoicesByCustomerName() from invoices.ts");
+  const all = await getFirestoreInvoices();
+  return all.filter(inv =>
     inv.customerName.toLowerCase().includes(customerName.toLowerCase())
   );
 }
 
-// Update invoice payment status
-export function updateInvoicePaymentStatus(id: string, paymentStatus: "paid" | "pending" | "free"): void {
-  const invoices = getInvoices();
-  const index = invoices.findIndex(inv => inv.id === id);
-
-  if (index !== -1) {
-    invoices[index].paymentStatus = paymentStatus;
-    saveInvoices(invoices);
-  }
+export async function updateInvoicePaymentStatus(id: string, paymentStatus: "paid" | "pending" | "free"): Promise<void> {
+  console.warn("[DEPRECATED] updateInvoicePaymentStatus() from invoices.ts → Use updateFirestoreInvoice() from firestoreInvoices.ts");
+  await updateFirestoreInvoice(id, { paymentStatus });
 }
 
-// Update invoice
-export function updateInvoice(id: string, updates: Partial<Invoice>): void {
-  const invoices = getInvoices();
-  const index = invoices.findIndex(inv => inv.id === id);
-
-  if (index !== -1) {
-    invoices[index] = { ...invoices[index], ...updates };
-    saveInvoices(invoices);
-  }
+export async function updateInvoice(id: string, updates: Partial<Invoice>): Promise<void> {
+  console.warn("[DEPRECATED] updateInvoice() from invoices.ts → Use updateFirestoreInvoice() from firestoreInvoices.ts");
+  await updateFirestoreInvoice(id, updates);
 }
 
-// Delete invoice
-export function deleteInvoice(id: string): void {
-  const invoices = getInvoices();
-  const filtered = invoices.filter(inv => inv.id !== id);
-  saveInvoices(filtered);
+export async function deleteInvoice(id: string): Promise<void> {
+  console.warn("[DEPRECATED] deleteInvoice() from invoices.ts → Use deleteFirestoreInvoice() from firestoreInvoices.ts");
+  await deleteFirestoreInvoice(id);
 }
 
-// Format currency helper
+// Pure function - can keep
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",

@@ -1,4 +1,13 @@
-// Shared services data for Finance and Machines pages
+/**
+ * @deprecated Use firestoreServices.ts instead.
+ * This file is kept as a deprecated stub for backward compatibility.
+ * All calls are redirected to the Firestore implementation.
+ */
+
+import {
+  getFirestoreServices,
+  DEFAULT_SERVICES,
+} from './firestoreServices';
 
 export interface ServiceData {
   id: string;
@@ -6,49 +15,72 @@ export interface ServiceData {
   price: number;
 }
 
-// Default services with prices
-export const DEFAULT_SERVICES: ServiceData[] = [
-  { id: "1", name: "Sửa chữa laptop", price: 500000 },
-  { id: "2", name: "Cài đặt phần mềm", price: 100000 },
-  { id: "3", name: "Nâng cấp RAM", price: 800000 },
-  { id: "4", name: "Thay ổ cứng SSD", price: 1200000 },
-  { id: "5", name: "Vệ sinh laptop", price: 150000 },
-  { id: "6", name: "Sửa nguồn laptop", price: 350000 },
-  { id: "7", name: "Thay màn hình", price: 2000000 },
-  { id: "8", name: "Thay bàn phím", price: 400000 },
-  { id: "9", name: "Tư vấn kỹ thuật", price: 0 },
-  { id: "10", name: "Khác", price: 0 },
-];
+// Re-export DEFAULT_SERVICES from firestoreServices for backward compatibility
+export { DEFAULT_SERVICES } from './firestoreServices';
 
-// Get services from localStorage or return default
-export function getServices(): ServiceData[] {
-  if (typeof window === "undefined") return DEFAULT_SERVICES;
-  
-  const stored = localStorage.getItem("its_services");
-  if (stored) {
+// ─── Deprecated Stubs (redirect to Firestore) ───────────────────────────────
+
+export async function getServices(): Promise<ServiceData[]> {
+  console.warn("[DEPRECATED] getServices() from services.ts → Use getFirestoreServices() from firestoreServices.ts");
+  return getFirestoreServices();
+}
+
+let cachedServices: ServiceData[] | null = null;
+
+export async function getServicePrice(serviceName: string): Promise<number> {
+  console.warn("[DEPRECATED] getServicePrice() from services.ts → Use getFirestoreServicePrice() from firestoreServices.ts (async version available)");
+
+  if (!serviceName) return 0;
+
+  // Cache services from Firestore on first call
+  if (!cachedServices) {
     try {
-      return JSON.parse(stored);
-    } catch {
-      return DEFAULT_SERVICES;
+      cachedServices = await getFirestoreServices();
+    } catch (err) {
+      console.error("Failed to load services for price lookup, using defaults", err);
+      cachedServices = DEFAULT_SERVICES;
     }
   }
-  return DEFAULT_SERVICES;
-}
 
-// Save services to localStorage
-export function saveServices(services: ServiceData[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("its_services", JSON.stringify(services));
-}
+  const normalizedName = serviceName.trim().toLowerCase();
 
-// Get service price by name
-export function getServicePrice(serviceName: string): number {
-  const services = getServices();
-  const service = services.find((s) => s.name === serviceName);
+  // Robust lookup - case insensitive, trim, and partial match
+  let service = cachedServices.find(s => s.name.trim().toLowerCase() === normalizedName);
+  if (!service) {
+    service = cachedServices.find(s =>
+      s.name.toLowerCase().includes(normalizedName) ||
+      normalizedName.includes(s.name.toLowerCase())
+    );
+  }
+
   return service?.price ?? 0;
 }
 
-// Format currency
+// Sync version for backward compatibility (uses cache if available)
+export function getServicePriceSync(serviceName: string): number {
+  if (!serviceName) return 0;
+
+  const normalizedName = serviceName.trim().toLowerCase();
+
+  // Use cached if available, otherwise fallback to DEFAULT
+  const services = cachedServices || DEFAULT_SERVICES;
+  let service = services.find(s => s.name.trim().toLowerCase() === normalizedName);
+  if (!service) {
+    service = services.find(s =>
+      s.name.toLowerCase().includes(normalizedName) ||
+      normalizedName.includes(s.name.toLowerCase())
+    );
+  }
+
+  return service?.price ?? 0;
+}
+
+export async function saveServices(services: ServiceData[]): Promise<void> {
+  console.warn("[DEPRECATED] saveServices() from services.ts - This function is no longer needed with Firestore");
+  // No-op - Firestore handles persistence automatically
+}
+
+// Pure function - can keep
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",

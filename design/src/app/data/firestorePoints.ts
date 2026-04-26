@@ -2,6 +2,9 @@ import { collection, doc, getDocs, addDoc, updateDoc, query, where } from 'fireb
 import { db } from '../utils/firebase';
 import type { PointRule, PointHistory } from './points';
 
+// Re-export types for convenience
+export type { PointRule, PointHistory };
+
 const POINT_RULES_COLLECTION = 'point_rules';
 const POINT_HISTORY_COLLECTION = 'point_history';
 

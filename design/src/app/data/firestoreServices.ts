@@ -14,15 +14,17 @@ export const DEFAULT_SERVICES: ServiceData[] = [
   { id: "6", name: "Sửa nguồn laptop", price: 350000 },
   { id: "7", name: "Thay màn hình", price: 2000000 },
   { id: "8", name: "Thay bàn phím", price: 400000 },
-  { id: "9", name: "Tư vấn kỹ thuật", price: 0 },
-  { id: "10", name: "Khác", price: 0 },
+  { id: "9", name: "Tra keo xịn", price: 70000 },
+  { id: "10", name: "Tư vấn kỹ thuật", price: 0 },
+  { id: "11", name: "Khác", price: 0 },
 ];
 
 // Get all services from Firestore
 export async function getFirestoreServices(): Promise<ServiceData[]> {
   const snapshot = await getDocs(collection(db, COLLECTION_NAME));
   if (snapshot.empty) {
-    // If no services in Firestore, return defaults and optionally seed them
+    console.log("📦 Services collection is empty. Seeding default services...");
+    await seedDefaultServices();
     return DEFAULT_SERVICES;
   }
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as ServiceData));

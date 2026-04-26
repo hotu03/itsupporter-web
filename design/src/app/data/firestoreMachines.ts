@@ -2,6 +2,9 @@ import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, 
 import { db } from '../utils/firebase';
 import type { Machine, Status } from './machines';
 
+// Re-export types for convenience when importing from this file
+export type { Machine, Status };
+
 const COLLECTION_NAME = 'machines';
 
 // Get all machines from Firestore
