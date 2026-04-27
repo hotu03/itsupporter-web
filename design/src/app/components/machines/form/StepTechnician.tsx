@@ -5,13 +5,13 @@ import type { FormState } from "../hooks/useMachineForm";
 interface StepProps {
   form: FormState;
   set: (key: keyof FormState, value: unknown) => void;
-  members: string[];
+  technicianMembers: string[];
   technicianChecklist: string[];
   toggleCheck: (field: "checklistBefore" | "checklistAfter" | "techChecklist", i: number) => void;
 }
 
 export function StepTechnician({
-  form, set, members, technicianChecklist, toggleCheck,
+  form, set, technicianMembers, technicianChecklist, toggleCheck,
 }: StepProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -24,7 +24,7 @@ export function StepTechnician({
         <SearchableSelect
           value={form.technician}
           onChange={(v) => set("technician", v)}
-          options={members}
+          options={technicianMembers}
           placeholder="Chọn technician..."
           label="Tên technician"
         />

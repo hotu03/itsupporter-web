@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Search,
   ChevronDown,
@@ -15,33 +15,13 @@ import { addFirestorePointHistory } from "../data/firestorePoints";
 import { calculatePoints } from "../data/points";
 import { createFirebaseCustomer, sendCustomerPasswordReset } from "../data/firebase-auth";
 import { getServicePrice } from "../data/services";
+import { getFirestoreMembers } from "../data/firestoreMembers";
+import type { Member } from "../data/members";
 import { CreateDrawer } from "../components/machines/CreateDrawer";
 import { MachineCard } from "../components/machines/MachineCard";
 import { MachineRow } from "../components/machines/MachineRow";
 import { useAuth } from "../contexts/AuthContext";
 import { isAdmin, canEditMachine, canCreateMachine } from "../data/users";
-
-// ─── Member data ──────────────────────────────────────────────────────────────
-const MEMBERS = [
-  "Hà Gia Linh - K15",
-  "Phạm Việt Anh - K15",
-  "Nguyễn Mạnh Cường - K15",
-  "Nguyễn Trọng Quân - K15",
-  "Trần Đức Minh - K15",
-  "Phan Anh Khoa - K15",
-  "Nguyễn Phạm Nguyên Hoàn - K15",
-  "Nguyễn Tuấn Đạt - K15",
-  "Nguyễn Minh Hiếu - K16",
-  "Nguyễn Công Sáng - K16",
-  "Nguyễn Bá Mạnh - K16",
-  "Phạm Ngọc Tú Anh - K16",
-  "Nguyễn Ngọc Anh - K16",
-  "Lê Thị Hồng Nhung - K16",
-  "Trần Quang Huy - K16",
-  "Đặng Thị Mai - K17",
-  "Vũ Hoàng Nam - K17",
-  "Bùi Thị Lan Anh - K17",
-];
 
 // ─── Checklist items ──────────────────────────────────────────────────────────
 const CHECKLIST_ITEMS = [
@@ -63,6 +43,15 @@ const TECHNICIAN_CHECKLIST = [
   "Vệ sinh máy",
 ];
 
+function toMemberDisplayName(member: Member): string {
+  const course = member.course?.trim();
+  return course ? `${member.name} - ${course}` : member.name;
+}
+
+function isMemberActiveApproved(member: Member): boolean {
+  return member.approvalStatus === "approved" && member.status !== "inactive";
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Machines() {
   const { user } = useAuth();
@@ -74,6 +63,7 @@ export default function Machines() {
   const [orderBy, setOrderBy] = useState<string>("Newest");
   const [editMachine, setEditMachine] = useState<Machine | null>(null);
   const [viewMode, setViewMode] = useState<"main" | "online">("main");
+  const [approvedMembers, setApprovedMembers] = useState<Member[]>([]);
 
   // Selected date for filtering — defaults to today
   const getDefaultDate = () => {
@@ -89,7 +79,25 @@ export default function Machines() {
     getFirestoreMachines().then(data => {
       setMachines(data as unknown as Machine[]);
     });
+
+    getFirestoreMembers().then((members) => {
+      setApprovedMembers(members.filter(isMemberActiveApproved));
+    }).catch(() => {
+      setApprovedMembers([]);
+    });
   }, []);
+
+  const testerMembers = useMemo(() => {
+    return approvedMembers
+      .filter((member) => member.type === "tester")
+      .map(toMemberDisplayName);
+  }, [approvedMembers]);
+
+  const technicianMembers = useMemo(() => {
+    return approvedMembers
+      .filter((member) => member.type === "technician")
+      .map(toMemberDisplayName);
+  }, [approvedMembers]);
 
   // Parse date from machine.time string (e.g. "20:02:32 15/4/2026" or "20:02 15/4/2026")
   const parseMachineDate = (timeStr: string): string | null => {
@@ -507,7 +515,8 @@ export default function Machines() {
         <CreateDrawer
           onClose={() => setShowCreate(false)}
           onSave={handleSave}
-          members={MEMBERS}
+          testerMembers={testerMembers}
+          technicianMembers={technicianMembers}
           checklistItems={CHECKLIST_ITEMS}
           technicianChecklist={TECHNICIAN_CHECKLIST}
         />
@@ -517,7 +526,8 @@ export default function Machines() {
           machine={editMachine}
           onClose={() => setEditMachine(null)}
           onSave={handleSave}
-          members={MEMBERS}
+          testerMembers={testerMembers}
+          technicianMembers={technicianMembers}
           checklistItems={CHECKLIST_ITEMS}
           technicianChecklist={TECHNICIAN_CHECKLIST}
         />

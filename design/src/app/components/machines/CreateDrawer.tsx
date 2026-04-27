@@ -27,15 +27,15 @@ export interface CreateDrawerProps {
   onClose: () => void;
   onSave: (machine: Machine) => void;
   machine?: Machine | null;
-  /** List of member names to select from in dropdowns */
-  members: string[];
+  testerMembers: string[];
+  technicianMembers: string[];
   /** Checklist items used in tester before/after tables */
   checklistItems: string[];
   /** Technician checklist items */
   technicianChecklist: string[];
 }
 
-export function CreateDrawer({ onClose, onSave, machine, members, checklistItems, technicianChecklist }: CreateDrawerProps) {
+export function CreateDrawer({ onClose, onSave, machine, testerMembers, technicianMembers, checklistItems, technicianChecklist }: CreateDrawerProps) {
   const isEdit = !!machine;
   const {
     form, step, setStep, availableServices,
@@ -150,7 +150,7 @@ export function CreateDrawer({ onClose, onSave, machine, members, checklistItems
             <StepTesterBefore
               form={form}
               set={set}
-              members={members}
+              testerMembers={testerMembers}
               checklistItems={checklistItems}
               toggleCheck={toggleCheck}
               setNote={setNote}
@@ -161,7 +161,7 @@ export function CreateDrawer({ onClose, onSave, machine, members, checklistItems
             <StepTechnician
               form={form}
               set={set}
-              members={members}
+              technicianMembers={technicianMembers}
               technicianChecklist={technicianChecklist}
               toggleCheck={toggleCheck}
             />
@@ -171,7 +171,7 @@ export function CreateDrawer({ onClose, onSave, machine, members, checklistItems
             <StepTesterAfter
               form={form}
               set={set}
-              members={members}
+              testerMembers={testerMembers}
               checklistItems={checklistItems}
               toggleCheck={toggleCheck}
               setNote={setNote}
