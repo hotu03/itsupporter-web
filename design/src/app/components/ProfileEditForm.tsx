@@ -221,11 +221,10 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
 
     setIsSaving(true);
     const normalizedEmail = email.trim().toLowerCase();
-    const normalizedUsername = username.trim().toLowerCase();
     const previousUsername = user.username.trim().toLowerCase();
     const fullName = `${ln.trim()} ${fn.trim()}`.trim();
     const normalizedPhone = phone.trim();
-    const normalizedType: Member["type"] = techType === "Tester" ? "tester" : "technician";
+    const selectedType: Member["type"] | null = techType === "Tester" ? "tester" : techType === "Technician" ? "technician" : null;
 
     const updated = updateCurrentUserProfile({
       name: fullName,
@@ -243,16 +242,32 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
     });
 
     if (updated) {
+      const currentUsername = username.trim().toLowerCase();
       const cachedMembers = getMembers();
+
+      const duplicateByUsername = cachedMembers.find((member) => {
+        const memberUsername = member.username.trim().toLowerCase();
+        const sameUid = Boolean(user.uid && member.uid && member.uid === user.uid);
+        const sameEmail = member.email?.trim().toLowerCase() === normalizedEmail;
+        const samePreviousUsername = memberUsername === previousUsername;
+        if (sameUid || sameEmail || samePreviousUsername) return false;
+        return memberUsername === currentUsername;
+      });
+
+      if (duplicateByUsername) {
+        setErrors((prev) => ({ ...prev, username: "Username đã tồn tại" }));
+        setIsSaving(false);
+        return;
+      }
+
       let hasLocalMatch = false;
       const nextMembers = cachedMembers.map((member) => {
         const memberEmail = member.email?.trim().toLowerCase();
         const memberUsername = member.username.trim().toLowerCase();
         const sameUid = Boolean(user.uid && member.uid && member.uid === user.uid);
         const sameEmail = Boolean(memberEmail && memberEmail === normalizedEmail);
-        const sameCurrentUsername = memberUsername === normalizedUsername;
         const samePreviousUsername = memberUsername === previousUsername;
-        if (!sameUid && !sameEmail && !sameCurrentUsername && !samePreviousUsername) return member;
+        if (!sameUid && !sameEmail && !samePreviousUsername) return member;
 
         hasLocalMatch = true;
         return {
@@ -267,13 +282,13 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
           course,
           class: classRoom,
           avatar,
-          type: normalizedType,
+          type: selectedType ?? member.type,
           email: normalizedEmail,
         };
       });
 
       const fallbackMember: Member = {
-        id: user.uid || normalizedEmail || normalizedUsername,
+        id: user.uid || normalizedEmail || previousUsername,
         name: fullName,
         username: username.trim(),
         dob,
@@ -283,7 +298,7 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
         class: classRoom,
         hometown,
         position,
-        type: normalizedType,
+        type: selectedType ?? "technician",
         machinesDone: 0,
         testsRun: 0,
         status: user.status === "inactive" ? "inactive" : "active",
@@ -312,7 +327,6 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
             course,
             class: classRoom,
             avatar,
-            type: normalizedType,
             email: normalizedEmail,
           });
 
@@ -337,7 +351,6 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
                 course,
                 class: classRoom,
                 avatar,
-                type: normalizedType,
                 email: normalizedEmail,
               },
             ];
