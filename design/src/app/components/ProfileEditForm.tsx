@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, X, ChevronDown, CheckCircle2 } from "lucide-react";
 import { updateCurrentUserProfile, type User } from "../data/users";
-import { getFirestoreMemberByEmail } from "../data/firestoreMembers";
+import { getFirestoreMemberByEmail, updateFirestoreMember } from "../data/firestoreMembers";
+import { getMembers, saveMembers, type Member } from "../data/members";
 
 // ─── Constants (same as SignUp) ─────────────────────────────────────────────────
 const PROVINCES = [
@@ -86,6 +87,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 interface MemberProfileSnapshot {
+  id?: string | number;
   phone?: string;
   dob?: string;
   gender?: string;
@@ -94,6 +96,7 @@ interface MemberProfileSnapshot {
   type?: "technician" | "tester";
   course?: string;
   class?: string;
+  avatar?: string;
 }
 
 function dobToInput(value: string): string {
@@ -131,22 +134,22 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
   const [classRoom, setClassRoom] = useState(user.classRoom || "");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState("");
+  const [syncWarning, setSyncWarning] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const hydratedEmailRef = useRef("");
 
   useEffect(() => {
-    let isMounted = true;
-
-    const shouldHydrate = !phone || !dob || !gender || !hometown || !position || !techType || !course || !classRoom;
-    if (!shouldHydrate || !email.trim()) {
-      return () => {
-        isMounted = false;
-      };
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || hydratedEmailRef.current === normalizedEmail) {
+      return;
     }
+
+    let isMounted = true;
 
     const hydrateProfileFromMember = async () => {
       try {
-        const member = await getFirestoreMemberByEmail(email.trim().toLowerCase()) as MemberProfileSnapshot | null;
+        const member = await getFirestoreMemberByEmail(normalizedEmail) as MemberProfileSnapshot | null;
         if (!member || !isMounted) return;
 
         setPhone((prev) => prev || member.phone || "");
@@ -162,8 +165,13 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
         });
         setCourse((prev) => prev || member.course || "");
         setClassRoom((prev) => prev || member.class || "");
+        setAvatar((prev) => prev || member.avatar || "");
       } catch {
         // Keep current local values when Firestore profile lookup fails.
+      } finally {
+        if (isMounted) {
+          hydratedEmailRef.current = normalizedEmail;
+        }
       }
     };
 
@@ -204,6 +212,7 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccess("");
+    setSyncWarning("");
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
@@ -211,13 +220,18 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
     }
 
     setIsSaving(true);
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedUsername = username.trim().toLowerCase();
+    const previousUsername = user.username.trim().toLowerCase();
     const fullName = `${ln.trim()} ${fn.trim()}`.trim();
+    const normalizedPhone = phone.trim();
+    const normalizedType: Member["type"] = techType === "Tester" ? "tester" : "technician";
 
     const updated = updateCurrentUserProfile({
       name: fullName,
       username: username.trim(),
-      email: email.trim().toLowerCase(),
-      phone: phone.trim(),
+      email: normalizedEmail,
+      phone: normalizedPhone,
       avatar,
       dob,
       gender,
@@ -229,6 +243,120 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
     });
 
     if (updated) {
+      const cachedMembers = getMembers();
+      let hasLocalMatch = false;
+      const nextMembers = cachedMembers.map((member) => {
+        const memberEmail = member.email?.trim().toLowerCase();
+        const memberUsername = member.username.trim().toLowerCase();
+        const sameUid = Boolean(user.uid && member.uid && member.uid === user.uid);
+        const sameEmail = Boolean(memberEmail && memberEmail === normalizedEmail);
+        const sameCurrentUsername = memberUsername === normalizedUsername;
+        const samePreviousUsername = memberUsername === previousUsername;
+        if (!sameUid && !sameEmail && !sameCurrentUsername && !samePreviousUsername) return member;
+
+        hasLocalMatch = true;
+        return {
+          ...member,
+          name: fullName,
+          username: username.trim(),
+          phone: normalizedPhone,
+          dob,
+          gender,
+          hometown,
+          position,
+          course,
+          class: classRoom,
+          avatar,
+          type: normalizedType,
+          email: normalizedEmail,
+        };
+      });
+
+      const fallbackMember: Member = {
+        id: user.uid || normalizedEmail || normalizedUsername,
+        name: fullName,
+        username: username.trim(),
+        dob,
+        phone: normalizedPhone,
+        gender,
+        course,
+        class: classRoom,
+        hometown,
+        position,
+        type: normalizedType,
+        machinesDone: 0,
+        testsRun: 0,
+        status: user.status === "inactive" ? "inactive" : "active",
+        approvalStatus: "approved",
+        email: normalizedEmail,
+        uid: user.uid,
+        registeredAt: user.registeredAt,
+        isAdmin: user.role === "admin",
+        avatar,
+      };
+
+      let finalMembers = nextMembers;
+      let hasRemoteSyncError = false;
+
+      try {
+        const firestoreMember = await getFirestoreMemberByEmail(normalizedEmail);
+        if (firestoreMember?.id) {
+          await updateFirestoreMember(String(firestoreMember.id), {
+            name: fullName,
+            username: username.trim(),
+            phone: normalizedPhone,
+            dob,
+            gender,
+            hometown,
+            position,
+            course,
+            class: classRoom,
+            avatar,
+            type: normalizedType,
+            email: normalizedEmail,
+          });
+
+          if (!hasLocalMatch) {
+            finalMembers = [
+              ...nextMembers.filter((member) => {
+                const sameUid = Boolean(user.uid && member.uid && member.uid === user.uid);
+                const sameEmail = member.email?.trim().toLowerCase() === normalizedEmail;
+                const sameUsername = member.username.trim().toLowerCase() === previousUsername;
+                return !sameUid && !sameEmail && !sameUsername;
+              }),
+              {
+                ...firestoreMember,
+                id: firestoreMember.id,
+                name: fullName,
+                username: username.trim(),
+                phone: normalizedPhone,
+                dob,
+                gender,
+                hometown,
+                position,
+                course,
+                class: classRoom,
+                avatar,
+                type: normalizedType,
+                email: normalizedEmail,
+              },
+            ];
+          }
+        } else if (!hasLocalMatch) {
+          finalMembers = [...nextMembers, fallbackMember];
+        }
+      } catch (error) {
+        hasRemoteSyncError = true;
+        console.error("Update profile in Firestore failed:", error);
+        if (!hasLocalMatch) {
+          finalMembers = [...nextMembers, fallbackMember];
+        }
+      }
+
+      saveMembers(finalMembers);
+      if (hasRemoteSyncError) {
+        setSyncWarning("Đã lưu hồ sơ cục bộ. Đồng bộ cloud tạm thời thất bại, vui lòng thử lại sau.");
+      }
       setSuccess("Cập nhật hồ sơ thành công!");
       onSave?.(updated);
     }
@@ -341,6 +469,12 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
           <input value={classRoom} onChange={e => setClassRoom(e.target.value)} placeholder="CNTT01" className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none focus:ring-2 focus:ring-orange-400 transition-all bg-white" />
         </Field>
       </div>
+
+      {syncWarning && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl p-3 text-sm">
+          {syncWarning}
+        </div>
+      )}
 
       {/* Success */}
       {success && (

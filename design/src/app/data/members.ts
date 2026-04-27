@@ -23,6 +23,7 @@ export interface Member {
   uid?: string; // for User-Member linking (added for registration.ts)
   registeredAt?: string;
   isAdmin?: boolean;
+  avatar?: string;
 }
 
 // ─── Date helpers ──────────────────────────────────────────────────────────────

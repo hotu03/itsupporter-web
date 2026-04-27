@@ -23,7 +23,7 @@ function toDateInputValue(dob: string): string {
   return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 }
 
-function mapMemberProfileToUser(member: Member): Pick<User, "phone" | "dob" | "gender" | "hometown" | "position" | "techType" | "course" | "classRoom"> {
+function mapMemberProfileToUser(member: Member): Pick<User, "phone" | "dob" | "gender" | "hometown" | "position" | "techType" | "course" | "classRoom" | "avatar"> {
   return {
     phone: member.phone,
     dob: toDateInputValue(member.dob),
@@ -33,6 +33,7 @@ function mapMemberProfileToUser(member: Member): Pick<User, "phone" | "dob" | "g
     techType: member.type === "technician" ? "Technician" : "Tester",
     course: member.course,
     classRoom: member.class,
+    avatar: member.avatar,
   };
 }
 

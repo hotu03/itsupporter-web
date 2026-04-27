@@ -27,6 +27,8 @@ export interface User {
 import type { Machine } from './machines';
 import { getMembers } from './members';
 
+const ROOT_PROFILE_STORAGE_KEY = 'its_root_profile';
+
 const ROOT_ADMIN: User = {
   id: 0,
   name: 'Root Admin',
@@ -39,6 +41,32 @@ const ROOT_ADMIN: User = {
   registeredAt: new Date().toISOString(),
 };
 
+function getStoredRootAvatar(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+
+  const stored = localStorage.getItem(ROOT_PROFILE_STORAGE_KEY);
+  if (!stored) return undefined;
+
+  try {
+    const parsed = JSON.parse(stored) as { avatar?: string };
+    if (!parsed.avatar) return undefined;
+    return parsed.avatar;
+  } catch {
+    return undefined;
+  }
+}
+
+function persistRootAvatar(avatar?: string): void {
+  if (typeof window === 'undefined') return;
+
+  if (!avatar) {
+    localStorage.removeItem(ROOT_PROFILE_STORAGE_KEY);
+    return;
+  }
+
+  localStorage.setItem(ROOT_PROFILE_STORAGE_KEY, JSON.stringify({ avatar }));
+}
+
 function toDateInputValue(dob: string): string {
   if (!dob) return '';
   const parts = dob.split('/');
@@ -47,7 +75,7 @@ function toDateInputValue(dob: string): string {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
-function mapMemberProfileToUser(member: ReturnType<typeof getMembers>[number]): Pick<User, 'phone' | 'dob' | 'gender' | 'hometown' | 'position' | 'techType' | 'course' | 'classRoom'> {
+function mapMemberProfileToUser(member: ReturnType<typeof getMembers>[number]): Pick<User, 'phone' | 'dob' | 'gender' | 'hometown' | 'position' | 'techType' | 'course' | 'classRoom' | 'avatar'> {
   return {
     phone: member.phone,
     dob: toDateInputValue(member.dob),
@@ -57,6 +85,7 @@ function mapMemberProfileToUser(member: ReturnType<typeof getMembers>[number]): 
     techType: member.type === 'technician' ? 'Technician' : 'Tester',
     course: member.course,
     classRoom: member.class,
+    avatar: member.avatar,
   };
 }
 
@@ -104,7 +133,11 @@ export function getActiveUserByIdentity(uidOrEmailOrUsername: {
   username?: string;
 }): User | null {
   if (uidOrEmailOrUsername.email?.toLowerCase() === ROOT_ADMIN.email.toLowerCase()) {
-    return { ...ROOT_ADMIN, uid: uidOrEmailOrUsername.uid || ROOT_ADMIN.uid };
+    return {
+      ...ROOT_ADMIN,
+      uid: uidOrEmailOrUsername.uid || ROOT_ADMIN.uid,
+      avatar: getStoredRootAvatar(),
+    };
   }
 
   const derived = deriveUserFromMember(uidOrEmailOrUsername);
@@ -154,7 +187,11 @@ export function getCurrentUser(): User | null {
   try {
     const current = JSON.parse(stored) as User;
     if (current.isRoot || current.email === ROOT_ADMIN.email) {
-      return { ...ROOT_ADMIN, uid: current.uid || ROOT_ADMIN.uid };
+      return {
+        ...ROOT_ADMIN,
+        uid: current.uid || ROOT_ADMIN.uid,
+        avatar: current.avatar || getStoredRootAvatar(),
+      };
     }
 
     const derived = deriveUserFromMember({
@@ -185,6 +222,11 @@ export function updateCurrentUserProfile(updates: Partial<Omit<User, 'id' | 'rol
 
   const updatedUser: User = { ...current, ...updates };
   setCurrentUser(updatedUser);
+
+  if (updatedUser.isRoot || updatedUser.email === ROOT_ADMIN.email) {
+    persistRootAvatar(updatedUser.avatar);
+  }
+
   return updatedUser;
 }
 
