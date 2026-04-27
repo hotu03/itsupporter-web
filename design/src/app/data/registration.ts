@@ -52,6 +52,27 @@ export function mapMemberToUserRoleAndPermissions(member: Member): { role: UserR
   };
 }
 
+function toDateInputValue(dob: string): string {
+  if (!dob) return "";
+  const parts = dob.split("/");
+  if (parts.length !== 3) return dob;
+  const [day, month, year] = parts;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function mapMemberProfileToUser(member: Member): Pick<User, "phone" | "dob" | "gender" | "hometown" | "position" | "techType" | "course" | "classRoom"> {
+  return {
+    phone: member.phone,
+    dob: toDateInputValue(member.dob),
+    gender: member.gender,
+    hometown: member.hometown,
+    position: member.position,
+    techType: member.type === "technician" ? "Technician" : "Tester",
+    course: member.course,
+    classRoom: member.class,
+  };
+}
+
 // Link existing seed data (idempotent migration)
 export function linkExistingSeeds(): void {
   const members = getMembers();
@@ -91,6 +112,7 @@ export function linkExistingSeeds(): void {
           isRoot,
           status: m.status || "active",
           registeredAt: m.registeredAt || new Date().toISOString(),
+          ...mapMemberProfileToUser(m),
         } as User;
       });
 
@@ -184,6 +206,7 @@ export async function registerUserAndPendingMember(
     isRoot,
     status: "inactive",
     registeredAt: member.registeredAt || new Date().toISOString(),
+    ...mapMemberProfileToUser(member),
   };
   saveUsers([...users, user]);
 
@@ -250,6 +273,7 @@ export async function approveAndLinkMember(
             permissions: [...permissions],
             isRoot,
             status: approvedMember.status === "inactive" ? "inactive" : "active",
+            ...mapMemberProfileToUser(approvedMember),
           }
         : user,
     );
@@ -267,6 +291,7 @@ export async function approveAndLinkMember(
       isRoot,
       status: approvedMember.status === "inactive" ? "inactive" : "active",
       registeredAt: approvedMember.registeredAt || new Date().toISOString(),
+      ...mapMemberProfileToUser(approvedMember),
     };
     saveUsers([...users, newUser]);
     linkedUser = newUser;
@@ -317,6 +342,7 @@ export function syncMemberRoleToUser(
       isRoot,
       status: savedMember.status === "inactive" ? "inactive" : "active",
       registeredAt: savedMember.registeredAt || new Date().toISOString(),
+      ...mapMemberProfileToUser(savedMember),
     };
 
     saveUsers([...users, createdUser]);
@@ -339,6 +365,7 @@ export function syncMemberRoleToUser(
           permissions: [...permissions],
           isRoot,
           status: savedMember.status === "inactive" ? "inactive" : "active",
+          ...mapMemberProfileToUser(savedMember),
         }
       : user,
   );
@@ -387,8 +414,54 @@ export async function syncMembersFromFirestore(): Promise<void> {
     const firestoreMembers = await getFirestoreMembers();
     if (firestoreMembers.length > 0) {
       saveMembers(firestoreMembers);
+      syncUserProfilesFromMembers();
     }
   } catch {
     // Keep existing local cache when Firestore is temporarily unavailable
   }
 }
+
+export function syncUserProfilesFromMembers(): void {
+  const users = getUsers();
+  const members = getMembers();
+  let changed = false;
+
+  const updatedUsers = users.map((user) => {
+    if (user.isRoot) return user;
+
+    const member = members.find(
+      (m) => (m.uid && user.uid && m.uid === user.uid)
+        || (m.email && user.email && m.email.toLowerCase() === user.email.toLowerCase())
+        || m.username === user.username,
+    );
+
+    if (!member) return user;
+
+    const mappedProfile = mapMemberProfileToUser(member);
+    const nextUser: User = {
+      ...user,
+      ...mappedProfile,
+    };
+
+    if (
+      nextUser.phone !== user.phone
+      || nextUser.dob !== user.dob
+      || nextUser.gender !== user.gender
+      || nextUser.hometown !== user.hometown
+      || nextUser.position !== user.position
+      || nextUser.techType !== user.techType
+      || nextUser.course !== user.course
+      || nextUser.classRoom !== user.classRoom
+    ) {
+      changed = true;
+      return nextUser;
+    }
+
+    return user;
+  });
+
+  if (changed) {
+    saveUsers(updatedUsers);
+  }
+}
+

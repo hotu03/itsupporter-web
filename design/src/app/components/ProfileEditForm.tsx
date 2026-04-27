@@ -1,6 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Camera, X, ChevronDown, CheckCircle2 } from "lucide-react";
 import { updateCurrentUserProfile, type User } from "../data/users";
+import { getFirestoreMemberByEmail } from "../data/firestoreMembers";
 
 // ─── Constants (same as SignUp) ─────────────────────────────────────────────────
 const PROVINCES = [
@@ -84,6 +85,26 @@ function Field({ label, required, children }: { label: string; required?: boolea
 }
 
 // ─── Props ──────────────────────────────────────────────────────────────────
+interface MemberProfileSnapshot {
+  phone?: string;
+  dob?: string;
+  gender?: string;
+  hometown?: string;
+  position?: string;
+  type?: "technician" | "tester";
+  course?: string;
+  class?: string;
+}
+
+function dobToInput(value: string): string {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const parts = value.split("/");
+  if (parts.length !== 3) return value;
+  const [day, month, year] = parts;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
 interface ProfileEditFormProps {
   user: User;
   onSave?: (updated: User) => void;
@@ -91,7 +112,6 @@ interface ProfileEditFormProps {
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
-  // Parse name into first/last
   const nameParts = user.name.trim().split(" ");
   const lastName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
   const firstName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : user.name;
@@ -102,7 +122,7 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
   const [username, setUsername] = useState(user.username);
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(user.phone || "");
-  const [dob, setDob] = useState(user.dob || "");
+  const [dob, setDob] = useState(dobToInput(user.dob || ""));
   const [gender, setGender] = useState(user.gender || "");
   const [hometown, setHometown] = useState(user.hometown || "");
   const [position, setPosition] = useState(user.position || "");
@@ -113,6 +133,46 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
   const [success, setSuccess] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const shouldHydrate = !phone || !dob || !gender || !hometown || !position || !techType || !course || !classRoom;
+    if (!shouldHydrate || !email.trim()) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const hydrateProfileFromMember = async () => {
+      try {
+        const member = await getFirestoreMemberByEmail(email.trim().toLowerCase()) as MemberProfileSnapshot | null;
+        if (!member || !isMounted) return;
+
+        setPhone((prev) => prev || member.phone || "");
+        setDob((prev) => prev || dobToInput(member.dob || ""));
+        setGender((prev) => prev || member.gender || "");
+        setHometown((prev) => prev || member.hometown || "");
+        setPosition((prev) => prev || member.position || "");
+        setTechType((prev) => {
+          if (prev) return prev;
+          if (member.type === "technician") return "Technician";
+          if (member.type === "tester") return "Tester";
+          return "";
+        });
+        setCourse((prev) => prev || member.course || "");
+        setClassRoom((prev) => prev || member.class || "");
+      } catch {
+        // Keep current local values when Firestore profile lookup fails.
+      }
+    };
+
+    void hydrateProfileFromMember();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [email]);
 
   const inputClass = (field: string) =>
     `w-full border rounded-lg px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none focus:ring-2 focus:border-transparent transition-all bg-white ${

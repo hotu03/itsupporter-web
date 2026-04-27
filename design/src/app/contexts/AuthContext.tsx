@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { User, UserRole } from '../data/users';
 import { initUsers, getCurrentUser, setCurrentUser, hasPermission, updateUserRole } from '../data/users';
-import { getRegistrationStatusByEmail } from '../data/registration';
+import { getRegistrationStatusByEmail, syncUserProfilesFromMembers } from '../data/registration';
 import { staffAuth } from '../utils/firebase';
 import {
   signInWithEmailAndPassword,
@@ -50,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Real Firebase auth state listener + local role sync
   useEffect(() => {
     initUsers(); // Ensure local seed
+    syncUserProfilesFromMembers();
 
     const unsubscribe = onAuthStateChanged(staffAuth, (firebaseUser) => {
       if (firebaseUser) {
