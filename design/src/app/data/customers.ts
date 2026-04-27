@@ -20,6 +20,7 @@ export interface Customer {
   createdAt: string;
   totalRepairs: number;
   lastRepair?: string;
+  lastLoginAt?: string;
   notes?: string;
   points: number;
   passwordHash?: string;

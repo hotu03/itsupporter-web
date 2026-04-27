@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
-import { getFirestoreCustomerByEmail } from "../data/firestoreCustomers";
+import { getFirestoreCustomerByEmail, updateFirestoreCustomer } from "../data/firestoreCustomers";
 import { signInCustomer } from "../data/firebase-auth";
 import { toast } from "sonner";
 
@@ -9,13 +9,13 @@ export default function CustomerLogin() {
   const [searchParams] = useSearchParams();
   const isFirstLogin = searchParams.get("firstLogin") === "true";
   const isResetPassword = searchParams.get("resetPassword") === "true";
-  const showPasswordReminder = isFirstLogin || isResetPassword;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [step, setStep] = useState<"email" | "password">("email");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [showPasswordReminder, setShowPasswordReminder] = useState(isFirstLogin || isResetPassword);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -36,16 +36,11 @@ export default function CustomerLogin() {
 
     setLoading(true);
     try {
-      // Check if customer exists
-      const customer = await getFirestoreCustomerByEmail(email.trim());
-      if (!customer) {
-        setError("Email chưa đăng ký dịch vụ sửa chữa");
-        setLoading(false);
-        return;
-      }
-
-      // Customer found - go to password step
-      setCustomerEmail(email.trim());
+      const normalizedEmail = email.trim().toLowerCase();
+      const customer = await getFirestoreCustomerByEmail(normalizedEmail);
+      const shouldShowReminder = isFirstLogin || isResetPassword || Boolean(customer && !customer.lastLoginAt);
+      setShowPasswordReminder(shouldShowReminder);
+      setCustomerEmail(normalizedEmail);
       setStep("password");
     } catch (err) {
       console.error("Login error:", err);
@@ -67,23 +62,33 @@ export default function CustomerLogin() {
     }
 
     try {
-      // Sign in with Firebase Auth
       await signInCustomer(customerEmail, password);
 
-      // Store auth in sessionStorage
       sessionStorage.setItem(
         "customer_auth",
         JSON.stringify({ email: customerEmail, timestamp: Date.now() })
       );
 
+      try {
+        const customer = await getFirestoreCustomerByEmail(customerEmail);
+        if (customer?.id) {
+          await updateFirestoreCustomer(String(customer.id), {
+            lastLoginAt: new Date().toISOString(),
+          });
+        }
+      } catch (updateErr) {
+        console.error("Update customer login timestamp error:", updateErr);
+      }
+
       toast.success("Đăng nhập thành công!");
       navigate("/customer/portal");
-    } catch (err: any) {
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+    } catch (err: unknown) {
+      const authError = err as { code?: string };
+      if (authError.code === 'auth/user-not-found' || authError.code === 'auth/wrong-password' || authError.code === 'auth/invalid-credential') {
         setError("Email hoặc mật khẩu không chính xác");
-      } else if (err.code === 'auth/too-many-requests') {
+      } else if (authError.code === 'auth/too-many-requests') {
         setError("Quá nhiều yêu cầu. Vui lòng thử lại sau.");
-      } else if (err.code === 'auth/invalid-email') {
+      } else if (authError.code === 'auth/invalid-email') {
         setError("Email không hợp lệ");
       } else {
         setError("Có lỗi xảy ra. Vui lòng thử lại.");
