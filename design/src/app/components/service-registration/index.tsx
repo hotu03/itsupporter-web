@@ -51,7 +51,7 @@ const initialForm: ServiceRegistrationFormData = {
 
 export default function ServiceRegistration() {
   const [showReceipt, setShowReceipt] = useState(false);
-  const [receiptId, setReceiptId] = useState(0);
+  const [receiptId, setReceiptId] = useState("");
   const [form, setForm] = useState<ServiceRegistrationFormData>(initialForm);
   const [discountError, setDiscountError] = useState("");
   const [discountApplied, setDiscountApplied] = useState(false);
@@ -96,6 +96,25 @@ export default function ServiceRegistration() {
     const final = Math.max(0, form.serviceAmount - form.discountAmount);
     setForm(prev => ({ ...prev, finalAmount: final }));
   }, [form.serviceAmount, form.discountAmount]);
+
+  // Keep applied discount in sync when service total changes
+  useEffect(() => {
+    if (!discountApplied || !form.discountCode.trim()) return;
+
+    const result = validateDiscount(form.discountCode, form.serviceAmount);
+    if (!result.valid) {
+      setDiscountApplied(false);
+      setDiscountError(result.error || "Mã giảm giá không hợp lệ");
+      setForm(prev => ({ ...prev, discountAmount: 0 }));
+      return;
+    }
+
+    setDiscountError("");
+    const nextDiscountAmount = result.discountAmount ?? 0;
+    if (nextDiscountAmount !== form.discountAmount) {
+      setForm(prev => ({ ...prev, discountAmount: nextDiscountAmount }));
+    }
+  }, [discountApplied, form.discountCode, form.serviceAmount, form.discountAmount]);
 
   const handleApplyDiscount = () => {
     const result = validateDiscount(form.discountCode, form.serviceAmount);
@@ -255,7 +274,7 @@ export default function ServiceRegistration() {
         toast.error("Lỗi khi thêm hóa đơn: " + (err as Error).message);
       }
 
-      setReceiptId(Number(id));
+      setReceiptId(id);
       setShowReceipt(true);
     } catch (err) {
       console.error("Submit error:", err);

@@ -13,15 +13,12 @@ export default function Invoices() {
   const [dateTo, setDateTo] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
-  // Parse date from various formats (ISO "2026-04-15" or vi-VN "15/4/2026")
   const parseDate = (dateStr: string): Date | null => {
     if (!dateStr) return null;
-    // Try ISO format first (yyyy-mm-dd)
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       const d = new Date(dateStr);
       return isNaN(d.getTime()) ? null : d;
     }
-    // Try vi-VN format (d/m/yyyy or dd/mm/yyyy)
     const parts = dateStr.split("/");
     if (parts.length === 3) {
       const [day, month, year] = parts;
@@ -31,10 +28,15 @@ export default function Invoices() {
     return null;
   };
 
+  const formatDisplayDate = (dateStr: string): string => {
+    const parsed = parseDate(dateStr);
+    if (!parsed) return dateStr;
+    return parsed.toLocaleDateString("vi-VN");
+  };
+
   useEffect(() => {
     async function loadInvoices() {
       const data = await getFirestoreInvoices();
-      // Sort by created date (newest first)
       data.sort((a, b) => {
         const dateA = parseDate(a.createdAt);
         const dateB = parseDate(b.createdAt);
@@ -61,7 +63,6 @@ export default function Invoices() {
     const matchesType = filterType === "all" || invoice.registrationType === filterType;
     const matchesPayment = filterPayment === "all" || invoice.paymentStatus === filterPayment;
 
-    // Date filtering
     let matchesDate = true;
     if (datePreset !== "all") {
       const invoiceDate = parseDate(invoice.createdAt);
@@ -132,7 +133,7 @@ export default function Invoices() {
   };
 
   const handlePrintInvoice = (invoice: Invoice) => {
-    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
     printWindow.document.open();
@@ -283,7 +284,7 @@ export default function Invoices() {
 
     const invoiceInfo = doc.getElementById("invoice-info");
     if (invoiceInfo) {
-      invoiceInfo.appendChild(createInfoRow("Ngày tạo:", `${invoice.createdAt} - ${invoice.createdTime}`));
+      invoiceInfo.appendChild(createInfoRow("Ngày tạo:", `${formatDisplayDate(invoice.createdAt)} - ${invoice.createdTime}`));
       invoiceInfo.appendChild(createInfoRow("Loại đăng ký:", invoice.registrationType === "online" ? "Trực tuyến" : "Trực tiếp"));
       if (invoice.createdBy) {
         invoiceInfo.appendChild(createInfoRow("Người tạo:", invoice.createdBy));
@@ -550,7 +551,7 @@ export default function Invoices() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Calendar size={14} className="text-gray-400" />
-                        {invoice.createdAt}
+                        {formatDisplayDate(invoice.createdAt)}
                       </div>
                     </td>
                     <td className="px-4 py-3">{getRegistrationTypeBadge(invoice.registrationType)}</td>
@@ -605,7 +606,7 @@ export default function Invoices() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-gray-500">Ngày tạo</p>
-                    <p className="text-sm font-semibold text-gray-800">{selectedInvoice.createdAt} - {selectedInvoice.createdTime}</p>
+                    <p className="text-sm font-semibold text-gray-800">{formatDisplayDate(selectedInvoice.createdAt)} - {selectedInvoice.createdTime}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Loại đăng ký</p>

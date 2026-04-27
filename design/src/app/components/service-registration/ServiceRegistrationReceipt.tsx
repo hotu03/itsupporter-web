@@ -26,7 +26,7 @@ interface ServiceRegistrationForm {
 }
 
 interface ServiceRegistrationReceiptProps {
-  receiptId: number;
+  receiptId: string;
   form: ServiceRegistrationForm;
   currentDate: string;
   currentTime: string;
