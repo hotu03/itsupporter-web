@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, query, where, runTransaction } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import type { Invoice } from './invoices';
 
@@ -6,7 +6,49 @@ import type { Invoice } from './invoices';
 export type { Invoice };
 
 const COLLECTION_NAME = 'invoices';
-const COUNTER_COLLECTION = 'counters';
+const INVOICE_CHANNEL_CODE: Record<Invoice['registrationType'], string> = {
+  online: 'ONL',
+  'in-person': 'OFF',
+};
+
+function formatInvoiceDatePart(date: Date): string {
+  const yy = date.getFullYear().toString().slice(-2);
+  const mm = (date.getMonth() + 1).toString().padStart(2, '0');
+  const dd = date.getDate().toString().padStart(2, '0');
+  return `${yy}${mm}${dd}`;
+}
+
+function generateInvoiceRandomPart(length = 6): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = '';
+
+  for (let i = 0; i < length; i += 1) {
+    result += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+
+  return result;
+}
+
+async function generateInvoiceNumber(registrationType: Invoice['registrationType']): Promise<string> {
+  const datePart = formatInvoiceDatePart(new Date());
+  const channelPart = INVOICE_CHANNEL_CODE[registrationType] ?? 'GEN';
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const randomPart = generateInvoiceRandomPart();
+    const invoiceNumber = `INV-${datePart}-${channelPart}-${randomPart}`;
+
+    const duplicateSnapshot = await getDocs(
+      query(collection(db, COLLECTION_NAME), where('invoiceNumber', '==', invoiceNumber)),
+    );
+
+    if (duplicateSnapshot.empty) {
+      return invoiceNumber;
+    }
+  }
+
+  const fallbackRandomPart = Date.now().toString(36).slice(-6).toUpperCase();
+  return `INV-${datePart}-${channelPart}-${fallbackRandomPart}`;
+}
 
 // Get all invoices from Firestore
 export async function getFirestoreInvoices(): Promise<Invoice[]> {
@@ -35,28 +77,13 @@ export async function getFirestoreInvoicesByEmail(email: string): Promise<Invoic
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as Invoice));
 }
 
-// Get next invoice number atomically using a counter document
-async function getNextInvoiceNumber(): Promise<string> {
-  const counterRef = doc(db, COUNTER_COLLECTION, 'invoiceCounter');
-
-  const newNumber = await runTransaction(db, async (transaction) => {
-    const counterDoc = await transaction.get(counterRef);
-    const currentCount = counterDoc.exists() ? counterDoc.data().count : 0;
-    const nextCount = currentCount + 1;
-    transaction.set(counterRef, { count: nextCount });
-    return nextCount;
-  });
-
-  return `HD-${newNumber.toString().padStart(4, '0')}`;
-}
-
 // Add new invoice
 export async function addFirestoreInvoice(invoice: Omit<Invoice, 'id' | 'invoiceNumber'>): Promise<string> {
-  // Generate invoice number atomically to prevent duplicates under concurrent calls
-  const invoiceNumber = await getNextInvoiceNumber();
+  const invoiceNumber = await generateInvoiceNumber(invoice.registrationType);
 
   const docRef = await addDoc(collection(db, COLLECTION_NAME), {
     ...invoice,
+    customerEmail: invoice.customerEmail.toLowerCase(),
     invoiceNumber,
     createdAt: invoice.createdAt || new Date().toLocaleDateString('vi-VN'),
   });

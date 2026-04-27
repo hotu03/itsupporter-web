@@ -39,7 +39,13 @@ export default function Invoices() {
         const dateA = parseDate(a.createdAt);
         const dateB = parseDate(b.createdAt);
         if (!dateA || !dateB) return 0;
-        return dateB.getTime() - dateA.getTime();
+
+        const dateDiff = dateB.getTime() - dateA.getTime();
+        if (dateDiff !== 0) {
+          return dateDiff;
+        }
+
+        return b.invoiceNumber.localeCompare(a.invoiceNumber);
       });
       setInvoices(data);
     }
@@ -126,15 +132,15 @@ export default function Invoices() {
   };
 
   const handlePrintInvoice = (invoice: Invoice) => {
-    // Create a printable version of the invoice
-    const printWindow = window.open("", "_blank");
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
     if (!printWindow) return;
 
+    printWindow.document.open();
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Hóa đơn ${invoice.invoiceNumber}</title>
+          <title>Hóa đơn</title>
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -217,112 +223,30 @@ export default function Invoices() {
           <div class="header">
             <h1>CLB Hỗ trợ Kỹ thuật IT Supporter</h1>
             <p>HÓA ĐƠN DỊCH VỤ</p>
-            <p>Mã hóa đơn: ${invoice.invoiceNumber}</p>
+            <p id="invoice-number"></p>
           </div>
 
           <div class="section">
             <div class="section-title">Thông tin hóa đơn</div>
-            <div class="info-row">
-              <div class="info-label">Ngày tạo:</div>
-              <div class="info-value">${invoice.createdAt} - ${invoice.createdTime}</div>
-            </div>
-            <div class="info-row">
-              <div class="info-label">Loại đăng ký:</div>
-              <div class="info-value">${invoice.registrationType === "online" ? "Trực tuyến" : "Trực tiếp"}</div>
-            </div>
-            ${invoice.createdBy ? `
-            <div class="info-row">
-              <div class="info-label">Người tạo:</div>
-              <div class="info-value">${invoice.createdBy}</div>
-            </div>
-            ` : ""}
+            <div id="invoice-info"></div>
           </div>
 
           <div class="section">
             <div class="section-title">Thông tin khách hàng</div>
-            <div class="info-row">
-              <div class="info-label">Họ và tên:</div>
-              <div class="info-value">${invoice.customerName}</div>
-            </div>
-            <div class="info-row">
-              <div class="info-label">Số điện thoại:</div>
-              <div class="info-value">${invoice.phone}</div>
-            </div>
-            <div class="info-row">
-              <div class="info-label">Bảo hành:</div>
-              <div class="info-value">${invoice.warranty === "con" ? "Còn bảo hành" : "Hết bảo hành"}</div>
-            </div>
-            <div class="info-row">
-              <div class="info-label">Mang sạc:</div>
-              <div class="info-value">${invoice.charger ? "Có" : "Không"}</div>
-            </div>
-            <div class="info-row">
-              <div class="info-label">Category:</div>
-              <div class="info-value">${invoice.category}</div>
-            </div>
+            <div id="customer-info"></div>
           </div>
 
-          ${invoice.machineCondition || invoice.needs ? `
-          <div class="section">
-            ${invoice.machineCondition ? `
-            <div class="info-row">
-              <div class="info-label">Tình trạng máy:</div>
-              <div class="info-value">${invoice.machineCondition}</div>
-            </div>
-            ` : ""}
-            ${invoice.needs ? `
-            <div class="info-row">
-              <div class="info-label">Nhu cầu:</div>
-              <div class="info-value">${invoice.needs}</div>
-            </div>
-            ` : ""}
+          <div class="section" id="machine-section" style="display:none;">
+            <div class="section-title">Thông tin máy</div>
+            <div id="machine-info"></div>
           </div>
-          ` : ""}
 
           <div class="section">
             <div class="section-title">Dịch vụ</div>
-            ${invoice.services.length > 0 ? `
-            <table class="services-table">
-              <thead>
-                <tr>
-                  <th>Tên dịch vụ</th>
-                  <th style="text-align: right;">Đơn giá</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${invoice.services.map(service => `
-                <tr>
-                  <td>${service.name}</td>
-                  <td style="text-align: right;">${service.price === 0 ? "Miễn phí" : formatCurrency(service.price)}</td>
-                </tr>
-                `).join("")}
-              </tbody>
-            </table>
-            ` : "<p>Chưa chọn dịch vụ nào</p>"}
+            <div id="services-container"></div>
           </div>
 
-          <div class="total-section">
-            <div class="total-row">
-              <span>Tổng tiền dịch vụ:</span>
-              <span>${formatCurrency(invoice.serviceAmount)}</span>
-            </div>
-            ${invoice.discountAmount > 0 ? `
-            <div class="total-row">
-              <span>Giảm giá (${invoice.discountCode}):</span>
-              <span>- ${formatCurrency(invoice.discountAmount)}</span>
-            </div>
-            ` : ""}
-            <div class="total-row" style="margin-top: 10px;">
-              <span style="font-weight: bold;">Thành tiền:</span>
-              <span class="final-amount">${invoice.finalAmount === 0 ? "Miễn phí" : formatCurrency(invoice.finalAmount)}</span>
-            </div>
-            ${invoice.pointsEarned && invoice.pointsEarned > 0 ? `
-            <div class="total-row" style="margin-top: 10px; color: #f97316;">
-              <span>Điểm thưởng:</span>
-              <span style="font-weight: bold;">+${invoice.pointsEarned} điểm</span>
-            </div>
-            ` : ""}
-          </div>
+          <div class="total-section" id="total-section"></div>
 
           <div class="section" style="margin-top: 40px; text-align: center; color: #6b7280; font-size: 12px;">
             <p>Cảm ơn quý khách đã sử dụng dịch vụ của CLB Hỗ trợ Kỹ thuật IT Supporter</p>
@@ -331,8 +255,157 @@ export default function Invoices() {
         </body>
       </html>
     `);
-
     printWindow.document.close();
+
+    const doc = printWindow.document;
+
+    const createInfoRow = (label: string, value: string): HTMLDivElement => {
+      const row = doc.createElement("div");
+      row.className = "info-row";
+
+      const labelNode = doc.createElement("div");
+      labelNode.className = "info-label";
+      labelNode.textContent = label;
+
+      const valueNode = doc.createElement("div");
+      valueNode.className = "info-value";
+      valueNode.textContent = value;
+
+      row.appendChild(labelNode);
+      row.appendChild(valueNode);
+      return row;
+    };
+
+    const invoiceNumberNode = doc.getElementById("invoice-number");
+    if (invoiceNumberNode) {
+      invoiceNumberNode.textContent = `Mã hóa đơn: ${invoice.invoiceNumber}`;
+    }
+
+    const invoiceInfo = doc.getElementById("invoice-info");
+    if (invoiceInfo) {
+      invoiceInfo.appendChild(createInfoRow("Ngày tạo:", `${invoice.createdAt} - ${invoice.createdTime}`));
+      invoiceInfo.appendChild(createInfoRow("Loại đăng ký:", invoice.registrationType === "online" ? "Trực tuyến" : "Trực tiếp"));
+      if (invoice.createdBy) {
+        invoiceInfo.appendChild(createInfoRow("Người tạo:", invoice.createdBy));
+      }
+    }
+
+    const customerInfo = doc.getElementById("customer-info");
+    if (customerInfo) {
+      customerInfo.appendChild(createInfoRow("Họ và tên:", invoice.customerName));
+      customerInfo.appendChild(createInfoRow("Số điện thoại:", invoice.phone));
+      customerInfo.appendChild(createInfoRow("Bảo hành:", invoice.warranty === "con" ? "Còn bảo hành" : "Hết bảo hành"));
+      customerInfo.appendChild(createInfoRow("Mang sạc:", invoice.charger ? "Có" : "Không"));
+      customerInfo.appendChild(createInfoRow("Category:", invoice.category));
+    }
+
+    if (invoice.machineCondition || invoice.needs) {
+      const machineSection = doc.getElementById("machine-section");
+      const machineInfo = doc.getElementById("machine-info");
+      if (machineSection && machineInfo) {
+        machineSection.style.display = "block";
+        if (invoice.machineCondition) {
+          machineInfo.appendChild(createInfoRow("Tình trạng máy:", invoice.machineCondition));
+        }
+        if (invoice.needs) {
+          machineInfo.appendChild(createInfoRow("Nhu cầu:", invoice.needs));
+        }
+      }
+    }
+
+    const servicesContainer = doc.getElementById("services-container");
+    if (servicesContainer) {
+      if (invoice.services.length > 0) {
+        const table = doc.createElement("table");
+        table.className = "services-table";
+
+        const thead = doc.createElement("thead");
+        const headRow = doc.createElement("tr");
+        const nameHeader = doc.createElement("th");
+        nameHeader.textContent = "Tên dịch vụ";
+        const priceHeader = doc.createElement("th");
+        priceHeader.style.textAlign = "right";
+        priceHeader.textContent = "Đơn giá";
+        headRow.appendChild(nameHeader);
+        headRow.appendChild(priceHeader);
+        thead.appendChild(headRow);
+
+        const tbody = doc.createElement("tbody");
+        invoice.services.forEach((service) => {
+          const row = doc.createElement("tr");
+          const nameCell = doc.createElement("td");
+          nameCell.textContent = service.name;
+          const priceCell = doc.createElement("td");
+          priceCell.style.textAlign = "right";
+          priceCell.textContent = service.price === 0 ? "Miễn phí" : formatCurrency(service.price);
+          row.appendChild(nameCell);
+          row.appendChild(priceCell);
+          tbody.appendChild(row);
+        });
+
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        servicesContainer.appendChild(table);
+      } else {
+        const empty = doc.createElement("p");
+        empty.textContent = "Chưa chọn dịch vụ nào";
+        servicesContainer.appendChild(empty);
+      }
+    }
+
+    const totalSection = doc.getElementById("total-section");
+    if (totalSection) {
+      const serviceTotalRow = doc.createElement("div");
+      serviceTotalRow.className = "total-row";
+      const serviceTotalLabel = doc.createElement("span");
+      serviceTotalLabel.textContent = "Tổng tiền dịch vụ:";
+      const serviceTotalValue = doc.createElement("span");
+      serviceTotalValue.textContent = formatCurrency(invoice.serviceAmount);
+      serviceTotalRow.appendChild(serviceTotalLabel);
+      serviceTotalRow.appendChild(serviceTotalValue);
+      totalSection.appendChild(serviceTotalRow);
+
+      if (invoice.discountAmount > 0) {
+        const discountRow = doc.createElement("div");
+        discountRow.className = "total-row";
+        const discountLabel = doc.createElement("span");
+        discountLabel.textContent = `Giảm giá (${invoice.discountCode || ""}):`;
+        const discountValue = doc.createElement("span");
+        discountValue.textContent = `- ${formatCurrency(invoice.discountAmount)}`;
+        discountRow.appendChild(discountLabel);
+        discountRow.appendChild(discountValue);
+        totalSection.appendChild(discountRow);
+      }
+
+      const finalRow = doc.createElement("div");
+      finalRow.className = "total-row";
+      finalRow.style.marginTop = "10px";
+      const finalLabel = doc.createElement("span");
+      finalLabel.style.fontWeight = "bold";
+      finalLabel.textContent = "Thành tiền:";
+      const finalValue = doc.createElement("span");
+      finalValue.className = "final-amount";
+      finalValue.textContent = invoice.finalAmount === 0 ? "Miễn phí" : formatCurrency(invoice.finalAmount);
+      finalRow.appendChild(finalLabel);
+      finalRow.appendChild(finalValue);
+      totalSection.appendChild(finalRow);
+
+      if (invoice.pointsEarned && invoice.pointsEarned > 0) {
+        const pointsRow = doc.createElement("div");
+        pointsRow.className = "total-row";
+        pointsRow.style.marginTop = "10px";
+        pointsRow.style.color = "#f97316";
+        const pointsLabel = doc.createElement("span");
+        pointsLabel.textContent = "Điểm thưởng:";
+        const pointsValue = doc.createElement("span");
+        pointsValue.style.fontWeight = "bold";
+        pointsValue.textContent = `+${invoice.pointsEarned} điểm`;
+        pointsRow.appendChild(pointsLabel);
+        pointsRow.appendChild(pointsValue);
+        totalSection.appendChild(pointsRow);
+      }
+    }
+
     printWindow.focus();
     setTimeout(() => {
       printWindow.print();
@@ -448,6 +521,7 @@ export default function Invoices() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">STT</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Mã hóa đơn</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Khách hàng</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Ngày tạo</th>
@@ -458,8 +532,9 @@ export default function Invoices() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredInvoices.map((invoice) => (
+                {filteredInvoices.map((invoice, index) => (
                   <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-600">{index + 1}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <FileText size={16} className="text-orange-500" />

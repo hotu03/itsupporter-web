@@ -62,7 +62,13 @@ export async function getInvoices(): Promise<Invoice[]> {
 export async function addInvoice(invoice: Omit<Invoice, "id" | "invoiceNumber">): Promise<Invoice> {
   console.warn("[DEPRECATED] addInvoice() from invoices.ts → Use addFirestoreInvoice() from firestoreInvoices.ts");
   const id = await addFirestoreInvoice(invoice);
-  return { ...invoice, id, invoiceNumber: "HD-0000" } as Invoice; // invoiceNumber is generated in Firestore
+  const persistedInvoice = await getFirestoreInvoiceById(id);
+
+  if (!persistedInvoice) {
+    throw new Error("Cannot load created invoice from Firestore");
+  }
+
+  return persistedInvoice;
 }
 
 export async function getInvoiceById(id: string): Promise<Invoice | undefined> {
