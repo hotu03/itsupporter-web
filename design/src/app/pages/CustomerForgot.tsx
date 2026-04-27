@@ -30,7 +30,6 @@ export default function CustomerForgot() {
       return;
     }
 
-    // Check if customer exists in Firestore
     const customer = await getFirestoreCustomerByEmail(email.trim());
     if (!customer) {
       setError("Email chưa đăng ký dịch vụ sửa chữa");
@@ -39,17 +38,16 @@ export default function CustomerForgot() {
     }
 
     try {
-      // Send password reset email via Firebase Auth
       await sendCustomerPasswordReset(email.trim());
       setSent(true);
       toast.success("Đã gửi link đặt lại mật khẩu qua email!");
-    } catch (err: any) {
-      // Firebase Auth errors
-      if (err.code === 'auth/user-not-found') {
+    } catch (err: unknown) {
+      const authError = err as { code?: string };
+      if (authError.code === 'auth/user-not-found') {
         setError("Email chưa đăng ký dịch vụ sửa chữa");
-      } else if (err.code === 'auth/invalid-email') {
+      } else if (authError.code === 'auth/invalid-email') {
         setError("Email không hợp lệ");
-      } else if (err.code === 'auth/too-many-requests') {
+      } else if (authError.code === 'auth/too-many-requests') {
         setError("Quá nhiều yêu cầu. Vui lòng thử lại sau.");
       } else {
         setError("Có lỗi xảy ra. Vui lòng thử lại.");
@@ -61,13 +59,31 @@ export default function CustomerForgot() {
   };
 
   const handleBack = () => {
-    navigate("/customer/login?resetPassword=true");
+    navigate("/customer/login");
   };
 
   if (sent) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md space-y-4">
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
+                <span className="text-xl">📧</span>
+              </div>
+              <div>
+                <p className="text-blue-800 font-semibold text-sm mb-1">Hãy kiểm tra email của bạn!</p>
+                <p className="text-blue-700 text-xs leading-relaxed">
+                  Chúng tôi đã gửi <strong>liên kết đặt mật khẩu</strong> đến email của bạn. Vui lòng mở email và
+                  <strong> click vào liên kết</strong> để tạo mật khẩu mới.
+                </p>
+                <p className="text-blue-600 text-xs mt-2 italic">
+                  💡 Không thấy email? Hãy kiểm tra <strong>hộp thư rác (Spam/Junk)</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Send className="w-8 h-8 text-green-600" />
@@ -109,6 +125,24 @@ export default function CustomerForgot() {
           <p className="text-gray-600">
             Nhập email đã đăng ký để nhận link đặt lại mật khẩu
           </p>
+        </div>
+
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
+              <span className="text-xl">📧</span>
+            </div>
+            <div>
+              <p className="text-blue-800 font-semibold text-sm mb-1">Hãy kiểm tra email của bạn!</p>
+              <p className="text-blue-700 text-xs leading-relaxed">
+                Sau khi gửi yêu cầu, chúng tôi sẽ gửi <strong>liên kết đặt mật khẩu</strong> đến email của bạn.
+                Vui lòng <strong>click vào liên kết trong email</strong> để tạo mật khẩu mới.
+              </p>
+              <p className="text-blue-600 text-xs mt-2 italic">
+                💡 Không thấy email? Hãy kiểm tra <strong>hộp thư rác (Spam/Junk)</strong>.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Form */}

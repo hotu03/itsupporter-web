@@ -1,25 +1,20 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
 import { getFirestoreCustomerByEmail, updateFirestoreCustomer } from "../data/firestoreCustomers";
 import { signInCustomer } from "../data/firebase-auth";
 import { toast } from "sonner";
 
 export default function CustomerLogin() {
-  const [searchParams] = useSearchParams();
-  const isFirstLogin = searchParams.get("firstLogin") === "true";
-  const isResetPassword = searchParams.get("resetPassword") === "true";
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [step, setStep] = useState<"email" | "password">("email");
   const [customerEmail, setCustomerEmail] = useState("");
-  const [showPasswordReminder, setShowPasswordReminder] = useState(isFirstLogin || isResetPassword);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
+  const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -34,20 +29,9 @@ export default function CustomerLogin() {
       return;
     }
 
-    setLoading(true);
-    try {
-      const normalizedEmail = email.trim().toLowerCase();
-      const customer = await getFirestoreCustomerByEmail(normalizedEmail);
-      const shouldShowReminder = isFirstLogin || isResetPassword || Boolean(customer && !customer.lastLoginAt);
-      setShowPasswordReminder(shouldShowReminder);
-      setCustomerEmail(normalizedEmail);
-      setStep("password");
-    } catch (err) {
-      console.error("Login error:", err);
-      setError("Đã xảy ra lỗi. Vui lòng thử lại.");
-    } finally {
-      setLoading(false);
-    }
+    const normalizedEmail = email.trim().toLowerCase();
+    setCustomerEmail(normalizedEmail);
+    setStep("password");
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -133,26 +117,24 @@ export default function CustomerLogin() {
             <span className="text-gray-900 font-medium">{customerEmail}</span>
           </div>
 
-          {/* Password reset email reminder - only show for first login or password reset */}
-          {showPasswordReminder && (
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-6">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
-                  <span className="text-xl">📧</span>
-                </div>
-                <div>
-                  <p className="text-blue-800 font-semibold text-sm mb-1">Hãy kiểm tra email của bạn!</p>
-                  <p className="text-blue-700 text-xs leading-relaxed">
-                    Chúng tôi đã gửi một <strong>liên kết đặt mật khẩu</strong> đến email của bạn.
-                    Vui lòng <strong>click vào liên kết trong email</strong> để đặt mật khẩu trước khi đăng nhập.
-                  </p>
-                  <p className="text-blue-600 text-xs mt-2 italic">
-                    💡 Không thấy email? Hãy kiểm tra <strong>hộp thư rác (Spam/Junk)</strong>.
-                  </p>
-                </div>
+          {/* Password reminder */}
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
+                <span className="text-xl">📧</span>
+              </div>
+              <div>
+                <p className="text-blue-800 font-semibold text-sm mb-1">Hãy kiểm tra email của bạn!</p>
+                <p className="text-blue-700 text-xs leading-relaxed">
+                  Nếu bạn chưa đặt mật khẩu hoặc đã quên mật khẩu, vui lòng vào <strong>Quên mật khẩu</strong> để nhận
+                  <strong> liên kết đặt mật khẩu</strong> qua email.
+                </p>
+                <p className="text-blue-600 text-xs mt-2 italic">
+                  💡 Không thấy email? Hãy kiểm tra <strong>hộp thư rác (Spam/Junk)</strong>.
+                </p>
               </div>
             </div>
-          )}
+          </div>
 
           {/* Form */}
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
