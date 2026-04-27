@@ -310,9 +310,9 @@ export default function SignIn() {
       {/* Footer */}
       <div className="relative z-10 text-center py-4">
         <p className="text-white/70 text-xs">
-          Copyright © 2023{" "}
+          Copyright © 2026{" "}
           <a href="#" className="text-blue-300 hover:text-blue-200 font-medium transition-colors">
-            HALINHIT.COM
+            ITSUPPORTER.COM
           </a>
         </p>
       </div>

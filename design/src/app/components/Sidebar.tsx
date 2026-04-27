@@ -116,9 +116,9 @@ export function Sidebar() {
       {!collapsed && (
         <div className="px-4 pb-3">
           <p className="text-white/50 text-[10px]">
-            Copyright © 2023{" "}
+            Copyright © 2026{" "}
             <a href="#" className="text-white/80 underline hover:text-white">
-              HALINHIT.COM
+              ITSUPPORTER.COM
             </a>
           </p>
         </div>
