@@ -1,7 +1,7 @@
 import type { Member } from "./members";
 import type { User, UserRole } from "./users";
 import { updateMember, getMembers, saveMembers } from "./members";
-import { getUsers, saveUsers, getCurrentUser, hasPermission, setCurrentUser } from "./users";
+import { getCurrentUser, hasPermission, setCurrentUser } from "./users";
 import {
   getFirestoreMemberByEmail,
   addFirestoreMember,
@@ -15,9 +15,59 @@ export function generateMockUid(email: string): string {
   return `local-${email.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
 }
 
-function getNextUserId(users: User[]): number {
-  if (users.length === 0) return 1;
-  return Math.max(...users.map((user) => user.id)) + 1;
+function toDateInputValue(dob: string): string {
+  if (!dob) return "";
+  const parts = dob.split("/");
+  if (parts.length !== 3) return dob;
+  const [day, month, year] = parts;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function mapMemberProfileToUser(member: Member): Pick<User, "phone" | "dob" | "gender" | "hometown" | "position" | "techType" | "course" | "classRoom"> {
+  return {
+    phone: member.phone,
+    dob: toDateInputValue(member.dob),
+    gender: member.gender,
+    hometown: member.hometown,
+    position: member.position,
+    techType: member.type === "technician" ? "Technician" : "Tester",
+    course: member.course,
+    classRoom: member.class,
+  };
+}
+
+function clearCurrentUserSession(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("its_current_user");
+}
+
+function isSameIdentity(user: User, member: Member): boolean {
+  return (
+    Boolean(member.uid && user.uid && member.uid === user.uid)
+    || Boolean(member.email && user.email && member.email.toLowerCase() === user.email.toLowerCase())
+    || member.username === user.username
+  );
+}
+
+function mapMemberStatusToUserStatus(memberStatus: string): User["status"] {
+  return memberStatus === "inactive" ? "inactive" : "active";
+}
+
+function buildUserFromMember(member: Member, overrideStatus?: User["status"]): User {
+  const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(member);
+  return {
+    id: 0,
+    uid: member.uid,
+    name: member.name,
+    username: member.username,
+    email: member.email || "",
+    role,
+    permissions: [...permissions],
+    isRoot,
+    status: overrideStatus ?? mapMemberStatusToUserStatus(member.status),
+    registeredAt: member.registeredAt || new Date().toISOString(),
+    ...mapMemberProfileToUser(member),
+  };
 }
 
 export function mapMemberToUserRoleAndPermissions(member: Member): { role: UserRole; permissions: string[]; isRoot?: boolean } {
@@ -52,31 +102,9 @@ export function mapMemberToUserRoleAndPermissions(member: Member): { role: UserR
   };
 }
 
-function toDateInputValue(dob: string): string {
-  if (!dob) return "";
-  const parts = dob.split("/");
-  if (parts.length !== 3) return dob;
-  const [day, month, year] = parts;
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-}
-
-function mapMemberProfileToUser(member: Member): Pick<User, "phone" | "dob" | "gender" | "hometown" | "position" | "techType" | "course" | "classRoom"> {
-  return {
-    phone: member.phone,
-    dob: toDateInputValue(member.dob),
-    gender: member.gender,
-    hometown: member.hometown,
-    position: member.position,
-    techType: member.type === "technician" ? "Technician" : "Tester",
-    course: member.course,
-    classRoom: member.class,
-  };
-}
-
 // Link existing seed data (idempotent migration)
 export function linkExistingSeeds(): void {
   const members = getMembers();
-  const users = getUsers();
   let changed = false;
 
   const updatedMembers = members.map((member) => {
@@ -94,31 +122,6 @@ export function linkExistingSeeds(): void {
 
   if (changed) {
     saveMembers(updatedMembers);
-
-    let nextUserId = getNextUserId(users);
-    const newUsers = updatedMembers
-      .filter((m) => m.email)
-      .filter((m) => !users.some((u) => u.uid === m.uid || u.email === m.email || u.username === m.username))
-      .map((m) => {
-        const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(m);
-        return {
-          id: nextUserId++,
-          uid: m.uid,
-          name: m.name,
-          username: m.username,
-          email: m.email!,
-          role,
-          permissions: [...permissions],
-          isRoot,
-          status: m.status || "active",
-          registeredAt: m.registeredAt || new Date().toISOString(),
-          ...mapMemberProfileToUser(m),
-        } as User;
-      });
-
-    if (newUsers.length > 0) {
-      saveUsers([...users, ...newUsers]);
-    }
   }
 }
 
@@ -148,21 +151,19 @@ export async function registerUserAndPendingMember(
   const normalizedUsername = formData.username.trim().toLowerCase();
   const uid = formData.uid || generateMockUid(normalizedEmail || normalizedUsername);
 
-  const existingMembers = getMembers();
-  const users = getUsers();
-  const duplicateMember = existingMembers.find(
+  let sourceMembers: Member[];
+  try {
+    sourceMembers = await getFirestoreMembers();
+    saveMembers(sourceMembers);
+  } catch {
+    sourceMembers = getMembers();
+  }
+
+  const duplicateMember = sourceMembers.find(
     (m) => m.email?.trim().toLowerCase() === normalizedEmail || m.username.trim().toLowerCase() === normalizedUsername,
   );
   if (duplicateMember) {
     throw new Error("Email hoặc username đã tồn tại trong danh sách đăng ký.");
-  }
-
-  const existingUser = users.find(
-    (u) => u.uid === uid || u.email.trim().toLowerCase() === normalizedEmail || u.username.trim().toLowerCase() === normalizedUsername,
-  );
-
-  if (existingUser) {
-    throw new Error("Tài khoản user đã tồn tại. Vui lòng dùng email/username khác.");
   }
 
   const memberData: Omit<Member, "id"> = {
@@ -192,24 +193,9 @@ export async function registerUserAndPendingMember(
     id: firestoreId,
   };
 
-  saveMembers([...existingMembers, member]);
+  saveMembers([...sourceMembers, member]);
 
-  const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(member);
-  const user: User = {
-    id: getNextUserId(users),
-    uid,
-    name: member.name,
-    username: member.username,
-    email: normalizedEmail,
-    role,
-    permissions: [...permissions],
-    isRoot,
-    status: "inactive",
-    registeredAt: member.registeredAt || new Date().toISOString(),
-    ...mapMemberProfileToUser(member),
-  };
-  saveUsers([...users, user]);
-
+  const user = buildUserFromMember(member, "inactive");
   return { user, member };
 }
 
@@ -252,49 +238,14 @@ export async function approveAndLinkMember(
     // Keep local sync even if Firestore update fails temporarily
   }
 
-  const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(approvedMember);
-  const users = getUsers();
-  const existingUser = users.find(
-    (user) => user.uid === approvedMember.uid || user.email === approvedMember.email,
-  );
+  const linkedUser = buildUserFromMember(approvedMember, mapMemberStatusToUserStatus(approvedMember.status));
 
-  let linkedUser: User | undefined;
-
-  if (existingUser) {
-    const updatedUsers: User[] = users.map((user): User =>
-      user.id === existingUser.id
-        ? {
-            ...user,
-            uid: user.uid || approvedMember.uid,
-            name: approvedMember.name,
-            username: approvedMember.username,
-            email: approvedMember.email || user.email,
-            role,
-            permissions: [...permissions],
-            isRoot,
-            status: approvedMember.status === "inactive" ? "inactive" : "active",
-            ...mapMemberProfileToUser(approvedMember),
-          }
-        : user,
-    );
-    saveUsers(updatedUsers);
-    linkedUser = updatedUsers.find((user) => user.id === existingUser.id);
-  } else if (approvedMember.email) {
-    const newUser: User = {
-      id: getNextUserId(users),
-      uid: approvedMember.uid || generateMockUid(approvedMember.email),
-      name: approvedMember.name,
-      username: approvedMember.username,
-      email: approvedMember.email,
-      role,
-      permissions: [...permissions],
-      isRoot,
-      status: approvedMember.status === "inactive" ? "inactive" : "active",
-      registeredAt: approvedMember.registeredAt || new Date().toISOString(),
-      ...mapMemberProfileToUser(approvedMember),
-    };
-    saveUsers([...users, newUser]);
-    linkedUser = newUser;
+  if (currentUser && isSameIdentity(currentUser, approvedMember)) {
+    if (linkedUser.status === "active") {
+      setCurrentUser({ ...currentUser, ...linkedUser });
+    } else {
+      clearCurrentUserSession();
+    }
   }
 
   return { success: true, member: approvedMember, user: linkedUser };
@@ -315,65 +266,20 @@ export function syncMemberRoleToUser(
     return { success: false, error: "Member not found" };
   }
 
-  const nextMember: Member = {
-    ...originalMember,
-    ...updates,
-  };
-
   const updatedMembers = updateMember(id, updates);
-  const savedMember = updatedMembers.find((member) => String(member.id) === String(id)) || nextMember;
-  const { role, permissions, isRoot } = mapMemberToUserRoleAndPermissions(savedMember);
-  const users = getUsers();
-  const existingUser = users.find((user) => user.uid === savedMember.uid || user.email === savedMember.email);
-
-  if (!existingUser) {
-    if (!savedMember.email) {
-      return { success: true, member: savedMember };
-    }
-
-    const createdUser: User = {
-      id: getNextUserId(users),
-      uid: savedMember.uid || generateMockUid(savedMember.email),
-      name: savedMember.name,
-      username: savedMember.username,
-      email: savedMember.email,
-      role,
-      permissions: [...permissions],
-      isRoot,
-      status: savedMember.status === "inactive" ? "inactive" : "active",
-      registeredAt: savedMember.registeredAt || new Date().toISOString(),
-      ...mapMemberProfileToUser(savedMember),
-    };
-
-    saveUsers([...users, createdUser]);
-    return {
-      success: true,
-      member: savedMember,
-      user: createdUser,
-    };
+  const savedMember = updatedMembers.find((member) => String(member.id) === String(id));
+  if (!savedMember) {
+    return { success: false, error: "Member not found" };
   }
 
-  const updatedUsers = users.map((user): User =>
-    user.id === existingUser.id
-      ? {
-          ...user,
-          uid: user.uid || savedMember.uid,
-          name: savedMember.name,
-          username: savedMember.username,
-          email: savedMember.email || user.email,
-          role,
-          permissions: [...permissions],
-          isRoot,
-          status: savedMember.status === "inactive" ? "inactive" : "active",
-          ...mapMemberProfileToUser(savedMember),
-        }
-      : user,
-  );
+  const syncedUser = buildUserFromMember(savedMember, mapMemberStatusToUserStatus(savedMember.status));
 
-  saveUsers(updatedUsers);
-  const syncedUser = updatedUsers.find((user) => user.id === existingUser.id);
-  if (currentUser.id === existingUser.id && syncedUser) {
-    setCurrentUser(syncedUser);
+  if (currentUser && isSameIdentity(currentUser, savedMember)) {
+    if (savedMember.approvalStatus === "approved" && syncedUser.status === "active") {
+      setCurrentUser({ ...currentUser, ...syncedUser });
+    } else {
+      clearCurrentUserSession();
+    }
   }
 
   return {
@@ -395,7 +301,12 @@ export async function rejectMember(id: string | number): Promise<Member[]> {
     return members;
   }
 
-  const updated = updateMember(id, { approvalStatus: "rejected", status: "inactive" });
+  const updatedMember: Partial<Member> = { approvalStatus: "rejected", status: "inactive" };
+  const updated = updateMember(id, updatedMember);
+
+  if (currentUser && isSameIdentity(currentUser, member)) {
+    clearCurrentUserSession();
+  }
 
   try {
     await updateFirestoreMember(String(member.id), {
@@ -422,46 +333,26 @@ export async function syncMembersFromFirestore(): Promise<void> {
 }
 
 export function syncUserProfilesFromMembers(): void {
-  const users = getUsers();
+  const current = getCurrentUser();
+  if (!current || current.isRoot) return;
+
   const members = getMembers();
-  let changed = false;
+  const member = members.find((m) => isSameIdentity(current, m));
 
-  const updatedUsers = users.map((user) => {
-    if (user.isRoot) return user;
-
-    const member = members.find(
-      (m) => (m.uid && user.uid && m.uid === user.uid)
-        || (m.email && user.email && m.email.toLowerCase() === user.email.toLowerCase())
-        || m.username === user.username,
-    );
-
-    if (!member) return user;
-
-    const mappedProfile = mapMemberProfileToUser(member);
-    const nextUser: User = {
-      ...user,
-      ...mappedProfile,
-    };
-
-    if (
-      nextUser.phone !== user.phone
-      || nextUser.dob !== user.dob
-      || nextUser.gender !== user.gender
-      || nextUser.hometown !== user.hometown
-      || nextUser.position !== user.position
-      || nextUser.techType !== user.techType
-      || nextUser.course !== user.course
-      || nextUser.classRoom !== user.classRoom
-    ) {
-      changed = true;
-      return nextUser;
-    }
-
-    return user;
-  });
-
-  if (changed) {
-    saveUsers(updatedUsers);
+  if (!member || member.approvalStatus !== "approved") {
+    clearCurrentUserSession();
+    return;
   }
-}
 
+  const nextUser = {
+    ...current,
+    ...buildUserFromMember(member, mapMemberStatusToUserStatus(member.status)),
+  };
+
+  if (nextUser.status === "inactive") {
+    clearCurrentUserSession();
+    return;
+  }
+
+  setCurrentUser(nextUser);
+}

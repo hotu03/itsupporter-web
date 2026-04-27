@@ -1,21 +1,19 @@
-// Shared user data management for Phase 1 auth + roles (mock localStorage)
-// Reuses patterns from machines.ts (get/save, initial seed on first load)
+// Shared user data management for staff auth + roles (Firestore/member-derived)
 
 export type UserRole = 'root' | 'admin' | 'technician' | 'tester' | 'member';
 
 export interface User {
   id: number;
-  uid?: string; // for future Firebase
+  uid?: string;
   name: string;
   username: string;
   email: string;
   phone?: string;
   role: UserRole;
   isRoot?: boolean;
-  permissions: string[]; // e.g. ['*'] for root, or ['manage:personnel', 'view:finance']
+  permissions: string[];
   status: 'active' | 'inactive';
   registeredAt: string;
-  // Extended profile fields
   avatar?: string;
   dob?: string;
   gender?: string;
@@ -26,14 +24,14 @@ export interface User {
   classRoom?: string;
 }
 
-// Import Machine type for ownership checks
 import type { Machine } from './machines';
+import { getMembers } from './members';
 
 const ROOT_ADMIN: User = {
   id: 0,
-  name: "Root Admin",
-  username: "root",
-  email: "root@itsupporter.com",
+  name: 'Root Admin',
+  username: 'root',
+  email: 'root@itsupporter.com',
   role: 'root',
   isRoot: true,
   permissions: ['*'],
@@ -41,94 +39,154 @@ const ROOT_ADMIN: User = {
   registeredAt: new Date().toISOString(),
 };
 
-// Get users from localStorage
-export function getUsers(): User[] {
-  if (typeof window === "undefined") return [ROOT_ADMIN];
+function toDateInputValue(dob: string): string {
+  if (!dob) return '';
+  const parts = dob.split('/');
+  if (parts.length !== 3) return dob;
+  const [day, month, year] = parts;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
 
-  const stored = localStorage.getItem("its_users");
-  if (stored) {
-    try {
-      const users = JSON.parse(stored);
-      // Ensure root is always present
-      if (!users.some((u: User) => u.isRoot)) {
-        return [ROOT_ADMIN, ...users];
-      }
-      return users;
-    } catch {
-      return [ROOT_ADMIN];
-    }
+function mapMemberProfileToUser(member: ReturnType<typeof getMembers>[number]): Pick<User, 'phone' | 'dob' | 'gender' | 'hometown' | 'position' | 'techType' | 'course' | 'classRoom'> {
+  return {
+    phone: member.phone,
+    dob: toDateInputValue(member.dob),
+    gender: member.gender,
+    hometown: member.hometown,
+    position: member.position,
+    techType: member.type === 'technician' ? 'Technician' : 'Tester',
+    course: member.course,
+    classRoom: member.class,
+  };
+}
+
+function deriveUserFromMember(uidOrEmailOrUsername: {
+  uid?: string;
+  email?: string;
+  username?: string;
+}): User | null {
+  const members = getMembers();
+  const member = members.find((m) =>
+    (uidOrEmailOrUsername.uid && m.uid === uidOrEmailOrUsername.uid)
+    || (uidOrEmailOrUsername.email && m.email?.toLowerCase() === uidOrEmailOrUsername.email.toLowerCase())
+    || (uidOrEmailOrUsername.username && m.username === uidOrEmailOrUsername.username)
+  );
+
+  if (!member || member.approvalStatus !== 'approved') {
+    return null;
+  }
+
+  const role: UserRole = member.isAdmin ? 'admin' : member.type;
+  const permissions = member.isAdmin
+    ? ['manage:personnel', 'view:finance', 'execute:repair', 'view:machines']
+    : member.type === 'technician'
+      ? ['execute:repair', 'view:machines']
+      : ['execute:test', 'view:machines'];
+
+  return {
+    id: 0,
+    uid: member.uid,
+    name: member.name,
+    username: member.username,
+    email: member.email || '',
+    role,
+    isRoot: false,
+    permissions,
+    status: member.status === 'inactive' ? 'inactive' : 'active',
+    registeredAt: member.registeredAt || new Date().toISOString(),
+    ...mapMemberProfileToUser(member),
+  };
+}
+
+export function getActiveUserByIdentity(uidOrEmailOrUsername: {
+  uid?: string;
+  email?: string;
+  username?: string;
+}): User | null {
+  if (uidOrEmailOrUsername.email?.toLowerCase() === ROOT_ADMIN.email.toLowerCase()) {
+    return { ...ROOT_ADMIN, uid: uidOrEmailOrUsername.uid || ROOT_ADMIN.uid };
+  }
+
+  const derived = deriveUserFromMember(uidOrEmailOrUsername);
+  if (!derived || derived.status !== 'active') {
+    return null;
+  }
+
+  return derived;
+}
+
+// Keep only root in list model, clear legacy persisted users list
+export function getUsers(): User[] {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('its_users');
   }
   return [ROOT_ADMIN];
 }
 
-// Save users to localStorage (immutable - always creates new array)
-export function saveUsers(users: User[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("its_users", JSON.stringify(users));
+export function saveUsers(_users: User[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('its_users');
 }
 
-// Initialize / seed users (called on app start or Personnel mount)
 export function initUsers(): User[] {
-  const users = getUsers();
-  const seeded = localStorage.getItem("its_root_seeded");
-  if (!seeded) {
-    localStorage.setItem("its_root_seeded", "true");
-    // Only seed root admin, no test accounts
-    saveUsers([ROOT_ADMIN]);
-    return [ROOT_ADMIN];
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('its_users');
+    localStorage.removeItem('its_root_seeded');
   }
-  return users;
+  return [ROOT_ADMIN];
 }
 
-// Immutable update role (returns new array, original unchanged)
-export function updateUserRole(userId: number, newRole: UserRole, newPermissions: string[]): User[] {
-  const users = getUsers();
-  const updated = users.map(user =>
-    user.id === userId
-      ? { ...user, role: newRole, permissions: [...newPermissions] }
-      : user
-  );
-  saveUsers(updated);
-  return updated;
+export function updateUserRole(_userId: number, _newRole: UserRole, _newPermissions: string[]): User[] {
+  return getUsers();
 }
 
-// Check permission (root bypass)
 export function hasPermission(user: User | null, requiredPermission: string): boolean {
   if (!user) return false;
   if (user.isRoot || user.permissions.includes('*')) return true;
   return user.permissions.includes(requiredPermission);
 }
 
-// Get current logged in user from localStorage (for mock auth)
 export function getCurrentUser(): User | null {
-  if (typeof window === "undefined") return null;
-  const stored = localStorage.getItem("its_current_user");
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem('its_current_user');
   if (!stored) return null;
+
   try {
-    return JSON.parse(stored);
+    const current = JSON.parse(stored) as User;
+    if (current.isRoot || current.email === ROOT_ADMIN.email) {
+      return { ...ROOT_ADMIN, uid: current.uid || ROOT_ADMIN.uid };
+    }
+
+    const derived = deriveUserFromMember({
+      uid: current.uid,
+      email: current.email,
+      username: current.username,
+    });
+
+    if (!derived || derived.status !== 'active') {
+      localStorage.removeItem('its_current_user');
+      return null;
+    }
+
+    return derived;
   } catch {
     return null;
   }
 }
 
 export function setCurrentUser(user: User): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("its_current_user", JSON.stringify(user));
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('its_current_user', JSON.stringify(user));
 }
 
-// Update current user profile
-export function updateCurrentUserProfile(updates: Partial<Omit<User, "id" | "role" | "isRoot" | "permissions" | "status">>): User | null {
+export function updateCurrentUserProfile(updates: Partial<Omit<User, 'id' | 'role' | 'isRoot' | 'permissions' | 'status'>>): User | null {
   const current = getCurrentUser();
   if (!current) return null;
 
   const updatedUser: User = { ...current, ...updates };
-  const allUsers = getUsers().map(u => u.id === current.id ? updatedUser : u);
-  saveUsers(allUsers);
   setCurrentUser(updatedUser);
   return updatedUser;
 }
-
-// ─── Permission Helpers ───────────────────────────────────────────────────────
 
 export function isRoot(user: User | null): boolean {
   if (!user) return false;
@@ -151,32 +209,24 @@ export function isTester(user: User | null): boolean {
   return user.role === 'tester';
 }
 
-// Check if user can edit a specific machine (ownership check)
 export function canEditMachine(user: User | null, machine: Machine): boolean {
   if (!user) return false;
 
-  // Root/Admin can edit anything
   if (isRoot(user) || isAdmin(user)) return true;
-
-  // Member cannot edit machines
   if (user.role === 'member') return false;
 
-  // Check if machine is unassigned
   const isUnassigned =
     (!machine.technician || machine.technician === '—' || machine.technician === 'Chưa gán') &&
     (!machine.tester || machine.tester === '—' || machine.tester === 'Chưa gán');
 
   if (isUnassigned) {
-    // All authenticated users except member can edit unassigned
     return user.role === 'technician' || user.role === 'tester';
   }
 
-  // Technician: can only edit machines assigned to them
   if (user.role === 'technician') {
     return machine.technician === user.name || machine.technician?.includes(user.name);
   }
 
-  // Tester: can edit machines assigned to them OR status is RETESTING
   if (user.role === 'tester') {
     const isAssignedToMe = machine.tester === user.name || machine.tester?.includes(user.name);
     const isRetesting = machine.status === 'RETESTING';
@@ -188,7 +238,6 @@ export function canEditMachine(user: User | null, machine: Machine): boolean {
 
 export function canDeleteMachine(user: User | null, _machine: Machine): boolean {
   if (!user) return false;
-  // Only root and admin can delete machines
   return isRoot(user) || isAdmin(user);
 }
 
@@ -197,7 +246,6 @@ export function canManagePersonnel(user: User | null): boolean {
 }
 
 export function canViewFinance(_user: User | null): boolean {
-  // All roles can view finance (edit is blocked at UI level)
   return true;
 }
 
@@ -211,6 +259,5 @@ export function canManageCustomers(user: User | null): boolean {
 
 export function canCreateMachine(user: User | null): boolean {
   if (!user) return false;
-  // All roles except member can create machines
   return user.role !== 'member';
 }
