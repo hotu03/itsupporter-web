@@ -29,25 +29,33 @@ export interface CreateDrawerProps {
   machine?: Machine | null;
   testerMembers: string[];
   technicianMembers: string[];
-  /** Checklist items used in tester before/after tables */
   checklistItems: string[];
-  /** Technician checklist items */
   technicianChecklist: string[];
 }
 
 export function CreateDrawer({ onClose, onSave, machine, testerMembers, technicianMembers, checklistItems, technicianChecklist }: CreateDrawerProps) {
   const isEdit = !!machine;
   const {
-    form, step, setStep, availableServices,
-    discountApplied, discountAmount, discountError,
-    set, handleApplyDiscount, toggleCheck, setNote,
-    totalServiceAmount, finalAmount, submitForm,
+    form,
+    step,
+    setStep,
+    availableServices,
+    discountApplied,
+    discountAmount,
+    discountError,
+    pointRules,
+    set,
+    handleApplyDiscount,
+    toggleCheck,
+    setNote,
+    totalServiceAmount,
+    finalAmount,
+    submitForm,
   } = useMachineForm(machine);
 
   const currentMeta = STEP_META[step - 1];
 
   const handleSubmit = (finalStatus?: Status) => {
-    // Validate required fields on P1 (customer info step)
     if (step === 1) {
       if (!form.customerName.trim()) {
         alert("Vui lòng nhập tên khách hàng!");
@@ -75,7 +83,7 @@ export function CreateDrawer({ onClose, onSave, machine, testerMembers, technici
       const pts = resultMachine.pointsEarned || 0;
       if (pts > 0) {
         setTimeout(() => {
-          alert(`✅ Hoàn thành!\n\n🎉 Khách hàng nhận được ${pts} điểm thưởng!\n\n${getPointsExplanation(resultMachine.finalAmount!).join("\n")}`);
+          alert(`✅ Hoàn thành!\n\n🎉 Khách hàng nhận được ${pts} điểm thưởng!\n\n${getPointsExplanation(resultMachine.finalAmount!, pointRules).join("\n")}`);
         }, 100);
       }
     }
@@ -85,12 +93,9 @@ export function CreateDrawer({ onClose, onSave, machine, testerMembers, technici
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
       <div className="flex-1 bg-black/40" onClick={onClose} />
 
-      {/* Drawer */}
       <div className="w-full max-w-3xl bg-white h-full flex flex-col shadow-2xl overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-orange-500">
           <div>
             <p className="text-white font-bold">
@@ -103,7 +108,6 @@ export function CreateDrawer({ onClose, onSave, machine, testerMembers, technici
           </button>
         </div>
 
-        {/* Step tabs */}
         <div className="flex border-b border-gray-200 bg-gray-50">
           {STEP_META.map(({ n, label }) => (
             <button
@@ -120,7 +124,6 @@ export function CreateDrawer({ onClose, onSave, machine, testerMembers, technici
           ))}
         </div>
 
-        {/* Role banner */}
         <div className={`px-6 py-2.5 border-b flex items-center justify-between ${currentMeta.badge}`}>
           <div className="flex items-center gap-2 text-xs font-medium">
             <span className="opacity-60">Thực hiện bởi:</span>
@@ -131,7 +134,6 @@ export function CreateDrawer({ onClose, onSave, machine, testerMembers, technici
           </span>
         </div>
 
-        {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {step === 1 && (
             <StepCustomerInfo
@@ -189,11 +191,11 @@ export function CreateDrawer({ onClose, onSave, machine, testerMembers, technici
               onSubmit={handleSubmit}
               machineId={machine?.id}
               availableServices={availableServices}
+              pointRules={pointRules}
             />
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between gap-3">
           <div>
             {step > 1 && (
@@ -206,7 +208,6 @@ export function CreateDrawer({ onClose, onSave, machine, testerMembers, technici
             )}
           </div>
 
-          {/* Step dots */}
           <div className="flex items-center gap-1.5">
             {[1, 2, 3, 4, 5].map((n) => (
               <div
@@ -227,11 +228,9 @@ export function CreateDrawer({ onClose, onSave, machine, testerMembers, technici
               Huỷ
             </button>
 
-            {/* P5: Lưu cập nhật thông tin P5 */}
             {step === TOTAL_STEPS && (
               <button
                 onClick={async () => {
-                  // Cập nhật transaction trong Finance nếu có machineId
                   if (machine?.id) {
                     await updateFirestoreTransactionByMachineId(machine.id, {
                       paymentStatus: form.paymentStatus as "paid" | "pending" | "free",
@@ -239,13 +238,14 @@ export function CreateDrawer({ onClose, onSave, machine, testerMembers, technici
                       discountAmount: form.discountAmount || 0,
                     });
                   }
-                  // Cập nhật machine với thông tin từ P5
+
                   const updatedMachine: Machine = {
                     ...(machine ?? {}),
                     adminConfirmNote: form.adminConfirmNote,
                     paymentStatus: form.paymentStatus,
                     status: machine?.status ?? "COMPLETE",
                   } as Machine;
+
                   onSave(updatedMachine);
                   onClose();
                 }}
@@ -255,7 +255,6 @@ export function CreateDrawer({ onClose, onSave, machine, testerMembers, technici
               </button>
             )}
 
-            {/* P1-P4: Lưu và chuyển trạng thái */}
             {step < TOTAL_STEPS && (
               <button
                 onClick={() => handleSubmit(STEP_STATUS[step])}
@@ -265,6 +264,7 @@ export function CreateDrawer({ onClose, onSave, machine, testerMembers, technici
                 {step !== 1 && <span className="opacity-80 ml-1">→ {STEP_STATUS[step]}</span>}
               </button>
             )}
+
             {step < TOTAL_STEPS && (
               <button
                 onClick={() => {

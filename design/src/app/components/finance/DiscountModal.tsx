@@ -7,7 +7,8 @@ interface DiscountModalProps {
   formData: DiscountFormData;
   onClose: () => void;
   onChange: (data: DiscountFormData) => void;
-  onSave: () => void;
+  onSave: () => Promise<boolean>;
+  isSaving?: boolean;
 }
 
 export function DiscountModal({
@@ -17,6 +18,7 @@ export function DiscountModal({
   onClose,
   onChange,
   onSave,
+  isSaving = false,
 }: DiscountModalProps) {
   if (!isOpen) return null;
 
@@ -30,6 +32,7 @@ export function DiscountModal({
           <button
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-gray-100 transition-colors"
+            disabled={isSaving}
           >
             <X size={20} className="text-gray-500" />
           </button>
@@ -46,7 +49,7 @@ export function DiscountModal({
               onChange={(e) =>
                 onChange({ ...formData, code: e.target.value.toUpperCase() })
               }
-              disabled={editing}
+              disabled={editing || isSaving}
               placeholder="VD: SAVE20, NEWCUST"
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-50 disabled:cursor-not-allowed transition-all uppercase"
             />
@@ -69,6 +72,7 @@ export function DiscountModal({
                   onChange({ ...formData, discountPercent: e.target.value })
                 }
                 placeholder="VD: 20"
+                disabled={isSaving}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all"
               />
             </div>
@@ -84,6 +88,7 @@ export function DiscountModal({
                   onChange({ ...formData, maxDiscount: e.target.value })
                 }
                 placeholder="VD: 200000"
+                disabled={isSaving}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all"
               />
             </div>
@@ -101,6 +106,7 @@ export function DiscountModal({
                 onChange({ ...formData, usageLimit: e.target.value })
               }
               placeholder="VD: 50"
+              disabled={isSaving}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all"
             />
             <p className="text-xs text-gray-400 mt-1">
@@ -119,6 +125,7 @@ export function DiscountModal({
                 onChange={(e) =>
                   onChange({ ...formData, validFrom: e.target.value })
                 }
+                disabled={isSaving}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all"
               />
             </div>
@@ -133,6 +140,7 @@ export function DiscountModal({
                 onChange={(e) =>
                   onChange({ ...formData, validUntil: e.target.value })
                 }
+                disabled={isSaving}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all"
               />
             </div>
@@ -147,11 +155,11 @@ export function DiscountModal({
               }
               placeholder="Mô tả về mã giảm giá..."
               rows={2}
+              disabled={isSaving}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all resize-none"
             />
           </div>
 
-          {/* Checkbox: Có thể đổi điểm */}
           <div className="flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <input
               type="checkbox"
@@ -164,6 +172,7 @@ export function DiscountModal({
                   pointsRequired: e.target.checked ? formData.pointsRequired : "",
                 })
               }
+              disabled={isSaving}
               className="mt-0.5 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
             />
             <div className="flex-1">
@@ -179,7 +188,6 @@ export function DiscountModal({
             </div>
           </div>
 
-          {/* Số điểm yêu cầu */}
           {formData.isRedeemable && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -193,6 +201,7 @@ export function DiscountModal({
                 }
                 placeholder="VD: 20"
                 min="1"
+                disabled={isSaving}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all"
               />
               <p className="text-xs text-gray-500 mt-1">
@@ -205,15 +214,17 @@ export function DiscountModal({
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+            disabled={isSaving}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-50"
           >
             Huỷ
           </button>
           <button
-            onClick={onSave}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-sm"
+            onClick={() => void onSave()}
+            disabled={isSaving}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-sm disabled:opacity-60"
           >
-            {editing ? "Cập nhật" : "Thêm mới"}
+            {isSaving ? "Đang lưu..." : editing ? "Cập nhật" : "Thêm mới"}
           </button>
         </div>
       </div>

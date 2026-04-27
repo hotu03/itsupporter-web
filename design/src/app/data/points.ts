@@ -37,46 +37,7 @@ export interface PointHistory {
   relatedId?: string;
 }
 
-// Re-export DEFAULT_POINT_RULES from firestorePoints if it exists, or define here
-export const DEFAULT_POINT_RULES: PointRule[] = [
-  {
-    id: "1",
-    name: "Đưa máy sửa chữa",
-    type: "per_order",
-    points: 1,
-    enabled: true,
-    description: "Cộng 1 điểm cho mỗi lần đưa máy sửa",
-  },
-  {
-    id: "2",
-    name: "Đơn hàng trên 50K",
-    type: "amount_threshold",
-    points: 2,
-    threshold: 50000,
-    enabled: true,
-    description: "Cộng 2 điểm khi đơn hàng trên 50,000 VND",
-  },
-  {
-    id: "3",
-    name: "Đơn hàng trên 100K",
-    type: "amount_threshold",
-    points: 3,
-    threshold: 100000,
-    enabled: true,
-    description: "Cộng 3 điểm khi đơn hàng trên 100,000 VND",
-  },
-  {
-    id: "4",
-    name: "Đơn hàng trên 200K",
-    type: "amount_threshold",
-    points: 5,
-    threshold: 200000,
-    enabled: true,
-    description: "Cộng 5 điểm khi đơn hàng trên 200,000 VND",
-  },
-];
-
-// ─── Deprecated Data Stubs (redirect to Firestore) ──────────────────────────
+export const DEFAULT_POINT_RULES: PointRule[] = [];
 
 export async function getPointRules(): Promise<PointRule[]> {
   console.warn("[DEPRECATED] getPointRules() from points.ts → Use getFirestorePointRules() from firestorePoints.ts");
@@ -108,29 +69,27 @@ export async function getCustomerPointHistoryByEmail(customerEmail: string): Pro
   return getFirestoreCustomerPointHistoryByEmail(customerEmail);
 }
 
-// ─── Pure Business Logic (KEPT - Not deprecated) ────────────────────────────
+function getActiveRules(rules: PointRule[]): PointRule[] {
+  return rules.filter((rule) => rule.enabled);
+}
 
-/**
- * Calculate points earned for an order based on active rules
- * @param orderAmount Total order amount in VND
- * @returns Total points earned
- */
-export function calculatePoints(orderAmount: number): number {
-  // Note: This function uses getPointRules() which now redirects to Firestore.
-  // In a full async migration, this should be made async too.
-  const rules = DEFAULT_POINT_RULES.filter((r) => r.enabled); // Use defaults for now to avoid async in pure function
+export function calculatePoints(orderAmount: number, rules: PointRule[] = DEFAULT_POINT_RULES): number {
+  const activeRules = getActiveRules(rules);
+  if (activeRules.length === 0) {
+    return 0;
+  }
 
   let totalPoints = 0;
 
-  rules
-    .filter((r) => r.type === "per_order")
-    .forEach((r) => {
-      totalPoints += r.points;
+  activeRules
+    .filter((rule) => rule.type === "per_order")
+    .forEach((rule) => {
+      totalPoints += rule.points;
     });
 
-  const thresholdRules = rules
-    .filter((r) => r.type === "amount_threshold" && r.threshold! <= orderAmount)
-    .sort((a, b) => (b.threshold || 0) - (a.threshold || 0));
+  const thresholdRules = activeRules
+    .filter((rule) => rule.type === "amount_threshold" && (rule.threshold ?? 0) <= orderAmount)
+    .sort((a, b) => (b.threshold ?? 0) - (a.threshold ?? 0));
 
   if (thresholdRules.length > 0) {
     totalPoints += thresholdRules[0].points;
@@ -139,9 +98,6 @@ export function calculatePoints(orderAmount: number): number {
   return totalPoints;
 }
 
-/**
- * Format currency to VND
- */
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -149,22 +105,23 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-/**
- * Get point rules explanation for display
- */
-export function getPointsExplanation(orderAmount: number): string[] {
-  const rules = DEFAULT_POINT_RULES.filter((r) => r.enabled);
+export function getPointsExplanation(orderAmount: number, rules: PointRule[] = DEFAULT_POINT_RULES): string[] {
+  const activeRules = getActiveRules(rules);
+  if (activeRules.length === 0) {
+    return [];
+  }
+
   const explanations: string[] = [];
 
-  rules
-    .filter((r) => r.type === "per_order")
-    .forEach((r) => {
-      explanations.push(`+${r.points} điểm: ${r.name}`);
+  activeRules
+    .filter((rule) => rule.type === "per_order")
+    .forEach((rule) => {
+      explanations.push(`+${rule.points} điểm: ${rule.name}`);
     });
 
-  const thresholdRules = rules
-    .filter((r) => r.type === "amount_threshold" && r.threshold! <= orderAmount)
-    .sort((a, b) => (b.threshold || 0) - (a.threshold || 0));
+  const thresholdRules = activeRules
+    .filter((rule) => rule.type === "amount_threshold" && (rule.threshold ?? 0) <= orderAmount)
+    .sort((a, b) => (b.threshold ?? 0) - (a.threshold ?? 0));
 
   if (thresholdRules.length > 0) {
     const rule = thresholdRules[0];

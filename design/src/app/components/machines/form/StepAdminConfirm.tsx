@@ -1,5 +1,10 @@
 import { Star, CreditCard } from "lucide-react";
-import { calculatePoints, getPointsExplanation, formatCurrency as formatCurr } from "../../../data/points";
+import {
+  calculatePoints,
+  getPointsExplanation,
+  formatCurrency as formatCurr,
+  type PointRule,
+} from "../../../data/points";
 import { updateFirestoreTransactionByMachineId } from "../../../data/firestoreTransactions";
 import type { Status } from "../../../data/machines";
 import type { ServiceData } from "../../../data/services";
@@ -15,10 +20,20 @@ interface StepProps {
   onSubmit: (status: Status) => void;
   machineId?: string | number;
   availableServices: ServiceData[];
+  pointRules: PointRule[];
 }
 
 export function StepAdminConfirm({
-  form, set, totalServiceAmount, finalAmount, discountApplied, discountAmount, onSubmit, machineId, availableServices,
+  form,
+  set,
+  totalServiceAmount,
+  finalAmount,
+  discountApplied,
+  discountAmount,
+  onSubmit,
+  machineId,
+  availableServices,
+  pointRules,
 }: StepProps) {
   return (
     <div className="flex flex-col gap-5">
@@ -26,10 +41,8 @@ export function StepAdminConfirm({
         Phần V: Admin xác nhận &amp; trả máy
       </h3>
 
-      {/* Summary card */}
       <SummaryCard form={form} />
 
-      {/* Invoice & Payment */}
       {(form.additionalServices.length > 0 || form.discountCode) && (
         <InvoiceSection
           form={form}
@@ -40,10 +53,10 @@ export function StepAdminConfirm({
           discountAmount={discountAmount}
           machineId={machineId}
           availableServices={availableServices}
+          pointRules={pointRules}
         />
       )}
 
-      {/* Admin note */}
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-gray-600">Ghi chú của Admin (tuỳ chọn)</label>
         <textarea
@@ -55,7 +68,6 @@ export function StepAdminConfirm({
         />
       </div>
 
-      {/* Action buttons */}
       <div className="flex flex-col gap-3">
         <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Xác nhận trạng thái</p>
         <div className="grid grid-cols-2 gap-3">
@@ -79,7 +91,6 @@ export function StepAdminConfirm({
   );
 }
 
-// ─── Extracted: Summary Card ─────────────────────────────────────────────────
 interface SummaryCardProps {
   form: {
     customerName: string;
@@ -126,7 +137,6 @@ function SummaryCard({ form }: SummaryCardProps) {
   );
 }
 
-// ─── Extracted: Invoice Section ──────────────────────────────────────────────
 interface InvoiceSectionProps {
   form: {
     additionalServices: string[];
@@ -140,6 +150,7 @@ interface InvoiceSectionProps {
   discountAmount: number;
   machineId?: string | number;
   availableServices: ServiceData[];
+  pointRules: PointRule[];
 }
 
 function getServicePriceFromList(services: ServiceData[], serviceName: string): number {
@@ -147,7 +158,17 @@ function getServicePriceFromList(services: ServiceData[], serviceName: string): 
   return service?.price ?? 0;
 }
 
-function InvoiceSection({ form, set, totalServiceAmount, finalAmount, discountApplied, discountAmount, machineId, availableServices }: InvoiceSectionProps) {
+function InvoiceSection({
+  form,
+  set,
+  totalServiceAmount,
+  finalAmount,
+  discountApplied,
+  discountAmount,
+  machineId,
+  availableServices,
+  pointRules,
+}: InvoiceSectionProps) {
   return (
     <div className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden">
       <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
@@ -165,8 +186,8 @@ function InvoiceSection({ form, set, totalServiceAmount, finalAmount, discountAp
                   form.paymentStatus === "paid"
                     ? "bg-green-100 text-green-700 border border-green-300"
                     : form.paymentStatus === "pending"
-                    ? "bg-yellow-100 text-yellow-700 border border-yellow-300"
-                    : "bg-blue-100 text-blue-700 border border-blue-300"
+                      ? "bg-yellow-100 text-yellow-700 border border-yellow-300"
+                      : "bg-blue-100 text-blue-700 border border-blue-300"
                 }`}
               >
                 <option value="pending">Chưa thanh toán</option>
@@ -180,7 +201,7 @@ function InvoiceSection({ form, set, totalServiceAmount, finalAmount, discountAp
                       await updateFirestoreTransactionByMachineId(machineId, {
                         paymentStatus: form.paymentStatus as "paid" | "pending" | "free",
                         discountCode: form.discountCode,
-                        discountAmount: discountAmount,
+                        discountAmount,
                       });
                       alert("Đã lưu trạng thái thanh toán!");
                     }
@@ -236,22 +257,21 @@ function InvoiceSection({ form, set, totalServiceAmount, finalAmount, discountAp
         </div>
 
         {(() => {
-          const pts = calculatePoints(finalAmount);
-          if (pts > 0) {
-            return (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Star size={16} className="text-yellow-500 fill-yellow-500" />
-                  <div>
-                    <p className="text-xs font-semibold text-yellow-800">Điểm tích lũy</p>
-                    <p className="text-[10px] text-yellow-600">{getPointsExplanation(finalAmount).join(" • ")}</p>
-                  </div>
+          const pts = calculatePoints(finalAmount, pointRules);
+          if (pts <= 0) return null;
+
+          return (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Star size={16} className="text-yellow-500 fill-yellow-500" />
+                <div>
+                  <p className="text-xs font-semibold text-yellow-800">Điểm tích lũy</p>
+                  <p className="text-[10px] text-yellow-600">{getPointsExplanation(finalAmount, pointRules).join(" • ")}</p>
                 </div>
-                <span className="text-lg font-bold text-yellow-700">+{pts}</span>
               </div>
-            );
-          }
-          return null;
+              <span className="text-lg font-bold text-yellow-700">+{pts}</span>
+            </div>
+          );
         })()}
       </div>
     </div>

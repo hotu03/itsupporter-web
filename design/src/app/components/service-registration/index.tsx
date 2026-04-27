@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { getServices, formatCurrency as formatCurr, type ServiceData } from "../../data/services";
-import { validateDiscount, useDiscount } from "../../data/discounts";
+import { validateFirestoreDiscount, useFirestoreDiscount } from "../../data/firestoreDiscounts";
 import { addFirestoreMachine } from "../../data/firestoreMachines";
 import { addFirestoreCustomer } from "../../data/firestoreCustomers";
 import { addFirestoreTransaction } from "../../data/firestoreTransactions";
-import { calculatePoints } from "../../data/points";
+import { calculatePoints, type PointRule } from "../../data/points";
+import { getFirestorePointRules } from "../../data/firestorePoints";
 import { addFirestoreInvoice } from "../../data/firestoreInvoices";
 import { createFirebaseCustomer, sendCustomerPasswordReset } from "../../data/firebase-auth";
+
 import { toast } from "sonner";
 import { ServiceRegistrationReceipt } from "./ServiceRegistrationReceipt";
 import { ServiceRegistrationForm } from "./ServiceRegistrationForm";
@@ -58,6 +60,7 @@ export default function ServiceRegistration() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availableServices, setAvailableServices] = useState<ServiceData[]>([]);
   const [servicesLoadError, setServicesLoadError] = useState("");
+  const [pointRules, setPointRules] = useState<PointRule[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -76,6 +79,27 @@ export default function ServiceRegistration() {
     };
 
     void loadServices();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPointRules = async () => {
+      try {
+        const rules = await getFirestorePointRules();
+        if (!isMounted) return;
+        setPointRules(rules.filter((rule) => rule.enabled));
+      } catch {
+        if (!isMounted) return;
+        setPointRules([]);
+      }
+    };
+
+    void loadPointRules();
 
     return () => {
       isMounted = false;
@@ -101,30 +125,50 @@ export default function ServiceRegistration() {
   useEffect(() => {
     if (!discountApplied || !form.discountCode.trim()) return;
 
-    const result = validateDiscount(form.discountCode, form.serviceAmount);
-    if (!result.valid) {
-      setDiscountApplied(false);
-      setDiscountError(result.error || "Mã giảm giá không hợp lệ");
-      setForm(prev => ({ ...prev, discountAmount: 0 }));
-      return;
-    }
+    let isMounted = true;
 
-    setDiscountError("");
-    const nextDiscountAmount = result.discountAmount ?? 0;
-    if (nextDiscountAmount !== form.discountAmount) {
-      setForm(prev => ({ ...prev, discountAmount: nextDiscountAmount }));
-    }
+    const syncDiscount = async () => {
+      const result = await validateFirestoreDiscount(form.discountCode, form.serviceAmount);
+      if (!isMounted) return;
+
+      if (!result.valid) {
+        setDiscountApplied(false);
+        setDiscountError(result.error || "Mã giảm giá không hợp lệ");
+        setForm(prev => ({ ...prev, discountAmount: 0 }));
+        return;
+      }
+
+      setDiscountError("");
+      const nextDiscountAmount = result.discountAmount ?? 0;
+      if (nextDiscountAmount !== form.discountAmount) {
+        setForm(prev => ({ ...prev, discountAmount: nextDiscountAmount }));
+      }
+    };
+
+    void syncDiscount();
+
+    return () => {
+      isMounted = false;
+    };
   }, [discountApplied, form.discountCode, form.serviceAmount, form.discountAmount]);
 
-  const handleApplyDiscount = () => {
-    const result = validateDiscount(form.discountCode, form.serviceAmount);
+  const handleApplyDiscount = async () => {
+    const result = await validateFirestoreDiscount(form.discountCode, form.serviceAmount);
     if (!result.valid) {
       setDiscountError(result.error || "Mã giảm giá không hợp lệ");
       setDiscountApplied(false);
       setForm(prev => ({ ...prev, discountAmount: 0 }));
       return;
     }
-    useDiscount(form.discountCode);
+
+    const used = await useFirestoreDiscount(form.discountCode);
+    if (!used) {
+      setDiscountError("Không thể ghi nhận lượt sử dụng mã giảm giá");
+      setDiscountApplied(false);
+      setForm(prev => ({ ...prev, discountAmount: 0 }));
+      return;
+    }
+
     setForm(prev => ({ ...prev, discountAmount: result.discountAmount ?? 0 }));
     setDiscountError("");
     setDiscountApplied(true);
@@ -150,7 +194,7 @@ export default function ServiceRegistration() {
     setIsSubmitting(true);
 
     try {
-      const pointsEarned = calculatePoints(form.finalAmount);
+      const pointsEarned = calculatePoints(form.finalAmount, pointRules);
       const now = new Date();
       const currentTime = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) + " " + now.toLocaleDateString("vi-VN").replace(/\//g, "/");
       const currentDate = now.toISOString().split("T")[0];

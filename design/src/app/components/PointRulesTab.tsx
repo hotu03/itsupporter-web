@@ -1,13 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   Search,
-    X,
+  X,
   Pencil,
   Trash2,
   ToggleRight,
   ToggleLeft,
   Award,
   TrendingUp,
+  Plus,
 } from "lucide-react";
 import {
   PointRule,
@@ -29,6 +30,7 @@ export default function PointRulesTab() {
       })
       .finally(() => setLoading(false));
   }, []);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingRule, setEditingRule] = useState<PointRule | null>(null);
@@ -40,7 +42,6 @@ export default function PointRulesTab() {
     paginate,
   } = usePagination(10);
 
-  // Form state
   const [formData, setFormData] = useState({
     name: "",
     type: "per_order" as "per_order" | "amount_threshold",
@@ -49,18 +50,16 @@ export default function PointRulesTab() {
     description: "",
   });
 
-  // Filtered rules
   const filteredRules = useMemo(() => {
     if (!searchQuery.trim()) return rules;
     const q = searchQuery.toLowerCase();
-    return rules.filter((r) =>
-      r.name.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q)
+    return rules.filter((rule) =>
+      rule.name.toLowerCase().includes(q) || rule.description?.toLowerCase().includes(q)
     );
   }, [rules, searchQuery]);
 
   const pagedRules = paginate(filteredRules);
 
-  // Handlers
   const handleOpenModal = (rule?: PointRule) => {
     if (rule) {
       setEditingRule(rule);
@@ -117,10 +116,10 @@ export default function PointRulesTab() {
     }
 
     if (editingRule) {
-      const updated = rules.map((r) =>
-        r.id === editingRule.id
+      const updated = rules.map((rule) =>
+        rule.id === editingRule.id
           ? {
-              ...r,
+              ...rule,
               name: formData.name,
               type: formData.type,
               points,
@@ -130,7 +129,7 @@ export default function PointRulesTab() {
                   : undefined,
               description: formData.description || undefined,
             }
-          : r
+          : rule
       );
       setRules(updated);
       await saveFirestorePointRules(updated);
@@ -156,15 +155,15 @@ export default function PointRulesTab() {
 
   const handleDelete = async (id: string) => {
     if (confirm("Bạn có chắc muốn xoá quy tắc này?")) {
-      const updated = rules.filter((r) => r.id !== id);
+      const updated = rules.filter((rule) => rule.id !== id);
       setRules(updated);
       await saveFirestorePointRules(updated);
     }
   };
 
   const handleToggle = async (id: string) => {
-    const updated = rules.map((r) =>
-      r.id === id ? { ...r, enabled: !r.enabled } : r
+    const updated = rules.map((rule) =>
+      rule.id === id ? { ...rule, enabled: !rule.enabled } : rule
     );
     setRules(updated);
     await saveFirestorePointRules(updated);
@@ -172,24 +171,32 @@ export default function PointRulesTab() {
 
   return (
     <>
-      {/* Search */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="relative">
-          <Search
-            size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            type="text"
-            placeholder="Tìm kiếm quy tắc..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all"
-          />
+      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="relative flex-1">
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="text"
+              placeholder="Tìm kiếm quy tắc..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all"
+            />
+          </div>
+
+          <button
+            onClick={() => handleOpenModal()}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+          >
+            <Plus size={16} />
+            Thêm quy tắc
+          </button>
         </div>
       </div>
 
-      {/* Rules Table */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -338,11 +345,9 @@ export default function PointRulesTab() {
         </div>
       </div>
 
-      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900">
                 {editingRule ? "Chỉnh sửa quy tắc" : "Thêm quy tắc mới"}
@@ -355,7 +360,6 @@ export default function PointRulesTab() {
               </button>
             </div>
 
-            {/* Body */}
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -445,7 +449,6 @@ export default function PointRulesTab() {
               </div>
             </div>
 
-            {/* Footer */}
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
               <button
                 onClick={handleCloseModal}

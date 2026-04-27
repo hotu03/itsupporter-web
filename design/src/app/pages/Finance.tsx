@@ -51,6 +51,7 @@ export default function Finance() {
     showDiscountModal,
     editingDiscount,
     discountFormData,
+    isDiscountSaving,
     setSearchQuery,
     setStartDate,
     setEndDate,
@@ -93,7 +94,6 @@ export default function Finance() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Quản lý Tài chính</h1>
@@ -116,7 +116,6 @@ export default function Finance() {
           )}
         </div>
 
-        {/* Tabs */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="flex border-b border-gray-200">
             <button
@@ -166,7 +165,6 @@ export default function Finance() {
           </div>
         </div>
 
-        {/* Tab Content */}
         {activeTab === "transactions" && (
           <TransactionTable
             transactions={filteredTransactions}
@@ -227,7 +225,6 @@ export default function Finance() {
         {activeTab === "point_rules" && <PointRulesTab />}
       </div>
 
-      {/* Modals */}
       <TransactionModal
         isOpen={showTransactionModal}
         editing={!!editingTransaction}
@@ -254,6 +251,7 @@ export default function Finance() {
         onClose={closeDiscountModal}
         onChange={setDiscountFormData}
         onSave={saveDiscount}
+        isSaving={isDiscountSaving}
       />
     </div>
   );

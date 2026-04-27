@@ -58,6 +58,7 @@ export interface UseFinanceReturn {
   discPageSize: number;
   filteredDiscounts: DiscountCode[];
   pagedDiscounts: DiscountCode[];
+  isDiscountSaving: boolean;
 
   // Shared filters
   searchQuery: string;
@@ -114,7 +115,7 @@ export interface UseFinanceReturn {
   setDiscPageSize: (s: number) => void;
   openDiscountModal: (disc?: DiscountCode) => void;
   closeDiscountModal: () => void;
-  saveDiscount: () => void;
+  saveDiscount: () => Promise<boolean>;
   deleteDiscount: (id: string) => void;
 }
 
@@ -210,6 +211,7 @@ export function useFinance(): UseFinanceReturn {
   // Discount form
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [editingDiscount, setEditingDiscount] = useState<DiscountCode | null>(null);
+  const [isDiscountSaving, setIsDiscountSaving] = useState(false);
   const [discountFormData, setDiscountFormData] = useState<DiscountFormData>({
     code: "",
     discountPercent: "",
@@ -543,10 +545,10 @@ export function useFinance(): UseFinanceReturn {
     });
   }, []);
 
-  const saveDiscount = useCallback(async () => {
+  const saveDiscount = useCallback(async (): Promise<boolean> => {
     if (!discountFormData.code.trim()) {
       alert("Vui lòng nhập mã giảm giá");
-      return;
+      return false;
     }
 
     const discountPercent = parseFloat(discountFormData.discountPercent) || 0;
@@ -555,19 +557,19 @@ export function useFinance(): UseFinanceReturn {
 
     if (discountPercent <= 0 || discountPercent > 100) {
       alert("Phần trăm giảm giá phải từ 1-100");
-      return;
+      return false;
     }
 
     if (!discountFormData.validFrom || !discountFormData.validUntil) {
       alert("Vui lòng nhập thời gian áp dụng");
-      return;
+      return false;
     }
 
     if (discountFormData.isRedeemable) {
       const pointsRequired = parseInt(discountFormData.pointsRequired) || 0;
       if (pointsRequired <= 0) {
         alert("Vui lòng nhập số điểm yêu cầu để đổi mã");
-        return;
+        return false;
       }
     }
 
@@ -577,11 +579,11 @@ export function useFinance(): UseFinanceReturn {
       );
       if (codeExists) {
         alert("Mã giảm giá này đã tồn tại");
-        return;
+        return false;
       }
     }
 
-    const discountData = {
+    const discountData: Omit<DiscountCode, "id"> = {
       code: discountFormData.code.toUpperCase(),
       discountPercent,
       maxDiscount,
@@ -589,32 +591,41 @@ export function useFinance(): UseFinanceReturn {
       usageCount: editingDiscount?.usageCount ?? 0,
       validFrom: discountFormData.validFrom,
       validUntil: discountFormData.validUntil,
-      description: discountFormData.description || undefined,
       isRedeemable: discountFormData.isRedeemable,
-      pointsRequired: discountFormData.isRedeemable
-        ? parseInt(discountFormData.pointsRequired)
-        : undefined,
+      ...(discountFormData.description.trim() ? { description: discountFormData.description.trim() } : {}),
+      ...(discountFormData.isRedeemable
+        ? { pointsRequired: parseInt(discountFormData.pointsRequired) }
+        : {}),
     };
 
-    if (editingDiscount) {
-      await updateFirestoreDiscount(editingDiscount.id, discountData);
-      const updated = discounts.map((d) =>
-        d.id === editingDiscount.id
-          ? { ...d, ...discountData }
-          : d
-      );
-      setDiscounts(updated);
-    } else {
-      const id = await addFirestoreDiscount(discountData);
-      const newDiscount: DiscountCode = {
-        id,
-        ...discountData,
-        usageCount: 0,
-      };
-      const updated = [...discounts, newDiscount];
-      setDiscounts(updated);
+    setIsDiscountSaving(true);
+    try {
+      if (editingDiscount) {
+        await updateFirestoreDiscount(editingDiscount.id, discountData);
+        const updated = discounts.map((d) =>
+          d.id === editingDiscount.id
+            ? { ...d, ...discountData }
+            : d
+        );
+        setDiscounts(updated);
+      } else {
+        const id = await addFirestoreDiscount(discountData);
+        const newDiscount: DiscountCode = {
+          id,
+          ...discountData,
+          usageCount: 0,
+        };
+        const updated = [...discounts, newDiscount];
+        setDiscounts(updated);
+      }
+      closeDiscountModal();
+      return true;
+    } catch (error) {
+      alert((error as Error).message || "Không thể lưu mã giảm giá");
+      return false;
+    } finally {
+      setIsDiscountSaving(false);
     }
-    closeDiscountModal();
   }, [discountFormData, editingDiscount, discounts, closeDiscountModal]);
 
   const deleteDiscount = useCallback(async (id: string) => {
@@ -652,6 +663,7 @@ export function useFinance(): UseFinanceReturn {
     discPageSize,
     filteredDiscounts,
     pagedDiscounts,
+    isDiscountSaving,
 
     // Shared filters
     searchQuery,
