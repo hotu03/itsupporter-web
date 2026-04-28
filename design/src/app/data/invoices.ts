@@ -50,6 +50,8 @@ export interface Invoice {
   createdBy?: string;
 
   notes?: string;
+  operationId?: string;
+  source?: "online" | "approval" | "in_person" | "edit";
 }
 
 // ─── Deprecated Stubs (redirect to Firestore) ───────────────────────────────

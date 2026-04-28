@@ -1,6 +1,7 @@
-import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import type { Transaction } from './finance';
+import { buildTransactionDocumentId } from './operationKeys';
 
 const COLLECTION_NAME = 'transactions';
 
@@ -26,19 +27,23 @@ export async function getFirestoreTransactionsByMachineId(machineId: string): Pr
 
 // Add new transaction
 export async function addFirestoreTransaction(transaction: Omit<Transaction, 'id'>): Promise<string> {
-  console.log("[firestoreTransactions] Adding transaction to collection:", COLLECTION_NAME);
-  console.log("[firestoreTransactions] Transaction data:", JSON.stringify(transaction));
-  try {
+  const canonicalId = transaction.machineId ? buildTransactionDocumentId(String(transaction.machineId)) : null;
+
+  if (!canonicalId) {
     const docRef = await addDoc(collection(db, COLLECTION_NAME), {
       ...transaction,
-      createdAt: new Date().toISOString(),
+      createdAt: transaction.createdAt || new Date().toISOString(),
     });
-    console.log("[firestoreTransactions] Success! Doc ID:", docRef.id);
     return docRef.id;
-  } catch (err) {
-    console.error("[firestoreTransactions] Error:", err);
-    throw err;
   }
+
+  const transactionRef = doc(db, COLLECTION_NAME, canonicalId);
+  await setDoc(transactionRef, {
+    ...transaction,
+    createdAt: transaction.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }, { merge: true });
+  return transactionRef.id;
 }
 
 // Update transaction
@@ -59,9 +64,17 @@ export async function updateFirestoreTransactionByMachineId(
   machineId: string | number,
   updates: Partial<Transaction>
 ): Promise<void> {
+  const canonicalId = buildTransactionDocumentId(String(machineId));
+  const canonicalRef = doc(db, COLLECTION_NAME, canonicalId);
+  const canonicalSnapshot = await getDoc(canonicalRef);
+
+  if (canonicalSnapshot.exists()) {
+    await updateFirestoreTransaction(canonicalId, updates);
+    return;
+  }
+
   const transactions = await getFirestoreTransactionsByMachineId(String(machineId));
   if (transactions.length > 0) {
-    // Update the first matching transaction
     await updateFirestoreTransaction(transactions[0].id, updates);
   }
 }

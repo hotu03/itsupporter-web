@@ -1,6 +1,7 @@
-import { collection, doc, getDocs, query, where, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, setDoc, where, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import type { Customer } from './customers';
+import { buildCustomerDocumentId } from './operationKeys';
 
 // Re-export types for convenience
 export type { Customer };
@@ -45,18 +46,20 @@ export async function getFirestoreCustomerByPhone(phone: string): Promise<Custom
 
 // Add new customer
 export async function addFirestoreCustomer(customer: Omit<Customer, 'id'>): Promise<string> {
-  try {
-    const docRef = await addDoc(collection(db, COLLECTION_NAME), {
-      ...customer,
-      email: customer.email?.trim().toLowerCase() || "",
-      createdAt: customer.createdAt || new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString(),
-    });
-    return docRef.id;
-  } catch (err) {
-    console.error("[firestoreCustomers] Error:", err);
-    throw err;
-  }
+  const customerRef = doc(db, COLLECTION_NAME, buildCustomerDocumentId({
+    phone: customer.phone,
+    email: customer.email,
+  }));
+  const existingSnapshot = await getDoc(customerRef);
+
+  await setDoc(customerRef, {
+    ...customer,
+    email: customer.email?.trim().toLowerCase() || "",
+    createdAt: existingSnapshot.exists() ? (existingSnapshot.data() as Customer).createdAt : (customer.createdAt || new Date().toISOString().split('T')[0]),
+    updatedAt: new Date().toISOString(),
+  }, { merge: true });
+
+  return customerRef.id;
 }
 
 // Update customer
@@ -70,6 +73,10 @@ export async function updateFirestoreCustomer(id: string, updates: Partial<Custo
     ...normalizedUpdates,
     updatedAt: new Date().toISOString(),
   });
+}
+
+export async function upsertFirestoreCustomerByIdentity(customer: Omit<Customer, 'id'>): Promise<string> {
+  return addFirestoreCustomer(customer);
 }
 
 // Delete customer

@@ -16,6 +16,10 @@ export interface Transaction {
   date: string;
   discountCode?: string;
   discountAmount?: number;
+  operationId?: string;
+  source?: "online" | "approval" | "in_person" | "edit";
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 import {

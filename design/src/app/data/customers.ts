@@ -24,6 +24,9 @@ export interface Customer {
   notes?: string;
   points: number;
   passwordHash?: string;
+  operationId?: string;
+  source?: "online" | "approval" | "in_person" | "edit";
+  updatedAt?: string;
 }
 
 // ─── Deprecated Stubs (redirect to Firestore) ───────────────────────────────

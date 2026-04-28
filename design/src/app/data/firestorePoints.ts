@@ -1,6 +1,7 @@
-import { collection, doc, getDocs, addDoc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, addDoc, getDoc, updateDoc, query, where, setDoc } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import type { PointRule, PointHistory } from './points';
+import { buildPointHistoryEarnId } from './operationKeys';
 
 // Re-export types for convenience
 export type { PointRule, PointHistory };
@@ -55,6 +56,22 @@ export async function addFirestorePointHistory(entry: Omit<PointHistory, 'id'>):
     createdAt: new Date().toISOString(),
   });
   return docRef.id;
+}
+
+export async function addFirestorePointHistoryEarnOnce(entry: Omit<PointHistory, 'id'> & { relatedId: string }): Promise<{ id: string; created: boolean }> {
+  const pointHistoryId = buildPointHistoryEarnId(entry.relatedId);
+  const pointHistoryRef = doc(db, POINT_HISTORY_COLLECTION, pointHistoryId);
+  const snapshot = await getDoc(pointHistoryRef);
+
+  if (snapshot.exists()) {
+    return { id: pointHistoryId, created: false };
+  }
+
+  await setDoc(pointHistoryRef, {
+    ...entry,
+    createdAt: new Date().toISOString(),
+  });
+  return { id: pointHistoryId, created: true };
 }
 
 export async function getFirestoreCustomerPointHistory(customerPhone: string): Promise<PointHistory[]> {

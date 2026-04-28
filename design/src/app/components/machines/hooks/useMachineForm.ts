@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { getFirestoreServices } from "../../../data/firestoreServices";
-import { validateFirestoreDiscount, useFirestoreDiscount } from "../../../data/firestoreDiscounts";
+import { validateFirestoreDiscount } from "../../../data/firestoreDiscounts";
 import { getFirestorePointRules } from "../../../data/firestorePoints";
 import { calculatePoints, getPointsExplanation, type PointRule } from "../../../data/points";
 import { type Machine, type Status } from "../../../data/machines";
@@ -184,15 +184,7 @@ export function useMachineForm(machine?: Machine | null) {
       return;
     }
 
-    const used = await useFirestoreDiscount(form.discountCode);
-    if (!used) {
-      setDiscountError("Không thể ghi nhận lượt sử dụng mã giảm giá");
-      setDiscountApplied(false);
-      setDiscountAmount(0);
-      return;
-    }
-
-    setDiscountError("");
+    setDiscountError("Mã được kiểm tra, chỉ trừ lượt khi hoàn tất lưu đơn.");
     setDiscountApplied(true);
     setDiscountAmount(result.discountAmount || 0);
   };

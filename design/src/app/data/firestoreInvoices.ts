@@ -1,6 +1,7 @@
-import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, query, where, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import type { Invoice } from './invoices';
+import { buildInvoiceDocumentId } from './operationKeys';
 
 // Re-export types for convenience
 export type { Invoice };
@@ -79,15 +80,35 @@ export async function getFirestoreInvoicesByEmail(email: string): Promise<Invoic
 
 // Add new invoice
 export async function addFirestoreInvoice(invoice: Omit<Invoice, 'id' | 'invoiceNumber'>): Promise<string> {
-  const invoiceNumber = await generateInvoiceNumber(invoice.registrationType);
+  const canonicalId = invoice.machineId ? buildInvoiceDocumentId(String(invoice.machineId)) : null;
 
-  const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+  if (!canonicalId) {
+    const invoiceNumber = await generateInvoiceNumber(invoice.registrationType);
+    const invoiceRef = doc(collection(db, COLLECTION_NAME));
+    await setDoc(invoiceRef, {
+      ...invoice,
+      customerEmail: invoice.customerEmail.toLowerCase(),
+      invoiceNumber,
+      createdAt: invoice.createdAt || new Date().toLocaleDateString('vi-VN'),
+      updatedAt: new Date().toISOString(),
+    });
+    return invoiceRef.id;
+  }
+
+  const invoiceRef = doc(db, COLLECTION_NAME, canonicalId);
+  const existingSnapshot = await getDoc(invoiceRef);
+  const invoiceNumber = existingSnapshot.exists()
+    ? ((existingSnapshot.data() as Invoice).invoiceNumber || await generateInvoiceNumber(invoice.registrationType))
+    : await generateInvoiceNumber(invoice.registrationType);
+
+  await setDoc(invoiceRef, {
     ...invoice,
     customerEmail: invoice.customerEmail.toLowerCase(),
     invoiceNumber,
-    createdAt: invoice.createdAt || new Date().toLocaleDateString('vi-VN'),
-  });
-  return docRef.id;
+    createdAt: existingSnapshot.exists() ? (existingSnapshot.data() as Invoice).createdAt : (invoice.createdAt || new Date().toLocaleDateString('vi-VN')),
+    updatedAt: new Date().toISOString(),
+  }, { merge: true });
+  return invoiceRef.id;
 }
 
 // Update invoice
