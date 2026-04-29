@@ -146,16 +146,15 @@ export default function Machines() {
     return matchSearch && matchFilter && matchDate && (m.registrationType === "in-person" || m.isApproved);
   });
 
-  const chronological = [...baseFiltered].sort((a, b) => a.time.localeCompare(b.time));
-  const sttMap = new Map<string | number, number>();
-  chronological.forEach((m, idx) => sttMap.set(m.id, idx + 1));
-
-  const filtered = [...baseFiltered].map(m => ({ ...m, _stt: sttMap.get(m.id)! })).sort((a, b) => {
+  const filtered = [...baseFiltered].sort((a, b) => {
     if (orderBy === "Oldest") return a.time.localeCompare(b.time);
     if (orderBy === "Newest") return b.time.localeCompare(a.time);
     if (orderBy === "Name A-Z") return a.customerName.localeCompare(b.customerName);
     return b.time.localeCompare(a.time);
   });
+
+  // Calculate STT based on final display order - create new objects to avoid mutation
+  const filteredWithSTT = filtered.map((m, idx) => ({ ...m, _stt: idx + 1 }));
 
   const handleSave = async (machine: Machine) => {
     if (editMachine) {
@@ -521,7 +520,7 @@ export default function Machines() {
           </div>
         ) : gridView ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {filtered.map((m) => (
+            {filteredWithSTT.map((m) => (
               <MachineCard
                 key={m.id}
                 machine={m}
@@ -554,7 +553,7 @@ export default function Machines() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((m) => (
+                {filteredWithSTT.map((m) => (
                   <MachineRow
                     key={m.id}
                     machine={m}
