@@ -26,8 +26,8 @@ export async function saveFirestorePointRules(rules: PointRule[]): Promise<void>
   const deletePromises = snapshot.docs.map(d => updateDoc(doc(db, POINT_RULES_COLLECTION, d.id), { _deleted: true }));
   await Promise.all(deletePromises);
 
-  // Add new rules
-  const addPromises = rules.map(rule => addDoc(collection(db, POINT_RULES_COLLECTION), rule));
+  // Add new rules using setDoc with local id as document ID so subsequent reads match
+  const addPromises = rules.map(rule => setDoc(doc(db, POINT_RULES_COLLECTION, rule.id), rule));
   await Promise.all(addPromises);
 }
 
