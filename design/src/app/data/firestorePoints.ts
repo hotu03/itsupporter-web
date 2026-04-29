@@ -21,14 +21,29 @@ export async function getFirestorePointRules(): Promise<PointRule[]> {
 }
 
 export async function saveFirestorePointRules(rules: PointRule[]): Promise<void> {
+  // Convert undefined to null for Firestore compatibility
+  const cleanRules = rules.map((rule) => {
+    const cleaned: Partial<PointRule> = {};
+    for (const [key, value] of Object.entries(rule)) {
+      if (value !== undefined) {
+        (cleaned as Record<string, unknown>)[key] = value;
+      }
+    }
+    return cleaned as PointRule;
+  });
+
   // Clear existing rules and save new ones
   const snapshot = await getDocs(collection(db, POINT_RULES_COLLECTION));
-  const deletePromises = snapshot.docs.map(d => updateDoc(doc(db, POINT_RULES_COLLECTION, d.id), { _deleted: true }));
-  await Promise.all(deletePromises);
+
+  if (snapshot.docs.length > 0) {
+    const deletePromises = snapshot.docs.map(d => updateDoc(doc(db, POINT_RULES_COLLECTION, d.id), { _deleted: true }));
+    await Promise.all(deletePromises);
+  }
 
   // Add new rules using setDoc with local id as document ID so subsequent reads match
-  const addPromises = rules.map(rule => setDoc(doc(db, POINT_RULES_COLLECTION, rule.id), rule));
-  await Promise.all(addPromises);
+  for (const rule of cleanRules) {
+    await setDoc(doc(db, POINT_RULES_COLLECTION, rule.id), rule);
+  }
 }
 
 export async function addFirestorePointRule(rule: Omit<PointRule, 'id'>): Promise<string> {

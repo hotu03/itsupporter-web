@@ -115,42 +115,47 @@ export default function PointRulesTab() {
       }
     }
 
-    if (editingRule) {
-      const updated = rules.map((rule) =>
-        rule.id === editingRule.id
-          ? {
-              ...rule,
-              name: formData.name,
-              type: formData.type,
-              points,
-              threshold:
-                formData.type === "amount_threshold"
-                  ? parseFloat(formData.threshold)
-                  : undefined,
-              description: formData.description || undefined,
-            }
-          : rule
-      );
-      setRules(updated);
-      await saveFirestorePointRules(updated);
-    } else {
-      const newRule: PointRule = {
-        id: Date.now().toString(),
-        name: formData.name,
-        type: formData.type,
-        points,
-        threshold:
-          formData.type === "amount_threshold"
-            ? parseFloat(formData.threshold)
-            : undefined,
-        enabled: true,
-        description: formData.description || undefined,
-      };
-      const updated = [...rules, newRule];
-      setRules(updated);
-      await saveFirestorePointRules(updated);
+    try {
+      if (editingRule) {
+        const updated = rules.map((rule) =>
+          rule.id === editingRule.id
+            ? {
+                ...rule,
+                name: formData.name,
+                type: formData.type,
+                points,
+                threshold:
+                  formData.type === "amount_threshold"
+                    ? parseFloat(formData.threshold)
+                    : undefined,
+                description: formData.description || undefined,
+              }
+            : rule
+        );
+        setRules(updated);
+        await saveFirestorePointRules(updated);
+      } else {
+        const newRule: PointRule = {
+          id: Date.now().toString(),
+          name: formData.name,
+          type: formData.type,
+          points,
+          threshold:
+            formData.type === "amount_threshold"
+              ? parseFloat(formData.threshold)
+              : undefined,
+          enabled: true,
+          description: formData.description || undefined,
+        };
+        const updated = [...rules, newRule];
+        setRules(updated);
+        await saveFirestorePointRules(updated);
+      }
+      handleCloseModal();
+    } catch (error) {
+      console.error('[PointRulesTab] Error saving rules:', error);
+      alert("Lỗi khi lưu quy tắc. Vui lòng thử lại.");
     }
-    handleCloseModal();
   };
 
   const handleDelete = async (id: string) => {
