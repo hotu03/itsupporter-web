@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, query, setDoc, where, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, setDoc, where, updateDoc, deleteDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import type { Customer } from './customers';
 import { buildCustomerDocumentId } from './operationKeys';
@@ -82,4 +82,37 @@ export async function upsertFirestoreCustomerByIdentity(customer: Omit<Customer,
 // Delete customer
 export async function deleteFirestoreCustomer(id: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTION_NAME, id));
+}
+
+// Decrement customer points and totalRepairs atomically
+export async function decrementCustomerPointsAndRepairs(
+  phone: string,
+  pointsToSubtract: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const customerRef = doc(db, COLLECTION_NAME, buildCustomerDocumentId({ phone }));
+    await runTransaction(db, async (transaction) => {
+      const customerSnap = await transaction.get(customerRef);
+      if (!customerSnap.exists()) {
+        return; // Customer not found, nothing to adjust
+      }
+
+      const customer = customerSnap.data() as Customer;
+      const currentPoints = customer.points || 0;
+      const currentRepairs = customer.totalRepairs || 0;
+
+      const newPoints = Math.max(0, currentPoints - pointsToSubtract);
+      const newRepairs = Math.max(0, currentRepairs - 1);
+
+      transaction.update(customerRef, {
+        points: newPoints,
+        totalRepairs: newRepairs,
+        updatedAt: new Date().toISOString(),
+      });
+    });
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: message };
+  }
 }

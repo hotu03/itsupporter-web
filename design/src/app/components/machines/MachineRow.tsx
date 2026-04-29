@@ -1,15 +1,36 @@
-import { QrCode, Star, DollarSign, CheckCircle2 } from "lucide-react";
+import { QrCode, Star, DollarSign, CheckCircle2, Trash2 } from "lucide-react";
 import { Machine, STATUS_STYLES } from "../../data/machines";
 import { formatCurrency as formatCurr } from "../../data/services";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../ui/alert-dialog";
 
 interface MachineRowProps {
   machine: Machine;
   stt: number;
   onClick: () => void;
   onApprove?: (id: string | number) => void;
+  onDelete?: (id: string | number) => Promise<void>;
+  deleting?: boolean;
 }
 
-export function MachineRow({ machine, stt, onClick, onApprove }: MachineRowProps) {
+export function MachineRow({ machine, stt, onClick, onApprove, onDelete, deleting: isDeleting }: MachineRowProps) {
+  const handleDelete = async () => {
+    if (!onDelete || isDeleting) return;
+    try {
+      await onDelete(machine.id);
+    } catch {
+      // Error handled by parent
+    }
+  };
   return (
     <tr
       className="bg-white border-b border-gray-100 hover:bg-orange-50/50 cursor-pointer transition-colors group"
@@ -87,6 +108,42 @@ export function MachineRow({ machine, stt, onClick, onApprove }: MachineRowProps
               <CheckCircle2 size={10} />
               Duyệt
             </button>
+          )}
+
+          {/* Delete button */}
+          {onDelete && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  onClick={(e) => e.stopPropagation()}
+                  className="ml-1 p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Xóa máy"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Xác nhận xóa máy</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Bạn có chắc muốn xóa máy của "{machine.customerName}"? Tất cả dữ liệu liên quan (giao dịch, hóa đơn, điểm) sẽ bị xóa. Hành động này không thể hoàn tác.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isDeleting}>Hủy</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete();
+                    }}
+                    disabled={isDeleting}
+                    className="bg-red-500 hover:bg-red-600"
+                  >
+                    {isDeleting ? "Đang xóa..." : "Xóa"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       </td>

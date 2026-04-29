@@ -27,6 +27,13 @@ export async function getFirestoreMachinesByEmail(email: string): Promise<Machin
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as Machine));
 }
 
+// Get machines by date (yyyy-mm-dd format from dropOffTime or time)
+export async function getFirestoreMachinesByDate(date: string): Promise<Machine[]> {
+  const q = query(collection(db, COLLECTION_NAME), where('dropOffTime', '>=', date), where('dropOffTime', '<', date + 'T23:59:59'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as Machine));
+}
+
 // Get machine by ID
 export async function getFirestoreMachineById(id: string): Promise<Machine | null> {
   const snapshot = await getDoc(doc(db, COLLECTION_NAME, id));

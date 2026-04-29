@@ -8,8 +8,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Machine, Status } from "../data/machines";
-import { getFirestoreMachines, addFirestoreMachine, updateFirestoreMachine } from "../data/firestoreMachines";
+import { getFirestoreMachines, addFirestoreMachine, updateFirestoreMachine, getFirestoreMachinesByDate } from "../data/firestoreMachines";
 import { addFirestoreCustomer, updateFirestoreCustomer, getFirestoreCustomerByPhone, upsertFirestoreCustomerByIdentity } from "../data/firestoreCustomers";
+import { deleteMachineWithRelatedData } from "../data/firestoreDeleteMachine";
 import { addFirestoreInvoice } from "../data/firestoreInvoices";
 import { addFirestoreTransaction, updateFirestoreTransactionByMachineId } from "../data/firestoreTransactions";
 import { addFirestorePointHistoryEarnOnce } from "../data/firestorePoints";
@@ -24,7 +25,7 @@ import { CreateDrawer } from "../components/machines/CreateDrawer";
 import { MachineCard } from "../components/machines/MachineCard";
 import { MachineRow } from "../components/machines/MachineRow";
 import { useAuth } from "../contexts/AuthContext";
-import { isAdmin, canEditMachine, canCreateMachine } from "../data/users";
+import { isAdmin, canEditMachine, canCreateMachine, canDeleteMachine } from "../data/users";
 import { buildOperationId } from "../data/operationKeys";
 
 const CHECKLIST_ITEMS = [
@@ -67,6 +68,7 @@ export default function Machines() {
   const [viewMode, setViewMode] = useState<"main" | "online">("main");
   const [approvedMembers, setApprovedMembers] = useState<Member[]>([]);
   const [approvingMachineId, setApprovingMachineId] = useState<string | number | null>(null);
+  const [deletingMachineId, setDeletingMachineId] = useState<string | number | null>(null);
 
   const getDefaultDate = () => {
     const now = new Date();
@@ -146,6 +148,7 @@ export default function Machines() {
     return matchSearch && matchFilter && matchDate && (m.registrationType === "in-person" || m.isApproved);
   });
 
+  // Sort filtered machines for display (STT is now stored in Firestore per machine)
   const filtered = [...baseFiltered].sort((a, b) => {
     if (orderBy === "Oldest") return a.time.localeCompare(b.time);
     if (orderBy === "Newest") return b.time.localeCompare(a.time);
@@ -153,21 +156,27 @@ export default function Machines() {
     return b.time.localeCompare(a.time);
   });
 
-  // Calculate STT based on final display order - create new objects to avoid mutation
-  const filteredWithSTT = filtered.map((m, idx) => ({ ...m, _stt: idx + 1 }));
-
   const handleSave = async (machine: Machine) => {
     if (editMachine) {
       await updateFirestoreMachine(String(machine.id), machine);
       const updated = machines.map(m => m.id === machine.id ? machine : m);
       setMachines(updated);
     } else {
+      // Compute daily STT before saving
+      const machineDate = parseMachineDate(machine.dropOffTime || machine.time);
+      let computedStt = 1;
+      if (machineDate) {
+        const existingMachines = await getFirestoreMachinesByDate(machineDate);
+        computedStt = existingMachines.length + 1;
+      }
+
       const id = await addFirestoreMachine({
         ...machine,
+        stt: computedStt,
         operationId: buildOperationId("machine"),
         source: machine.registrationType === "in-person" ? "in_person" : "online",
-      } as Machine & { operationId: string; source: "online" | "in_person" });
-      const newMachine = { ...machine, id };
+      } as Machine & { operationId: string; source: "online" | "in_person"; stt: number });
+      const newMachine = { ...machine, id, stt: computedStt };
       setMachines([newMachine, ...machines]);
 
       // Consume discount code usage for in-person registration
@@ -411,6 +420,28 @@ export default function Machines() {
     }
   };
 
+  const handleDeleteMachine = async (id: string | number) => {
+    const machine = machines.find(m => m.id === id);
+    if (!canDeleteMachine(user, machine!)) {
+      toast.error("Bạn không có quyền xóa máy này.");
+      return;
+    }
+    setDeletingMachineId(id);
+    try {
+      const result = await deleteMachineWithRelatedData(String(id));
+      if (result.success) {
+        setMachines(prev => prev.filter(m => m.id !== id));
+        toast.success("Đã xóa máy và dữ liệu liên quan.");
+      } else {
+        toast.error(result.error || "Không thể xóa máy lúc này.");
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Không thể xóa máy lúc này."));
+    } finally {
+      setDeletingMachineId(null);
+    }
+  };
+
   const pendingOnline = machines.filter(m => m.registrationType === "online" && !m.isApproved).length;
 
   return (
@@ -520,17 +551,19 @@ export default function Machines() {
           </div>
         ) : gridView ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {filteredWithSTT.map((m) => (
+            {filtered.map((m) => (
               <MachineCard
                 key={m.id}
                 machine={m}
-                stt={m._stt}
+                stt={m.stt ?? 1}
                 onClick={() => {
                   if (canEditMachine(user, m)) {
                     setEditMachine(m);
                   }
                 }}
                 onApprove={viewMode === "online" && isAdmin(user) ? handleApproveMachine : undefined}
+                onDelete={handleDeleteMachine}
+                deleting={deletingMachineId === m.id}
               />
             ))}
           </div>
@@ -553,17 +586,19 @@ export default function Machines() {
                 </tr>
               </thead>
               <tbody>
-                {filteredWithSTT.map((m) => (
+                {filtered.map((m) => (
                   <MachineRow
                     key={m.id}
                     machine={m}
-                    stt={m._stt}
+                    stt={m.stt ?? 1}
                     onClick={() => {
                       if (canEditMachine(user, m)) {
                         setEditMachine(m);
                       }
                     }}
                     onApprove={viewMode === "online" && isAdmin(user) ? handleApproveMachine : undefined}
+                    onDelete={handleDeleteMachine}
+                    deleting={deletingMachineId === m.id}
                   />
                 ))}
               </tbody>

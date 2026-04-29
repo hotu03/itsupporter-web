@@ -123,3 +123,9 @@ export async function updateFirestoreInvoice(id: string, updates: Partial<Invoic
 export async function deleteFirestoreInvoice(id: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTION_NAME, id));
 }
+
+// Delete all invoices by machine ID
+export async function deleteFirestoreInvoicesByMachineId(machineId: string): Promise<void> {
+  const invoices = await getFirestoreInvoicesByMachineId(machineId);
+  await Promise.all(invoices.map(inv => deleteFirestoreInvoice(inv.id)));
+}

@@ -52,6 +52,7 @@ export interface Machine {
   paymentStatus?: "paid" | "pending" | "free";
   finalAmount?: number;
   pointsEarned?: number;
+  stt?: number;
 }
 
 // ─── Deprecated Data Stubs (redirect to Firestore) ──────────────────────────

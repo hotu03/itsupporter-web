@@ -59,6 +59,12 @@ export async function deleteFirestoreTransaction(id: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTION_NAME, id));
 }
 
+// Delete all transactions by machine ID
+export async function deleteFirestoreTransactionsByMachineId(machineId: string): Promise<void> {
+  const transactions = await getFirestoreTransactionsByMachineId(machineId);
+  await Promise.all(transactions.map(t => deleteFirestoreTransaction(t.id)));
+}
+
 // Update transaction by machine ID (for P5 admin confirm)
 export async function updateFirestoreTransactionByMachineId(
   machineId: string | number,

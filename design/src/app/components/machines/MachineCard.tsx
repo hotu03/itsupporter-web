@@ -1,15 +1,37 @@
-import { QrCode, Star, DollarSign, CheckCircle2 } from "lucide-react";
+import { QrCode, Star, DollarSign, CheckCircle2, Trash2 } from "lucide-react";
 import { Machine, STATUS_STYLES } from "../../data/machines";
 import { formatCurrency as formatCurr } from "../../data/services";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../ui/alert-dialog";
 
 interface MachineCardProps {
   machine: Machine;
   stt: number;
   onClick: () => void;
   onApprove?: (id: string | number) => void;
+  onDelete?: (id: string | number) => Promise<void>;
+  deleting?: boolean;
 }
 
-export function MachineCard({ machine, stt, onClick, onApprove }: MachineCardProps) {
+export function MachineCard({ machine, stt, onClick, onApprove, onDelete, deleting: isDeleting }: MachineCardProps) {
+  const handleDelete = async () => {
+    if (!onDelete || isDeleting) return;
+    try {
+      await onDelete(machine.id);
+    } catch {
+      // Error handled by parent
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col gap-2 hover:shadow-md hover:border-orange-300 transition-all group relative">
       <div onClick={onClick} className="cursor-pointer">
@@ -27,9 +49,46 @@ export function MachineCard({ machine, stt, onClick, onApprove }: MachineCardPro
               )
             )}
           </div>
-          <span className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 text-xs font-bold">
-            {String(stt).padStart(2, "0")}
-          </span>
+          <div className="flex items-center gap-1">
+            <span className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 text-xs font-bold">
+              {String(stt).padStart(2, "0")}
+            </span>
+            {/* Delete button */}
+            {onDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Xóa máy"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Xác nhận xóa máy</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Bạn có chắc muốn xóa máy của "{machine.customerName}"? Tất cả dữ liệu liên quan (giao dịch, hóa đơn, điểm) sẽ bị xóa. Hành động này không thể hoàn tác.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>Hủy</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete();
+                      }}
+                      disabled={isDeleting}
+                      className="bg-red-500 hover:bg-red-600"
+                    >
+                      {isDeleting ? "Đang xóa..." : "Xóa"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         </div>
 
         {/* Name & phone */}
