@@ -13,6 +13,7 @@ import { addFirestoreCustomer, updateFirestoreCustomer, getFirestoreCustomerByPh
 import { addFirestoreInvoice } from "../data/firestoreInvoices";
 import { addFirestoreTransaction, updateFirestoreTransactionByMachineId } from "../data/firestoreTransactions";
 import { addFirestorePointHistoryEarnOnce } from "../data/firestorePoints";
+import { consumeFirestoreDiscountOnSubmit } from "../data/firestoreDiscounts";
 import { calculatePoints } from "../data/points";
 import { createFirebaseCustomer, sendCustomerPasswordReset } from "../data/firebase-auth";
 import { getServicePrice } from "../data/services";
@@ -169,6 +170,12 @@ export default function Machines() {
       } as Machine & { operationId: string; source: "online" | "in_person" });
       const newMachine = { ...machine, id };
       setMachines([newMachine, ...machines]);
+
+      // Consume discount code usage for in-person registration
+      if (machine.discountCode && machine.discountAmount && machine.discountAmount > 0) {
+        const discountOpId = buildOperationId("inperson-discount");
+        await consumeFirestoreDiscountOnSubmit(machine.discountCode, discountOpId);
+      }
 
       if (machine.registrationType === "in-person") {
         const now = new Date();
