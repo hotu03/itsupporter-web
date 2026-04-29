@@ -104,6 +104,13 @@ export default function Machines() {
   }, [approvedMembers]);
 
   const parseMachineDate = (timeStr: string): string | null => {
+    if (!timeStr) return null;
+    // Try ISO format first (yyyy-mm-ddThh:mm or yyyy-mm-dd)
+    const isoMatch = timeStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+    }
+    // Fall back to Vietnamese format (dd/mm/yyyy)
     const match = timeStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if (!match) return null;
     const dd = match[1].padStart(2, "0");
