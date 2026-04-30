@@ -10,41 +10,57 @@ const COLLECTION_NAME = 'machines';
 // Get all machines from Firestore
 export async function getFirestoreMachines(): Promise<Machine[]> {
   const snapshot = await getDocs(collection(db, COLLECTION_NAME));
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as Machine));
+  return snapshot.docs.map(doc => {
+    // Destructure id out of docData to prevent document field 'id' from overwriting doc.id
+    const { id: _docIdField, ...docData } = doc.data();
+    return { id: doc.id, ...docData } as unknown as Machine;
+  });
 }
 
 // Get machines by status
 export async function getFirestoreMachinesByStatus(status: Status): Promise<Machine[]> {
   const q = query(collection(db, COLLECTION_NAME), where('status', '==', status));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as Machine));
+  return snapshot.docs.map(doc => {
+    const { id: _docIdField, ...docData } = doc.data();
+    return { id: doc.id, ...docData } as unknown as Machine;
+  });
 }
 
 // Get machines by customer email
 export async function getFirestoreMachinesByEmail(email: string): Promise<Machine[]> {
   const q = query(collection(db, COLLECTION_NAME), where('customerEmail', '==', email.toLowerCase()));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as Machine));
+  return snapshot.docs.map(doc => {
+    const { id: _docIdField, ...docData } = doc.data();
+    return { id: doc.id, ...docData } as unknown as Machine;
+  });
 }
 
 // Get machines by date (yyyy-mm-dd format from dropOffTime or time)
 export async function getFirestoreMachinesByDate(date: string): Promise<Machine[]> {
   const q = query(collection(db, COLLECTION_NAME), where('dropOffTime', '>=', date), where('dropOffTime', '<', date + 'T23:59:59'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as Machine));
+  return snapshot.docs.map(doc => {
+    const { id: _docIdField, ...docData } = doc.data();
+    return { id: doc.id, ...docData } as unknown as Machine;
+  });
 }
 
 // Get machine by ID
 export async function getFirestoreMachineById(id: string): Promise<Machine | null> {
   const snapshot = await getDoc(doc(db, COLLECTION_NAME, id));
   if (!snapshot.exists()) return null;
-  return { id: snapshot.id, ...snapshot.data() } as unknown as Machine;
+  const { id: _docIdField, ...docData } = snapshot.data();
+  return { id: snapshot.id, ...docData } as unknown as Machine;
 }
 
 // Add new machine
 export async function addFirestoreMachine(machine: Omit<Machine, 'id'>): Promise<string> {
+  // Destructure to remove id field if present, preventing it from being written to Firestore
+  const { id: _removed, ...machineData } = machine as any;
   const docRef = await addDoc(collection(db, COLLECTION_NAME), {
-    ...machine,
+    ...machineData,
     createdAt: new Date().toISOString(),
   });
   return docRef.id;
