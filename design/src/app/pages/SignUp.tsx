@@ -29,7 +29,7 @@ function FormSelect({
     <div ref={ref} className="relative">
       <button
         type="button"
-        onMouseDown={(e) => { e.preventDefault(); setOpen((p) => !p); }}
+        onClick={() => setOpen((p) => !p)}
         onBlur={handleBlur}
         className="w-full flex items-center justify-between border border-gray-300 rounded-lg px-4 py-2.5 bg-white text-sm outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all"
       >
@@ -46,7 +46,7 @@ function FormSelect({
           {options.map((opt) => (
             <li
               key={opt}
-              onMouseDown={() => { onChange(opt); setOpen(false); }}
+              onMouseDown={(e) => { e.preventDefault(); onChange(opt); setOpen(false); }}
               className={`px-4 py-2.5 text-sm cursor-pointer transition-colors hover:bg-orange-50 hover:text-orange-700 ${opt === value ? "bg-orange-50 text-orange-600 font-medium" : "text-gray-700"}`}
             >
               {opt}
