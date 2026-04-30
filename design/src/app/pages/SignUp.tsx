@@ -22,15 +22,14 @@ function FormSelect({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const handleBlur = () => setTimeout(() => setOpen(false), 120);
+  const handleBlur = () => setTimeout(() => setOpen(false), 150);
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
-        onFocus={() => setOpen(true)}
+        onMouseDown={(e) => { e.preventDefault(); setOpen((p) => !p); }}
         onBlur={handleBlur}
-        onClick={() => setOpen((p) => !p)}
         className="w-full flex items-center justify-between border border-gray-300 rounded-lg px-4 py-2.5 bg-white text-sm outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all"
       >
         <span className={value ? "text-gray-800" : "text-gray-400"}>
