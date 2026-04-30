@@ -13,6 +13,7 @@ export function MemberCard({ member, onEdit, onDelete }: MemberCardProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const gradient = POSITION_COLORS[member.position] ?? "from-orange-400 to-orange-500";
   const initials = member.name.split(" ").slice(-2).map((w) => w[0]).join("").toUpperCase();
+  const hasAvatar = Boolean(member.avatar && member.avatar.trim() !== "");
 
   const handleDelete = () => {
     setShowConfirm(true);
@@ -31,9 +32,17 @@ export function MemberCard({ member, onEdit, onDelete }: MemberCardProps) {
     <>
       <div className={`bg-white rounded-2xl shadow-sm border p-5 flex flex-col items-center gap-3 hover:shadow-md transition-shadow ${member.isAdmin ? "border-orange-300 ring-1 ring-orange-200" : "border-gray-100"}`}>
         <div className="relative">
-          <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center shadow`}>
-            <span className="text-white font-bold text-lg">{initials}</span>
-          </div>
+          {hasAvatar ? (
+            <img
+              src={member.avatar}
+              alt={member.name}
+              className="w-16 h-16 rounded-full object-cover shadow border-2 border-white"
+            />
+          ) : (
+            <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center shadow`}>
+              <span className="text-white font-bold text-lg">{initials}</span>
+            </div>
+          )}
           <span className={`absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border-2 border-white ${member.status === "active" ? "bg-green-400" : "bg-gray-300"}`} />
           {member.isAdmin && (
             <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center border-2 border-white">

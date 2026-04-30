@@ -14,6 +14,7 @@ export function MemberRow({ member, rank, onEdit, onDelete }: MemberRowProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const gradient = POSITION_COLORS[member.position] ?? "from-orange-400 to-orange-500";
   const initials = member.name.split(" ").slice(-2).map((w) => w[0]).join("").toUpperCase();
+  const hasAvatar = Boolean(member.avatar && member.avatar.trim() !== "");
 
   const handleDelete = () => {
     setShowConfirm(true);
@@ -38,14 +39,22 @@ export function MemberRow({ member, rank, onEdit, onDelete }: MemberRowProps) {
         )}
         <td className="px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center shrink-0 relative`}>
-              <span className="text-white text-xs font-bold">{initials}</span>
-              {member.isAdmin && (
-                <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-orange-500 rounded-full flex items-center justify-center border border-white">
-                  <Shield size={7} className="text-white" />
-                </span>
-              )}
-            </div>
+            {hasAvatar ? (
+              <img
+                src={member.avatar}
+                alt={member.name}
+                className="w-8 h-8 rounded-full object-cover shrink-0 border border-white"
+              />
+            ) : (
+              <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center shrink-0 relative`}>
+                <span className="text-white text-xs font-bold">{initials}</span>
+                {member.isAdmin && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-orange-500 rounded-full flex items-center justify-center border border-white">
+                    <Shield size={7} className="text-white" />
+                  </span>
+                )}
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-1">
                 <p className="text-gray-800 text-sm" style={{ fontWeight: 600 }}>{member.name}</p>
