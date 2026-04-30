@@ -7,7 +7,12 @@ export const inputCls = (err?: string): string =>
   } text-gray-700 placeholder-gray-400`;
 
 export const selectCls = (hasVal: boolean, err?: string): string =>
-  `w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all appearance-none bg-white ${
+  `w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 appearance-none bg-white cursor-pointer ${
+    err ? "border-red-400" : "border-gray-200"
+  } ${hasVal ? "text-gray-700" : "text-gray-400"}`;
+
+export const selectClsNoArrow = (hasVal: boolean, err?: string): string =>
+  `w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 bg-white cursor-pointer ${
     err ? "border-red-400" : "border-gray-200"
   } ${hasVal ? "text-gray-700" : "text-gray-400"}`;
 

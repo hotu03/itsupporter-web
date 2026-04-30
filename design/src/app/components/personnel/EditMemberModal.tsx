@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
-import { Camera, X, Mail, ChevronDown } from "lucide-react";
+import { Camera, X, Mail } from "lucide-react";
 import type { Member } from "../../data/members";
-import { FormField, inputCls, selectCls } from "./PersonnelForm";
+import { FormField, inputCls, selectClsNoArrow } from "./PersonnelForm";
 import { PROVINCES, dobToInput, inputToDob, splitName, POSITION_COLORS } from "../../data/members";
 
 interface EditMemberModalProps {
@@ -136,42 +136,30 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
             </div>
             <div className="grid grid-cols-2 gap-3">
               <FormField label="Gender" required error={errors.gender}>
-                <div className="relative">
-                  <select value={gender} onChange={e => setGender(e.target.value)} className={selectCls(!!gender, errors.gender)}>
-                    <option value="" disabled>Select</option>
-                    <option>Male</option><option>Female</option><option>Other</option>
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                </div>
+                <select value={gender} onChange={e => setGender(e.target.value)} className={selectClsNoArrow(!!gender, errors.gender)}>
+                  <option value="" disabled>Select</option>
+                  <option>Male</option><option>Female</option><option>Other</option>
+                </select>
               </FormField>
               <FormField label="Hometown">
-                <div className="relative">
-                  <select value={hometown} onChange={e => setHometown(e.target.value)} className={selectCls(!!hometown)}>
-                    <option value="">Select Items</option>
-                    {PROVINCES.map(p => <option key={p}>{p}</option>)}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                </div>
+                <select value={hometown} onChange={e => setHometown(e.target.value)} className={selectClsNoArrow(!!hometown)}>
+                  <option value="">Select Items</option>
+                  {PROVINCES.map(p => <option key={p}>{p}</option>)}
+                </select>
               </FormField>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <FormField label="Position" required>
-                <div className="relative">
-                  <select value={position} onChange={e => setPosition(e.target.value)} className={selectCls(true)}>
-                    <option>Member</option><option>Collaborators</option><option>Commissioner</option>
-                    <option>Vice President</option><option>President</option>
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                </div>
+                <select value={position} onChange={e => setPosition(e.target.value)} className={selectClsNoArrow(true)}>
+                  <option>Member</option><option>Collaborators</option><option>Commissioner</option>
+                  <option>Vice President</option><option>President</option>
+                </select>
               </FormField>
               <FormField label="Tech Position" required>
-                <div className="relative">
-                  <select value={techType} onChange={e => setTechType(e.target.value as "technician" | "tester")} className={selectCls(true)}>
-                    <option value="technician">Technician</option>
-                    <option value="tester">Tester</option>
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                </div>
+                <select value={techType} onChange={e => setTechType(e.target.value as "technician" | "tester")} className={selectClsNoArrow(true)}>
+                  <option value="technician">Technician</option>
+                  <option value="tester">Tester</option>
+                </select>
                 {techChanged && (
                   <p className="text-orange-500 text-[10px] mt-1">
                     ⚠ Sẽ chuyển sang tab {techType === "technician" ? "Technicians" : "Testers"}
@@ -181,13 +169,10 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
             </div>
             <div className="grid grid-cols-2 gap-3">
               <FormField label="Course" required error={errors.course}>
-                <div className="relative">
-                  <select value={course} onChange={e => setCourse(e.target.value)} className={selectCls(!!course, errors.course)}>
-                    <option value="">Select Items</option>
-                    {courses.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                </div>
+                <select value={course} onChange={e => setCourse(e.target.value)} className={selectClsNoArrow(!!course, errors.course)}>
+                  <option value="">Select Items</option>
+                  {courses.map(c => <option key={c}>{c}</option>)}
+                </select>
               </FormField>
               <FormField label="Class">
                 <input value={classVal} onChange={e => setClassVal(e.target.value)} placeholder="CNTT01" className={inputCls()} />
