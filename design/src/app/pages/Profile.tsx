@@ -29,7 +29,7 @@ export default function Profile() {
 
       {/* Form */}
       <div className="flex-1 p-5 flex justify-center">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="w-full max-w-2xl bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <ProfileEditForm user={user} onSave={updateUser} />
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Camera, ChevronDown, X, ArrowLeft, Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
 import backgroundImage from "../../assets/images/background.jpg";
@@ -6,6 +6,7 @@ import logo from "../../assets/images/logo.png";
 import { createUserWithEmailAndPassword, deleteUser, signOut } from "firebase/auth";
 import { registerUserAndPendingMember } from "../data/registration";
 import { staffAuth } from "../utils/firebase";
+import { useVietnamGeo } from "../data/vietnamGeo";
 
 // ─── Custom Select ────────────────────────────────────────────────────────────
 function FormSelect({
@@ -70,22 +71,6 @@ function Field({ label, required, children }: { label: string; required?: boolea
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-const PROVINCES = [
-  "Hà Nội", "TP. Hồ Chí Minh", "Đà Nẵng", "Hải Phòng", "Cần Thơ",
-  "An Giang", "Bà Rịa – Vũng Tàu", "Bắc Giang", "Bắc Kạn", "Bạc Liêu",
-  "Bắc Ninh", "Bến Tre", "Bình Định", "Bình Dương", "Bình Phước",
-  "Bình Thuận", "Cà Mau", "Cao Bằng", "Đắk Lắk", "Đắk Nông",
-  "Điện Biên", "Đồng Nai", "Đồng Tháp", "Gia Lai", "Hà Giang",
-  "Hà Nam", "Hà Tĩnh", "Hải Dương", "Hậu Giang", "Hòa Bình",
-  "Hưng Yên", "Khánh Hòa", "Kiên Giang", "Kon Tum", "Lai Châu",
-  "Lâm Đồng", "Lạng Sơn", "Lào Cai", "Long An", "Nam Định",
-  "Nghệ An", "Ninh Bình", "Ninh Thuận", "Phú Thọ", "Phú Yên",
-  "Quảng Bình", "Quảng Nam", "Quảng Ngãi", "Quảng Ninh", "Quảng Trị",
-  "Sóc Trăng", "Sơn La", "Tây Ninh", "Thái Bình", "Thái Nguyên",
-  "Thanh Hóa", "Thừa Thiên – Huế", "Tiền Giang", "Trà Vinh",
-  "Tuyên Quang", "Vĩnh Long", "Vĩnh Phúc", "Yên Bái",
-];
-
 const COURSES = ["K13", "K14", "K15", "K16", "K17", "K18", "K19", "K20"];
 const POSITIONS = ["Member", "Collaborators", "President", "Vice President", "Commissioner"];
 const TECH_POSITIONS = ["Technician", "Tester"] as const;
@@ -99,6 +84,7 @@ export default function SignUp() {
   const googleUid = (params.get("uid") || "").trim();
   const isGoogleCompletion = fromGoogle && Boolean(googleEmail) && Boolean(googleUid);
 
+  const { provinces, wards, loading: geoLoading, selectProvince, allData } = useVietnamGeo();
   const [avatar, setAvatar] = useState<string>("");
   const [lastName, setLastName] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -109,7 +95,8 @@ export default function SignUp() {
   const [phone, setPhone] = useState("");
   const [birthday, setBirthday] = useState("");
   const [gender, setGender] = useState("");
-  const [hometown, setHometown] = useState("");
+  const [provinceCode, setProvinceCode] = useState<number>(0);
+  const [ward, setWard] = useState("");
   const [position, setPosition] = useState("");
   const [techPosition, setTechPosition] = useState("");
   const [course, setCourse] = useState("");
@@ -119,6 +106,9 @@ export default function SignUp() {
   const [submitSuccess, setSubmitSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const provinceNames = useMemo(() => provinces.map(p => p.name), [provinces]);
+  const wardNames = useMemo(() => wards.map(w => w.name), [wards]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -178,6 +168,12 @@ export default function SignUp() {
         const credential = await createUserWithEmailAndPassword(staffAuth, normalizedEmail, password);
         firebaseUid = credential.user.uid;
       }
+
+      const hometown = (() => {
+        if (!provinceCode || !ward) return "";
+        const province = allData?.find(p => p.code === provinceCode)?.name ?? "";
+        return `${ward}, ${province}`;
+      })();
 
       await registerUserAndPendingMember({
         name: fullName,
@@ -382,8 +378,8 @@ export default function SignUp() {
                 </Field>
               )}
 
-              {/* Phone / Birthday */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Phone / Birthday / Gender */}
+              <div className="grid grid-cols-3 gap-3">
                 <Field label="Phone Number" required>
                   <input
                     value={phone}
@@ -403,10 +399,6 @@ export default function SignUp() {
                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all bg-white"
                   />
                 </Field>
-              </div>
-
-              {/* Gender / Hometown */}
-              <div className="grid grid-cols-2 gap-3">
                 <Field label="Gender" required>
                   <FormSelect
                     value={gender}
@@ -416,13 +408,40 @@ export default function SignUp() {
                   />
                   {errors.gender && <p className="text-red-400 text-[10px]">{errors.gender}</p>}
                 </Field>
-                <Field label="Hometown">
-                  <FormSelect
-                    value={hometown}
-                    onChange={setHometown}
-                    options={PROVINCES}
-                    placeholder="Select Items"
-                  />
+              </div>
+
+              {/* Province / Ward */}
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Province / City">
+                  {geoLoading ? (
+                    <div className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-gray-50 text-sm text-gray-400">Loading...</div>
+                  ) : (
+                    <FormSelect
+                      value={allData?.find(p => p.code === provinceCode)?.name ?? ""}
+                      onChange={(name) => {
+                        const prov = provinces.find(p => p.name === name);
+                        if (prov) {
+                          setProvinceCode(prov.code);
+                          selectProvince(prov.code);
+                        }
+                        setWard("");
+                      }}
+                      options={provinceNames}
+                      placeholder="Select Province"
+                    />
+                  )}
+                </Field>
+                <Field label="Ward / Commune">
+                  {provinceCode === 0 ? (
+                    <div className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-gray-50 text-sm text-gray-400">Select province first</div>
+                  ) : (
+                    <FormSelect
+                      value={ward}
+                      onChange={setWard}
+                      options={wardNames}
+                      placeholder="Select Ward"
+                    />
+                  )}
                 </Field>
               </div>
 

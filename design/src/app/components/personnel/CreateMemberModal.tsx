@@ -1,8 +1,8 @@
-import { useState, useRef } from "react";
-import { UserCircle, Camera, X, Mail, Lock } from "lucide-react";
+import { useState, useRef, useMemo } from "react";
+import { UserCircle, Camera, X, Mail } from "lucide-react";
 import type { Member } from "../../data/members";
 import { FormField, inputCls, selectClsNoArrow } from "./PersonnelForm";
-import { PROVINCES } from "../../data/members";
+import { useVietnamGeo } from "../../data/vietnamGeo";
 
 interface CreateMemberModalProps {
   isOpen: boolean;
@@ -13,6 +13,7 @@ interface CreateMemberModalProps {
 }
 
 export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }: CreateMemberModalProps) {
+  const { provinces, wards, loading: geoLoading, selectProvince, allData } = useVietnamGeo();
   const [avatar, setAvatar] = useState<string | null>(null);
   const [lastName, setLastName] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -21,7 +22,8 @@ export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }:
   const [phone, setPhone] = useState("");
   const [birthday, setBirthday] = useState("");
   const [gender, setGender] = useState("");
-  const [hometown, setHometown] = useState("");
+  const [provinceCode, setProvinceCode] = useState<number>(0);
+  const [ward, setWard] = useState("");
   const [position, setPosition] = useState("Member");
   const [course, setCourse] = useState("");
   const [classVal, setClassVal] = useState("");
@@ -29,11 +31,12 @@ export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }:
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const techPosition = techType === "technician" ? "Technician" : "Tester";
+  const wardNames = useMemo(() => wards.map(w => w.name), [wards]);
+
   const reset = () => {
     setAvatar(null); setLastName(""); setFirstName(""); setUsername("");
     setEmail(""); setPhone("");
-    setBirthday(""); setGender(""); setHometown(""); setPosition("Member");
+    setBirthday(""); setGender(""); setProvinceCode(0); setWard(""); setPosition("Member");
     setCourse(""); setClassVal(""); setIsAdmin(false); setErrors({});
   };
   const handleClose = () => { reset(); onClose(); };
@@ -52,6 +55,11 @@ export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }:
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
     const dob = birthday ? (() => { const [y, m, d] = birthday.split("-"); return `${d}/${m}/${y}`; })() : "01/01/2000";
+    const hometown = (() => {
+      if (!provinceCode || !ward) return "N/A";
+      const province = allData?.find(p => p.code === provinceCode)?.name ?? "";
+      return `${ward}, ${province}`;
+    })();
     onAdd({
       name: `${lastName.trim()} ${firstName.trim()}`,
       username: username.trim(),
@@ -59,7 +67,7 @@ export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }:
       phone: phone.trim(),
       dob,
       gender,
-      hometown: hometown || "N/A",
+      hometown,
       position,
       type: techType,
       course,
@@ -127,25 +135,46 @@ export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }:
                   <option>Male</option><option>Female</option><option>Other</option>
                 </select>
               </FormField>
-              <FormField label="Hometown">
-                <select value={hometown} onChange={e => setHometown(e.target.value)} className={selectClsNoArrow(!!hometown)}>
-                  <option value="">Select Items</option>
-                  {PROVINCES.map(p => <option key={p}>{p}</option>)}
-                </select>
+              <FormField label="Province / City">
+                {geoLoading ? (
+                  <div className="w-full px-3.5 py-2.5 rounded-xl border border-gray-100 text-sm bg-gray-50 text-gray-400">Loading...</div>
+                ) : (
+                  <select
+                    value={provinceCode}
+                    onChange={e => {
+                      const code = Number(e.target.value);
+                      setProvinceCode(code);
+                      selectProvince(code);
+                      setWard("");
+                    }}
+                    className={selectClsNoArrow(!!provinceCode)}
+                  >
+                    <option value={0}>Select Items</option>
+                    {provinces.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
+                  </select>
+                )}
               </FormField>
             </div>
             <div className="grid grid-cols-2 gap-3">
+              <FormField label="Ward / Commune">
+                {provinceCode === 0 ? (
+                  <div className="w-full px-3.5 py-2.5 rounded-xl border border-gray-100 text-sm bg-gray-50 text-gray-400">Select province first</div>
+                ) : (
+                  <select
+                    value={ward}
+                    onChange={e => setWard(e.target.value)}
+                    className={selectClsNoArrow(!!ward)}
+                  >
+                    <option value="">Select Items</option>
+                    {wardNames.map((w, i) => <option key={wards[i]?.code ?? i} value={w}>{w}</option>)}
+                  </select>
+                )}
+              </FormField>
               <FormField label="Position" required>
                 <select value={position} onChange={e => setPosition(e.target.value)} className={selectClsNoArrow(true)}>
                   <option>Member</option><option>Collaborators</option><option>Commissioner</option>
                   <option>Vice President</option><option>President</option>
                 </select>
-              </FormField>
-              <FormField label="Tech Position" required>
-                <div className="w-full px-3.5 py-2.5 rounded-xl border border-gray-100 text-sm bg-gray-50 flex items-center justify-between cursor-not-allowed select-none">
-                  <span className="text-gray-600">{techPosition}</span>
-                  <Lock size={13} className="text-gray-400 shrink-0" />
-                </div>
               </FormField>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -159,6 +188,11 @@ export function CreateMemberModal({ isOpen, onClose, techType, courses, onAdd }:
                 <input value={classVal} onChange={e => setClassVal(e.target.value)} placeholder="CNTT01" className={inputCls()} />
               </FormField>
             </div>
+            <FormField label="Tech Position" required>
+              <div className="w-full px-3.5 py-2.5 rounded-xl border border-gray-100 text-sm bg-gray-50 flex items-center justify-between cursor-not-allowed select-none">
+                <span className="text-gray-600">{techType === "technician" ? "Technician" : "Tester"}</span>
+              </div>
+            </FormField>
             <FormField label="Quyền quản trị">
               <div className="flex gap-3">
                 {([

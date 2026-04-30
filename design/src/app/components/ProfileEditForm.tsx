@@ -1,26 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Camera, X, ChevronDown, CheckCircle2 } from "lucide-react";
 import { updateCurrentUserProfile, type User } from "../data/users";
 import { getFirestoreMemberByEmail, updateFirestoreMember } from "../data/firestoreMembers";
 import { getMembers, saveMembers, type Member } from "../data/members";
+import { useVietnamGeo } from "../data/vietnamGeo";
 
-// ─── Constants (same as SignUp) ─────────────────────────────────────────────────
-const PROVINCES = [
-  "Hà Nội", "TP. Hồ Chí Minh", "Đà Nẵng", "Hải Phòng", "Cần Thơ",
-  "An Giang", "Bà Rịa – Vũng Tàu", "Bắc Giang", "Bắc Kạn", "Bạc Liêu",
-  "Bắc Ninh", "Bến Tre", "Bình Định", "Bình Dương", "Bình Phước",
-  "Bình Thuận", "Cà Mau", "Cao Bằng", "Đắk Lắk", "Đắk Nông",
-  "Điện Biên", "Đồng Nai", "Đồng Tháp", "Gia Lai", "Hà Giang",
-  "Hà Nam", "Hà Tĩnh", "Hải Dương", "Hậu Giang", "Hòa Bình",
-  "Hưng Yên", "Khánh Hòa", "Kiên Giang", "Kon Tum", "Lai Châu",
-  "Lâm Đồng", "Lạng Sơn", "Lào Cai", "Long An", "Nam Định",
-  "Nghệ An", "Ninh Bình", "Ninh Thuận", "Phú Thọ", "Phú Yên",
-  "Quảng Bình", "Quảng Nam", "Quảng Ngãi", "Quảng Ninh", "Quảng Trị",
-  "Sóc Trăng", "Sơn La", "Tây Ninh", "Thái Bình", "Thái Nguyên",
-  "Thanh Hóa", "Thừa Thiên – Huế", "Tiền Giang", "Trà Vinh",
-  "Tuyên Quang", "Vĩnh Long", "Vĩnh Phúc", "Yên Bái",
-];
-
+// ─── Constants ────────────────────────────────────────────────────────────
 const COURSES = ["K13", "K14", "K15", "K16", "K17", "K18", "K19", "K20"];
 const POSITIONS = ["Member", "Collaborators", "President", "Vice President", "Commissioner"];
 const TECH_POSITIONS = ["Technician", "Tester"];
@@ -46,12 +31,11 @@ function FormSelect({
     <div ref={ref} className="relative">
       <button
         type="button"
-        onFocus={() => setOpen(true)}
+        onMouseDown={(e) => { e.preventDefault(); setOpen((p) => !p); }}
         onBlur={handleBlur}
-        onClick={() => setOpen((p) => !p)}
         className="w-full flex items-center justify-between border border-gray-300 rounded-lg px-4 py-2.5 bg-white text-sm outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all"
       >
-        <span className={value ? "text-gray-800" : "text-gray-400"}>
+        <span className={`${value ? "text-gray-800" : "text-gray-400"} truncate`}>
           {value || placeholder}
         </span>
         <ChevronDown size={16} className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -62,7 +46,7 @@ function FormSelect({
             <li
               key={opt}
               onMouseDown={() => { onChange(opt); setOpen(false); }}
-              className={`px-4 py-2.5 text-sm cursor-pointer transition-colors hover:bg-orange-50 hover:text-orange-700 ${opt === value ? "bg-orange-50 text-orange-600 font-medium" : "text-gray-700"}`}
+              className={`px-4 py-2.5 text-sm cursor-pointer transition-colors hover:bg-orange-50 hover:text-orange-700 truncate ${opt === value ? "bg-orange-50 text-orange-600 font-medium" : "text-gray-700"}`}
             >
               {opt}
             </li>
@@ -127,7 +111,6 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
   const [phone, setPhone] = useState(user.phone || "");
   const [dob, setDob] = useState(dobToInput(user.dob || ""));
   const [gender, setGender] = useState(user.gender || "");
-  const [hometown, setHometown] = useState(user.hometown || "");
   const [position, setPosition] = useState(user.position || "");
   const [techType, setTechType] = useState(user.techType || "");
   const [course, setCourse] = useState(user.course || "");
@@ -138,6 +121,29 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
   const [isSaving, setIsSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const hydratedEmailRef = useRef("");
+
+  const { provinces, wards, loading: geoLoading, selectProvince, allData } = useVietnamGeo();
+  const [provinceCode, setProvinceCode] = useState<number>(0);
+  const [ward, setWard] = useState("");
+
+  const provinceNames = useMemo(() => provinces.map(p => p.name), [provinces]);
+  const wardNames = useMemo(() => wards.map(w => w.name), [wards]);
+
+  // Parse hometown into province/ward on mount
+  useEffect(() => {
+    if (!user.hometown) return;
+    const parts = user.hometown.split(", ");
+    if (parts.length >= 2) {
+      const wardName = parts[0].trim();
+      const provinceName = parts.slice(1).join(", ").trim();
+      const prov = provinces.find(p => p.name === provinceName);
+      if (prov) {
+        setProvinceCode(prov.code);
+        selectProvince(prov.code);
+        setWard(wardName);
+      }
+    }
+  }, [user.hometown, provinces, selectProvince]);
 
   useEffect(() => {
     const normalizedEmail = email.trim().toLowerCase();
@@ -155,7 +161,6 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
         setPhone((prev) => prev || member.phone || "");
         setDob((prev) => prev || dobToInput(member.dob || ""));
         setGender((prev) => prev || member.gender || "");
-        setHometown((prev) => prev || member.hometown || "");
         setPosition((prev) => prev || member.position || "");
         setTechType((prev) => {
           if (prev) return prev;
@@ -219,6 +224,12 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
       return;
     }
 
+    const computedHometown = (() => {
+      if (!provinceCode || !ward) return "";
+      const province = allData?.find(p => p.code === provinceCode)?.name ?? "";
+      return `${ward}, ${province}`;
+    })();
+
     setIsSaving(true);
     const normalizedEmail = email.trim().toLowerCase();
     const previousUsername = user.username.trim().toLowerCase();
@@ -234,7 +245,7 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
       avatar,
       dob,
       gender,
-      hometown,
+      hometown: computedHometown,
       position,
       techType,
       course,
@@ -277,7 +288,7 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
           phone: normalizedPhone,
           dob,
           gender,
-          hometown,
+          hometown: computedHometown,
           position,
           course,
           class: classRoom,
@@ -296,7 +307,7 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
         gender,
         course,
         class: classRoom,
-        hometown,
+        hometown: computedHometown,
         position,
         type: selectedType ?? "technician",
         machinesDone: 0,
@@ -322,7 +333,7 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
             phone: normalizedPhone,
             dob,
             gender,
-            hometown,
+            hometown: computedHometown,
             position,
             course,
             class: classRoom,
@@ -346,7 +357,7 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
                 phone: normalizedPhone,
                 dob,
                 gender,
-                hometown,
+                hometown: computedHometown,
                 position,
                 course,
                 class: classRoom,
@@ -453,13 +464,41 @@ export function ProfileEditForm({ user, onSave }: ProfileEditFormProps) {
         </Field>
       </div>
 
-      {/* Gender / Hometown */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Gender / Province / Ward */}
+      <div className="grid grid-cols-3 gap-3">
         <Field label="Giới tính">
           <FormSelect value={gender} onChange={setGender} options={GENDERS} placeholder="Select" />
         </Field>
-        <Field label="Quê quán">
-          <FormSelect value={hometown} onChange={setHometown} options={PROVINCES} placeholder="Chọn tỉnh/thành" />
+        <Field label="Tỉnh / TP">
+          {geoLoading ? (
+            <div className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-gray-50 text-sm text-gray-400 whitespace-nowrap">Loading...</div>
+          ) : (
+            <FormSelect
+              value={allData?.find(p => p.code === provinceCode)?.name ?? ""}
+              onChange={(name) => {
+                const prov = provinces.find(p => p.name === name);
+                if (prov) {
+                  setProvinceCode(prov.code);
+                  selectProvince(prov.code);
+                }
+                setWard("");
+              }}
+              options={provinceNames}
+              placeholder="Chọn tỉnh"
+            />
+          )}
+        </Field>
+        <Field label="Xã / Phường">
+          {provinceCode === 0 ? (
+            <div className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-gray-50 text-sm text-gray-400 whitespace-nowrap">Chọn tỉnh trước</div>
+          ) : (
+            <FormSelect
+              value={ward}
+              onChange={setWard}
+              options={wardNames}
+              placeholder="Chọn xã/phường"
+            />
+          )}
         </Field>
       </div>
 

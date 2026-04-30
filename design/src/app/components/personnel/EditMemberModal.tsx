@@ -1,8 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { Camera, X, Mail } from "lucide-react";
 import type { Member } from "../../data/members";
 import { FormField, inputCls, selectClsNoArrow } from "./PersonnelForm";
-import { PROVINCES, dobToInput, inputToDob, splitName, POSITION_COLORS } from "../../data/members";
+import { dobToInput, inputToDob, splitName, POSITION_COLORS } from "../../data/members";
+import { useVietnamGeo } from "../../data/vietnamGeo";
 
 interface EditMemberModalProps {
   member: Member | null;
@@ -12,6 +13,7 @@ interface EditMemberModalProps {
 }
 
 export function EditMemberModal({ member, onClose, onSave, courses }: EditMemberModalProps) {
+  const { provinces, wards, loading: geoLoading, selectProvince, allData } = useVietnamGeo();
   const [avatar, setAvatar] = useState<string | null>(null);
   const [lastName, setLastName] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -20,7 +22,8 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
   const [phone, setPhone] = useState("");
   const [birthday, setBirthday] = useState("");
   const [gender, setGender] = useState("");
-  const [hometown, setHometown] = useState("");
+  const [provinceCode, setProvinceCode] = useState<number>(0);
+  const [ward, setWard] = useState("");
   const [position, setPosition] = useState("Member");
   const [techType, setTechType] = useState<"technician" | "tester">("technician");
   const [course, setCourse] = useState("");
@@ -31,20 +34,44 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
   const fileRef = useRef<HTMLInputElement>(null);
   const prevIdRef = useRef<string | number | null>(null);
 
+  const wardNames = useMemo(() => wards.map(w => w.name), [wards]);
+
   // Sync form fields when member changes
-  if (member && member.id !== prevIdRef.current) {
+  useEffect(() => {
+    if (!member) return;
+    if (member.id === prevIdRef.current) return;
     prevIdRef.current = member.id;
+
     const { lastName: l, firstName: f } = splitName(member.name);
     setLastName(l); setFirstName(f);
     setUsername(member.username); setPhone(member.phone);
     setBirthday(dobToInput(member.dob)); setGender(member.gender);
-    setHometown(member.hometown); setPosition(member.position);
+    setPosition(member.position);
     setTechType(member.type); setCourse(member.course);
     setClassVal(member.class); setStatus(member.status);
     setIsAdmin(Boolean(member.isAdmin));
     setEmail("");
     setAvatar(null); setErrors({});
-  }
+
+    // Parse hometown
+    const parts = member.hometown?.split(", ") ?? [];
+    if (parts.length >= 2) {
+      const wardName = parts[0].trim();
+      const provinceName = parts.slice(1).join(", ").trim();
+      const prov = provinces.find(p => p.name === provinceName);
+      if (prov) {
+        setProvinceCode(prov.code);
+        selectProvince(prov.code);
+        setWard(wardName);
+      } else {
+        setProvinceCode(0);
+        setWard("");
+      }
+    } else {
+      setProvinceCode(0);
+      setWard("");
+    }
+  }, [member, provinces, selectProvince]);
 
   if (!member) return null;
 
@@ -59,6 +86,12 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
     if (!gender) errs.gender = "Bắt buộc";
     if (!course) errs.course = "Bắt buộc";
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+
+    const hometown = (() => {
+      if (!provinceCode || !ward) return "";
+      const province = allData?.find(p => p.code === provinceCode)?.name ?? "";
+      return `${ward}, ${province}`;
+    })();
 
     onSave({
       ...member,
@@ -141,30 +174,46 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
                   <option>Male</option><option>Female</option><option>Other</option>
                 </select>
               </FormField>
-              <FormField label="Hometown">
-                <select value={hometown} onChange={e => setHometown(e.target.value)} className={selectClsNoArrow(!!hometown)}>
-                  <option value="">Select Items</option>
-                  {PROVINCES.map(p => <option key={p}>{p}</option>)}
-                </select>
+              <FormField label="Province / City">
+                {geoLoading ? (
+                  <div className="w-full px-3.5 py-2.5 rounded-xl border border-gray-100 text-sm bg-gray-50 text-gray-400">Loading...</div>
+                ) : (
+                  <select
+                    value={provinceCode}
+                    onChange={e => {
+                      const code = Number(e.target.value);
+                      setProvinceCode(code);
+                      selectProvince(code);
+                      setWard("");
+                    }}
+                    className={selectClsNoArrow(!!provinceCode)}
+                  >
+                    <option value={0}>Select Items</option>
+                    {provinces.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
+                  </select>
+                )}
               </FormField>
             </div>
             <div className="grid grid-cols-2 gap-3">
+              <FormField label="Ward / Commune">
+                {provinceCode === 0 ? (
+                  <div className="w-full px-3.5 py-2.5 rounded-xl border border-gray-100 text-sm bg-gray-50 text-gray-400">Select province first</div>
+                ) : (
+                  <select
+                    value={ward}
+                    onChange={e => setWard(e.target.value)}
+                    className={selectClsNoArrow(!!ward)}
+                  >
+                    <option value="">Select Items</option>
+                    {wardNames.map((w, i) => <option key={wards[i]?.code ?? i} value={w}>{w}</option>)}
+                  </select>
+                )}
+              </FormField>
               <FormField label="Position" required>
                 <select value={position} onChange={e => setPosition(e.target.value)} className={selectClsNoArrow(true)}>
                   <option>Member</option><option>Collaborators</option><option>Commissioner</option>
                   <option>Vice President</option><option>President</option>
                 </select>
-              </FormField>
-              <FormField label="Tech Position" required>
-                <select value={techType} onChange={e => setTechType(e.target.value as "technician" | "tester")} className={selectClsNoArrow(true)}>
-                  <option value="technician">Technician</option>
-                  <option value="tester">Tester</option>
-                </select>
-                {techChanged && (
-                  <p className="text-orange-500 text-[10px] mt-1">
-                    ⚠ Sẽ chuyển sang tab {techType === "technician" ? "Technicians" : "Testers"}
-                  </p>
-                )}
               </FormField>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -176,6 +225,19 @@ export function EditMemberModal({ member, onClose, onSave, courses }: EditMember
               </FormField>
               <FormField label="Class">
                 <input value={classVal} onChange={e => setClassVal(e.target.value)} placeholder="CNTT01" className={inputCls()} />
+              </FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Tech Position" required>
+                <select value={techType} onChange={e => setTechType(e.target.value as "technician" | "tester")} className={selectClsNoArrow(true)}>
+                  <option value="technician">Technician</option>
+                  <option value="tester">Tester</option>
+                </select>
+                {techChanged && (
+                  <p className="text-orange-500 text-[10px] mt-1">
+                    ⚠ Sẽ chuyển sang tab {techType === "technician" ? "Technicians" : "Testers"}
+                  </p>
+                )}
               </FormField>
             </div>
             <FormField label="Quyền quản trị">
