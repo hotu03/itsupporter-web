@@ -157,190 +157,195 @@ export default function Machines() {
   });
 
   const handleSave = async (machine: Machine) => {
-    if (editMachine) {
-      await updateFirestoreMachine(String(machine.id), machine);
-      const updated = machines.map(m => m.id === machine.id ? machine : m);
-      setMachines(updated);
-    } else {
-      // Compute daily STT before saving
-      const machineDate = parseMachineDate(machine.dropOffTime || machine.time);
-      let computedStt = 1;
-      if (machineDate) {
-        const existingMachines = await getFirestoreMachinesByDate(machineDate);
-        computedStt = existingMachines.length + 1;
-      }
+    try {
+      if (editMachine) {
+        await updateFirestoreMachine(String(machine.id), machine);
+        const updated = machines.map(m => m.id === machine.id ? machine : m);
+        setMachines(updated);
 
-      const id = await addFirestoreMachine({
-        ...machine,
-        stt: computedStt,
-        operationId: buildOperationId("machine"),
-        source: machine.registrationType === "in-person" ? "in_person" : "online",
-      } as Machine & { operationId: string; source: "online" | "in_person"; stt: number });
-      const newMachine = { ...machine, id, stt: computedStt };
-      setMachines([newMachine, ...machines]);
+        const operationId = buildOperationId("edit");
+        const serviceNames = machine.additionalServices?.length
+          ? machine.additionalServices.join(", ")
+          : (machine.description || "Dịch vụ khác");
 
-      // Consume discount code usage for in-person registration
-      if (machine.discountCode && machine.discountAmount && machine.discountAmount > 0) {
-        const discountOpId = buildOperationId("inperson-discount");
-        await consumeFirestoreDiscountOnSubmit(machine.discountCode, discountOpId);
-      }
-
-      if (machine.registrationType === "in-person") {
-        const now = new Date();
-        const operationId = buildOperationId("inperson");
-        const invoiceServices = await Promise.all(
-          (machine.additionalServices || []).map(async (name) => ({
-            name,
-            price: await getServicePrice(name),
-          })),
-        );
+        await updateFirestoreTransactionByMachineId(String(machine.id), {
+          paymentStatus: machine.paymentStatus,
+          discountCode: machine.discountCode,
+          discountAmount: machine.discountAmount || 0,
+          service: serviceNames,
+          amount: machine.finalAmount || 0,
+          operationId,
+          source: "edit",
+        });
 
         await addFirestoreInvoice({
-          machineId: id,
+          machineId: machine.id,
           customerName: machine.customerName,
           customerEmail: machine.customerEmail || "",
           phone: machine.phone,
-          registrationType: "in-person",
-          services: invoiceServices,
-          machineCondition: machine.machineCondition,
-          needs: machine.needs,
+          registrationType: machine.registrationType,
+          services: (machine.additionalServices || []).map((name) => ({ name, price: 0 })),
+          machineCondition: machine.machineCondition || "",
+          needs: machine.needs || "",
           category: machine.category,
           warranty: machine.warranty,
           charger: machine.charger,
           password: machine.password,
-          createdAt: now.toLocaleDateString("vi-VN"),
-          createdTime: now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-          dropOffTime: machine.dropOffTime,
+          createdAt: new Date().toLocaleDateString("vi-VN"),
+          createdTime: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+          dropOffTime: machine.dropOffTime || "",
           appointmentTime: machine.appointmentTime,
           serviceAmount: machine.serviceAmount || 0,
-          discountCode: machine.discountCode,
+          discountCode: machine.discountCode || "",
           discountAmount: machine.discountAmount || 0,
           finalAmount: machine.finalAmount || 0,
           paymentStatus: machine.paymentStatus || "pending",
           pointsEarned: machine.pointsEarned,
-          tester: machine.testerBefore || machine.tester,
           createdBy: `Tester (${machine.testerBefore || machine.tester})`,
           operationId,
-          source: "in_person",
+          source: "edit",
         });
 
         if (machine.phone !== "—" && machine.customerName !== "Khách hàng") {
-          const pts: number = machine.pointsEarned && machine.pointsEarned > 0
-            ? machine.pointsEarned
-            : calculatePoints(machine.finalAmount || 0);
-
           await upsertFirestoreCustomerByIdentity({
             name: machine.customerName,
             phone: machine.phone,
             email: machine.customerEmail || "",
-            points: pts,
-            totalRepairs: 1,
+            points: 0,
+            totalRepairs: 0,
             createdAt: new Date().toISOString().split('T')[0],
+            operationId,
+            source: "edit",
+          });
+        }
+
+        setEditMachine(null);
+        toast.success("Cập nhật máy thành công");
+      } else {
+        // Compute daily STT before saving
+        const machineDate = parseMachineDate(machine.dropOffTime || machine.time);
+        let computedStt = 1;
+        if (machineDate) {
+          const existingMachines = await getFirestoreMachinesByDate(machineDate);
+          computedStt = existingMachines.length + 1;
+        }
+
+        const id = await addFirestoreMachine({
+          ...machine,
+          stt: computedStt,
+          operationId: buildOperationId("machine"),
+          source: machine.registrationType === "in-person" ? "in_person" : "online",
+        } as Machine & { operationId: string; source: "online" | "in_person"; stt: number });
+        const newMachine = { ...machine, id, stt: computedStt };
+        setMachines([newMachine, ...machines]);
+
+        // Consume discount code usage for in-person registration
+        if (machine.discountCode && machine.discountAmount && machine.discountAmount > 0) {
+          const discountOpId = buildOperationId("inperson-discount");
+          await consumeFirestoreDiscountOnSubmit(machine.discountCode, discountOpId);
+        }
+
+        if (machine.registrationType === "in-person") {
+          const now = new Date();
+          const operationId = buildOperationId("inperson");
+          const invoiceServices = await Promise.all(
+            (machine.additionalServices || []).map(async (name) => ({
+              name,
+              price: await getServicePrice(name),
+            })),
+          );
+
+          await addFirestoreInvoice({
+            machineId: id,
+            customerName: machine.customerName,
+            customerEmail: machine.customerEmail || "",
+            phone: machine.phone,
+            registrationType: "in-person",
+            services: invoiceServices,
+            machineCondition: machine.machineCondition,
+            needs: machine.needs,
+            category: machine.category,
+            warranty: machine.warranty,
+            charger: machine.charger,
+            password: machine.password,
+            createdAt: now.toLocaleDateString("vi-VN"),
+            createdTime: now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+            dropOffTime: machine.dropOffTime,
+            appointmentTime: machine.appointmentTime,
+            serviceAmount: machine.serviceAmount || 0,
+            discountCode: machine.discountCode,
+            discountAmount: machine.discountAmount || 0,
+            finalAmount: machine.finalAmount || 0,
+            paymentStatus: machine.paymentStatus || "pending",
+            pointsEarned: machine.pointsEarned,
+            tester: machine.testerBefore || machine.tester,
+            createdBy: `Tester (${machine.testerBefore || machine.tester})`,
             operationId,
             source: "in_person",
           });
 
-          await addFirestorePointHistoryEarnOnce({
-            customerPhone: machine.phone,
-            customerEmail: machine.customerEmail || "",
-            customerName: machine.customerName,
-            type: "earn",
-            points: pts,
-            date: new Date().toISOString(),
-            description: `Đơn hàng #${id} - ${machine.finalAmount || 0}`,
-            relatedId: String(id),
-          });
+          if (machine.phone !== "—" && machine.customerName !== "Khách hàng") {
+            const pts: number = machine.pointsEarned && machine.pointsEarned > 0
+              ? machine.pointsEarned
+              : calculatePoints(machine.finalAmount || 0);
 
-          if (machine.customerEmail) {
-            const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
-            try {
-              await createFirebaseCustomer(machine.customerEmail, tempPassword);
-              await sendCustomerPasswordReset(machine.customerEmail);
-            } catch (err: any) {
-              if (err.code !== 'auth/email-already-in-use') {
-                console.error('Firebase Auth error for customer:', err);
+            await upsertFirestoreCustomerByIdentity({
+              name: machine.customerName,
+              phone: machine.phone,
+              email: machine.customerEmail || "",
+              points: pts,
+              totalRepairs: 1,
+              createdAt: new Date().toISOString().split('T')[0],
+              operationId,
+              source: "in_person",
+            });
+
+            await addFirestorePointHistoryEarnOnce({
+              customerPhone: machine.phone,
+              customerEmail: machine.customerEmail || "",
+              customerName: machine.customerName,
+              type: "earn",
+              points: pts,
+              date: new Date().toISOString(),
+              description: `Đơn hàng #${id} - ${machine.finalAmount || 0}`,
+              relatedId: String(id),
+            });
+
+            if (machine.customerEmail) {
+              const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+              try {
+                await createFirebaseCustomer(machine.customerEmail, tempPassword);
+                await sendCustomerPasswordReset(machine.customerEmail);
+              } catch (err: any) {
+                if (err.code !== 'auth/email-already-in-use') {
+                  console.error('Firebase Auth error for customer:', err);
+                }
               }
             }
           }
+
+          const serviceNames = machine.additionalServices?.length
+            ? machine.additionalServices.join(", ")
+            : (machine.description || "Dịch vụ khác");
+          await addFirestoreTransaction({
+            machineId: id,
+            customerName: machine.customerName,
+            phone: machine.phone,
+            service: serviceNames,
+            amount: machine.finalAmount || 0,
+            paymentStatus: (machine.finalAmount || 0) === 0 ? "free" : (machine.paymentStatus || "pending"),
+            date: new Date().toISOString().split('T')[0],
+            discountCode: machine.discountCode || "",
+            discountAmount: machine.discountAmount || 0,
+            operationId,
+            source: "in_person",
+          });
         }
 
-        const serviceNames = machine.additionalServices?.length
-          ? machine.additionalServices.join(", ")
-          : (machine.description || "Dịch vụ khác");
-        await addFirestoreTransaction({
-          machineId: id,
-          customerName: machine.customerName,
-          phone: machine.phone,
-          service: serviceNames,
-          amount: machine.finalAmount || 0,
-          paymentStatus: (machine.finalAmount || 0) === 0 ? "free" : (machine.paymentStatus || "pending"),
-          date: new Date().toISOString().split('T')[0],
-          discountCode: machine.discountCode || "",
-          discountAmount: machine.discountAmount || 0,
-          operationId,
-          source: "in_person",
-        });
+        toast.success("Thêm máy mới thành công");
       }
-    }
-
-    if (editMachine) {
-      const operationId = buildOperationId("edit");
-      const serviceNames = machine.additionalServices?.length
-        ? machine.additionalServices.join(", ")
-        : (machine.description || "Dịch vụ khác");
-
-      await updateFirestoreTransactionByMachineId(String(machine.id), {
-        paymentStatus: machine.paymentStatus,
-        discountCode: machine.discountCode,
-        discountAmount: machine.discountAmount || 0,
-        service: serviceNames,
-        amount: machine.finalAmount || 0,
-        operationId,
-        source: "edit",
-      });
-
-      await addFirestoreInvoice({
-        machineId: machine.id,
-        customerName: machine.customerName,
-        customerEmail: machine.customerEmail || "",
-        phone: machine.phone,
-        registrationType: machine.registrationType,
-        services: (machine.additionalServices || []).map((name) => ({ name, price: 0 })),
-        machineCondition: machine.machineCondition || "",
-        needs: machine.needs || "",
-        category: machine.category,
-        warranty: machine.warranty,
-        charger: machine.charger,
-        password: machine.password,
-        createdAt: new Date().toLocaleDateString("vi-VN"),
-        createdTime: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-        dropOffTime: machine.dropOffTime || "",
-        appointmentTime: machine.appointmentTime,
-        serviceAmount: machine.serviceAmount || 0,
-        discountCode: machine.discountCode || "",
-        discountAmount: machine.discountAmount || 0,
-        finalAmount: machine.finalAmount || 0,
-        paymentStatus: machine.paymentStatus || "pending",
-        pointsEarned: machine.pointsEarned,
-        createdBy: `Tester (${machine.testerBefore || machine.tester})`,
-        operationId,
-        source: "edit",
-      });
-
-      if (machine.phone !== "—" && machine.customerName !== "Khách hàng") {
-        await upsertFirestoreCustomerByIdentity({
-          name: machine.customerName,
-          phone: machine.phone,
-          email: machine.customerEmail || "",
-          points: 0,
-          totalRepairs: 0,
-          createdAt: new Date().toISOString().split('T')[0],
-          operationId,
-          source: "edit",
-        });
-      }
-
-      setEditMachine(null);
+    } catch (error) {
+      toast.error("Không thể lưu máy: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
   };
 
@@ -411,6 +416,7 @@ export default function Machines() {
             }
           }
         }
+        toast.success("Duyệt đơn online thành công");
       }
     } catch (error) {
       setMachines(previousMachines);

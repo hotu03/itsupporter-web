@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { toast } from "sonner";
 import type { ServiceData } from "../../../data/services";
 import { getFirestoreServices, addFirestoreService, updateFirestoreService, deleteFirestoreService } from "../../../data/firestoreServices";
 import type { DiscountCode } from "../../../data/discounts";
@@ -387,60 +388,70 @@ export function useFinance(): UseFinanceReturn {
       !transactionFormData.customerName.trim() ||
       !transactionFormData.service.trim()
     ) {
-      alert("Vui lòng nhập đầy đủ thông tin khách hàng và dịch vụ");
+      toast.error("Vui lòng nhập đầy đủ thông tin khách hàng và dịch vụ");
       return;
     }
 
     const amount = parseFloat(transactionFormData.amount) || 0;
     const paymentStatus = amount === 0 ? "free" : transactionFormData.paymentStatus;
 
-    if (editingTransaction) {
-      await updateFirestoreTransaction(editingTransaction.id, {
-        service: transactionFormData.service,
-        amount,
-        date: transactionFormData.date,
-        paymentStatus,
-      });
-      setTransactions((prev) =>
-        prev.map((t) =>
-          t.id === editingTransaction.id
-            ? {
-                ...t,
-                service: transactionFormData.service,
-                amount,
-                date: transactionFormData.date,
-                paymentStatus,
-              }
-            : t
-        )
-      );
-    } else {
-      const id = await addFirestoreTransaction({
-        customerName: transactionFormData.customerName,
-        phone: transactionFormData.customerPhone,
-        service: transactionFormData.service,
-        amount,
-        date: transactionFormData.date,
-        paymentStatus,
-      });
-      const newTransaction: Transaction = {
-        id,
-        customerName: transactionFormData.customerName,
-        phone: transactionFormData.customerPhone,
-        service: transactionFormData.service,
-        amount,
-        date: transactionFormData.date,
-        paymentStatus,
-      };
-      setTransactions((prev) => [newTransaction, ...prev]);
+    try {
+      if (editingTransaction) {
+        await updateFirestoreTransaction(editingTransaction.id, {
+          service: transactionFormData.service,
+          amount,
+          date: transactionFormData.date,
+          paymentStatus,
+        });
+        setTransactions((prev) =>
+          prev.map((t) =>
+            t.id === editingTransaction.id
+              ? {
+                  ...t,
+                  service: transactionFormData.service,
+                  amount,
+                  date: transactionFormData.date,
+                  paymentStatus,
+                }
+              : t
+          )
+        );
+        toast.success("Cập nhật giao dịch thành công");
+      } else {
+        const id = await addFirestoreTransaction({
+          customerName: transactionFormData.customerName,
+          phone: transactionFormData.customerPhone,
+          service: transactionFormData.service,
+          amount,
+          date: transactionFormData.date,
+          paymentStatus,
+        });
+        const newTransaction: Transaction = {
+          id,
+          customerName: transactionFormData.customerName,
+          phone: transactionFormData.customerPhone,
+          service: transactionFormData.service,
+          amount,
+          date: transactionFormData.date,
+          paymentStatus,
+        };
+        setTransactions((prev) => [newTransaction, ...prev]);
+        toast.success("Thêm giao dịch mới thành công");
+      }
+      closeTransactionModal();
+    } catch (error) {
+      toast.error("Không thể lưu giao dịch: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
-    closeTransactionModal();
   }, [transactionFormData, editingTransaction, closeTransactionModal]);
 
   const deleteTransaction = useCallback(async (id: string) => {
-    if (confirm("Bạn có chắc muốn xoá giao dịch này?")) {
+    if (!confirm("Bạn có chắc muốn xóa giao dịch này?")) return;
+    try {
       await deleteFirestoreTransaction(id);
       setTransactions((prev) => prev.filter((t) => t.id !== id));
+      toast.success("Xóa giao dịch thành công");
+    } catch (error) {
+      toast.error("Không thể xóa giao dịch: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
   }, []);
 
@@ -464,36 +475,46 @@ export function useFinance(): UseFinanceReturn {
 
   const saveService = useCallback(async () => {
     if (!serviceFormData.name.trim()) {
-      alert("Vui lòng nhập tên dịch vụ");
+      toast.error("Vui lòng nhập tên dịch vụ");
       return;
     }
 
     const price = parseFloat(serviceFormData.price) || 0;
 
-    if (editingService) {
-      await updateFirestoreService(editingService.id, { name: serviceFormData.name, price });
-      const updated = services.map((s) =>
-        s.id === editingService.id ? { ...s, name: serviceFormData.name, price } : s
-      );
-      setServices(updated);
-    } else {
-      const id = await addFirestoreService({ name: serviceFormData.name, price });
-      const newService: ServiceData = {
-        id,
-        name: serviceFormData.name,
-        price,
-      };
-      const updated = [...services, newService];
-      setServices(updated);
+    try {
+      if (editingService) {
+        await updateFirestoreService(editingService.id, { name: serviceFormData.name, price });
+        const updated = services.map((s) =>
+          s.id === editingService.id ? { ...s, name: serviceFormData.name, price } : s
+        );
+        setServices(updated);
+        toast.success("Cập nhật dịch vụ thành công");
+      } else {
+        const id = await addFirestoreService({ name: serviceFormData.name, price });
+        const newService: ServiceData = {
+          id,
+          name: serviceFormData.name,
+          price,
+        };
+        const updated = [...services, newService];
+        setServices(updated);
+        toast.success("Thêm dịch vụ mới thành công");
+      }
+      closeServiceModal();
+    } catch (error) {
+      toast.error("Không thể lưu dịch vụ: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
-    closeServiceModal();
   }, [serviceFormData, editingService, services, closeServiceModal]);
 
   const deleteService = useCallback(async (id: string) => {
-    if (confirm("Bạn có chắc muốn xoá dịch vụ này?")) {
+    if (!confirm("Bạn có chắc muốn xóa dịch vụ này?")) return;
+    try {
       await deleteFirestoreService(id);
       const updated = services.filter((s) => s.id !== id);
       setServices(updated);
+      toast.success("Xóa dịch vụ thành công");
+    } catch (error) {
+      toast.error("Không thể xóa dịch vụ: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
   }, [services]);
 
@@ -547,7 +568,7 @@ export function useFinance(): UseFinanceReturn {
 
   const saveDiscount = useCallback(async (): Promise<boolean> => {
     if (!discountFormData.code.trim()) {
-      alert("Vui lòng nhập mã giảm giá");
+      toast.error("Vui lòng nhập mã giảm giá");
       return false;
     }
 
@@ -556,19 +577,19 @@ export function useFinance(): UseFinanceReturn {
     const usageLimit = parseInt(discountFormData.usageLimit) || 0;
 
     if (discountPercent <= 0 || discountPercent > 100) {
-      alert("Phần trăm giảm giá phải từ 1-100");
+      toast.error("Phần trăm giảm giá phải từ 1-100");
       return false;
     }
 
     if (!discountFormData.validFrom || !discountFormData.validUntil) {
-      alert("Vui lòng nhập thời gian áp dụng");
+      toast.error("Vui lòng nhập thời gian áp dụng");
       return false;
     }
 
     if (discountFormData.isRedeemable) {
       const pointsRequired = parseInt(discountFormData.pointsRequired) || 0;
       if (pointsRequired <= 0) {
-        alert("Vui lòng nhập số điểm yêu cầu để đổi mã");
+        toast.error("Vui lòng nhập số điểm yêu cầu để đổi mã");
         return false;
       }
     }
@@ -578,7 +599,7 @@ export function useFinance(): UseFinanceReturn {
         (d) => d.code.toUpperCase() === discountFormData.code.toUpperCase()
       );
       if (codeExists) {
-        alert("Mã giảm giá này đã tồn tại");
+        toast.error("Mã giảm giá này đã tồn tại");
         return false;
       }
     }
@@ -608,6 +629,7 @@ export function useFinance(): UseFinanceReturn {
             : d
         );
         setDiscounts(updated);
+        toast.success("Cập nhật mã giảm giá thành công");
       } else {
         const id = await addFirestoreDiscount(discountData);
         const newDiscount: DiscountCode = {
@@ -617,11 +639,12 @@ export function useFinance(): UseFinanceReturn {
         };
         const updated = [...discounts, newDiscount];
         setDiscounts(updated);
+        toast.success("Thêm mã giảm giá mới thành công");
       }
       closeDiscountModal();
       return true;
     } catch (error) {
-      alert((error as Error).message || "Không thể lưu mã giảm giá");
+      toast.error("Không thể lưu mã giảm giá: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
       return false;
     } finally {
       setIsDiscountSaving(false);
@@ -629,10 +652,14 @@ export function useFinance(): UseFinanceReturn {
   }, [discountFormData, editingDiscount, discounts, closeDiscountModal]);
 
   const deleteDiscount = useCallback(async (id: string) => {
-    if (confirm("Bạn có chắc muốn xoá mã giảm giá này?")) {
+    if (!confirm("Bạn có chắc muốn xóa mã giảm giá này?")) return;
+    try {
       await deleteFirestoreDiscount(id);
       const updated = discounts.filter((d) => d.id !== id);
       setDiscounts(updated);
+      toast.success("Xóa mã giảm giá thành công");
+    } catch (error) {
+      toast.error("Không thể xóa mã giảm giá: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
   }, [discounts]);
 

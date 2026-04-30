@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { toast } from "sonner";
 import type { Customer } from "../../../data/customers";
 import {
   getFirestoreCustomers,
@@ -214,48 +215,58 @@ export function useCustomers(): UseCustomersReturn {
 
   const handleSave = useCallback(async () => {
     if (!formData.phone.trim() || !formData.name.trim()) {
-      alert("Vui lòng nhập số điện thoại và tên khách hàng");
+      toast.error("Vui lòng nhập số điện thoại và tên khách hàng");
       return;
     }
 
-    if (editingCustomer) {
-      await updateFirestoreCustomer(String(editingCustomer.id), {
-        name: formData.name,
-        email: formData.email || undefined,
-        notes: formData.notes || undefined,
-      });
-      const updated = { ...editingCustomer, name: formData.name, email: formData.email || undefined, notes: formData.notes || undefined };
-      setCustomers((prev) =>
-        prev.map((c) => (c.phone === editingCustomer.phone ? updated : c))
-      );
-    } else {
-      const exists = customers.find((c) => c.phone === formData.phone);
-      if (exists) {
-        alert("Số điện thoại này đã tồn tại");
-        return;
+    try {
+      if (editingCustomer) {
+        await updateFirestoreCustomer(String(editingCustomer.id), {
+          name: formData.name,
+          email: formData.email || undefined,
+          notes: formData.notes || undefined,
+        });
+        const updated = { ...editingCustomer, name: formData.name, email: formData.email || undefined, notes: formData.notes || undefined };
+        setCustomers((prev) =>
+          prev.map((c) => (c.phone === editingCustomer.phone ? updated : c))
+        );
+        toast.success("Cập nhật khách hàng thành công");
+      } else {
+        const exists = customers.find((c) => c.phone === formData.phone);
+        if (exists) {
+          toast.error("Số điện thoại này đã tồn tại");
+          return;
+        }
+        const newCustomer = {
+          phone: formData.phone,
+          name: formData.name,
+          email: formData.email || undefined,
+          notes: formData.notes || undefined,
+          createdAt: new Date().toISOString().split("T")[0],
+          totalRepairs: 0,
+          points: 0,
+        };
+        const id = await addFirestoreCustomer(newCustomer);
+        setCustomers((prev) => [{ ...newCustomer, id }, ...prev]);
+        toast.success("Thêm khách hàng mới thành công");
       }
-      const newCustomer = {
-        phone: formData.phone,
-        name: formData.name,
-        email: formData.email || undefined,
-        notes: formData.notes || undefined,
-        createdAt: new Date().toISOString().split("T")[0],
-        totalRepairs: 0,
-        points: 0,
-      };
-      const id = await addFirestoreCustomer(newCustomer);
-      setCustomers((prev) => [{ ...newCustomer, id }, ...prev]);
+      closeForm();
+    } catch (error) {
+      toast.error("Không thể lưu khách hàng: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
-    closeForm();
   }, [formData, editingCustomer, customers, closeForm]);
 
   const handleDelete = useCallback(async (phone: string) => {
-    if (confirm("Bạn có chắc muốn xoá khách hàng này?")) {
+    if (!confirm("Bạn có chắc muốn xóa khách hàng này?")) return;
+    try {
       const customer = customers.find(c => c.phone === phone);
       if (customer?.id) {
         await deleteFirestoreCustomer(String(customer.id));
       }
       setCustomers((prev) => prev.filter((c) => c.phone !== phone));
+      toast.success("Xóa khách hàng thành công");
+    } catch (error) {
+      toast.error("Không thể xóa khách hàng: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
   }, [customers]);
 
@@ -272,52 +283,60 @@ export function useCustomers(): UseCustomersReturn {
   const handleRedeem = useCallback(async (discountId: string) => {
     if (!selectedCustomer) return;
 
-    const discounts = await getFirestoreDiscounts();
-    const discount = discounts.find((d) => d.id === discountId);
-    if (!discount) return;
+    try {
+      const discounts = await getFirestoreDiscounts();
+      const discount = discounts.find((d) => d.id === discountId);
+      if (!discount) {
+        toast.error("Không tìm thấy mã giảm giá");
+        return;
+      }
 
-    if (selectedCustomer.points < (discount.pointsRequired || 0)) {
-      alert("Không đủ điểm để đổi mã này");
-      return;
+      if (selectedCustomer.points < (discount.pointsRequired || 0)) {
+        toast.error("Không đủ điểm để đổi mã này");
+        return;
+      }
+
+      if (discount.usageCount >= discount.usageLimit) {
+        toast.error("Mã giảm giá đã hết lượt sử dụng");
+        return;
+      }
+
+      const now = new Date();
+      const validFrom = new Date(discount.validFrom);
+      const validUntil = new Date(discount.validUntil);
+
+      if (now < validFrom || now > validUntil) {
+        toast.error("Mã giảm giá không còn hiệu lực");
+        return;
+      }
+
+      const newPoints = selectedCustomer.points - (discount.pointsRequired || 0);
+
+      setCustomers((prev) =>
+        prev.map((c) =>
+          c.phone === selectedCustomer.phone ? { ...c, points: newPoints } : c)
+      );
+
+      await updateFirestoreDiscount(discount.id, { usageCount: discount.usageCount + 1 });
+
+      await addFirestorePointHistory({
+        customerPhone: selectedCustomer.phone,
+        customerName: selectedCustomer.name,
+        type: "redeem",
+        points: -(discount.pointsRequired || 0),
+        date: new Date().toISOString(),
+        description: `Đổi mã ${discount.code}`,
+        relatedId: discount.id,
+      });
+
+      setSelectedCustomer({ ...selectedCustomer, points: newPoints });
+      toast.success(
+        `Đổi điểm thành công! Mã của bạn: ${discount.code}-${selectedCustomer.phone.slice(-4)}`,
+        { description: `Đã trừ ${discount.pointsRequired} điểm. Còn lại: ${newPoints} điểm` }
+      );
+    } catch (error) {
+      toast.error("Không thể đổi điểm: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
-
-    if (discount.usageCount >= discount.usageLimit) {
-      alert("Mã giảm giá đã hết lượt sử dụng");
-      return;
-    }
-
-    const now = new Date();
-    const validFrom = new Date(discount.validFrom);
-    const validUntil = new Date(discount.validUntil);
-
-    if (now < validFrom || now > validUntil) {
-      alert("Mã giảm giá không còn hiệu lực");
-      return;
-    }
-
-    const newPoints = selectedCustomer.points - (discount.pointsRequired || 0);
-
-    setCustomers((prev) =>
-      prev.map((c) =>
-        c.phone === selectedCustomer.phone ? { ...c, points: newPoints } : c)
-    );
-
-    await updateFirestoreDiscount(discount.id, { usageCount: discount.usageCount + 1 });
-
-    await addFirestorePointHistory({
-      customerPhone: selectedCustomer.phone,
-      customerName: selectedCustomer.name,
-      type: "redeem",
-      points: -(discount.pointsRequired || 0),
-      date: new Date().toISOString(),
-      description: `Đổi mã ${discount.code}`,
-      relatedId: discount.id,
-    });
-
-    setSelectedCustomer({ ...selectedCustomer, points: newPoints });
-    alert(
-      `✅ Đổi điểm thành công!\n\nMã giảm giá cá nhân của bạn:\n${discount.code}-${selectedCustomer.phone.slice(-4)}\n\nĐã trừ ${discount.pointsRequired} điểm. Còn lại: ${newPoints} điểm`
-    );
   }, [selectedCustomer]);
 
   const openHistory = useCallback((customer: Customer) => {

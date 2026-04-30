@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import {
   getFirestoreMembers,
   addFirestoreMember,
@@ -51,81 +52,127 @@ export function useMembers() {
   }, []);
 
   const handleAddMember = useCallback(async (member: Omit<Member, "id">) => {
-    const id = await addFirestoreMember(member);
-    const newMember = { ...member, id } as Member;
-    await refreshMembers();
-    return newMember;
+    try {
+      const id = await addFirestoreMember(member);
+      const newMember = { ...member, id } as Member;
+      await refreshMembers();
+      toast.success("Thêm thành viên mới thành công");
+      return newMember;
+    } catch (error) {
+      toast.error("Không thể thêm thành viên: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
+      return null;
+    }
   }, [refreshMembers]);
 
   const handleDeleteMember = useCallback(async (id: number | string) => {
-    await deleteFirestoreMember(String(id));
-    await refreshMembers();
+    try {
+      await deleteFirestoreMember(String(id));
+      await refreshMembers();
+      toast.success("Xóa thành viên thành công");
+    } catch (error) {
+      toast.error("Không thể xóa thành viên: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
+    }
   }, [refreshMembers]);
 
   const handleApprove = useCallback(async (
     id: number | string,
     updates?: Partial<Pick<Member, "type" | "isAdmin" | "position" | "status">>
   ) => {
-    const result = await approveAndLinkMember(id, updates);
-    if (result.success) {
-      await refreshMembers();
+    try {
+      const result = await approveAndLinkMember(id, updates);
+      if (result.success) {
+        await refreshMembers();
+        toast.success("Duyệt thành viên thành công");
+      } else {
+        toast.error(result.error || "Không thể duyệt thành viên");
+      }
+    } catch (error) {
+      toast.error("Không thể duyệt thành viên: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
   }, [refreshMembers]);
 
   const handleSetAdmin = useCallback(async (id: number | string, isAdminFlag: boolean) => {
-    const result = syncMemberRoleToUser(id, { isAdmin: isAdminFlag });
-    if (result.success) {
-      await updateFirestoreMember(String(id), { isAdmin: isAdminFlag });
-      await refreshMembers();
+    try {
+      const result = syncMemberRoleToUser(id, { isAdmin: isAdminFlag });
+      if (result.success) {
+        await updateFirestoreMember(String(id), { isAdmin: isAdminFlag });
+        await refreshMembers();
+        toast.success(isAdminFlag ? "Đã cấp quyền admin" : "Đã hủy quyền admin");
+      } else {
+        toast.error(result.error || "Không thể cập nhật quyền admin");
+      }
+    } catch (error) {
+      toast.error("Không thể cập nhật quyền admin: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
   }, [refreshMembers]);
 
   const handleSyncMember = useCallback(async (updated: Member) => {
-    await updateFirestoreMember(String(updated.id), {
-      type: updated.type,
-      isAdmin: updated.isAdmin,
-      position: updated.position,
-      status: updated.status,
-    });
+    try {
+      await updateFirestoreMember(String(updated.id), {
+        type: updated.type,
+        isAdmin: updated.isAdmin,
+        position: updated.position,
+        status: updated.status,
+      });
 
-    syncMemberRoleToUser(updated.id, {
-      type: updated.type,
-      isAdmin: updated.isAdmin,
-      position: updated.position,
-      status: updated.status,
-    });
+      syncMemberRoleToUser(updated.id, {
+        type: updated.type,
+        isAdmin: updated.isAdmin,
+        position: updated.position,
+        status: updated.status,
+      });
 
-    await refreshMembers();
+      await refreshMembers();
+      toast.success("Cập nhật thông tin thành viên thành công");
+    } catch (error) {
+      toast.error("Không thể cập nhật thông tin: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
+    }
   }, [refreshMembers]);
 
   const handleReject = useCallback(async (id: number | string) => {
-    const updated = await rejectMemberReg(id);
-    await refreshMembers();
-    return updated;
+    try {
+      const updated = await rejectMemberReg(id);
+      await refreshMembers();
+      toast.success("Từ chối thành viên thành công");
+      return updated;
+    } catch (error) {
+      toast.error("Không thể từ chối thành viên: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
+      return null;
+    }
   }, [refreshMembers]);
 
   const handleApproveAll = useCallback(async () => {
-    const pendingIds = members
-      .filter((m) => m.approvalStatus === "pending")
-      .map((m) => m.id);
+    try {
+      const pendingIds = members
+        .filter((m) => m.approvalStatus === "pending")
+        .map((m) => m.id);
 
-    for (const id of pendingIds) {
-      await approveAndLinkMember(id);
+      for (const id of pendingIds) {
+        await approveAndLinkMember(id);
+      }
+
+      await refreshMembers();
+      toast.success(`Đã duyệt ${pendingIds.length} thành viên`);
+    } catch (error) {
+      toast.error("Không thể duyệt tất cả: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
-
-    await refreshMembers();
   }, [members, refreshMembers]);
 
   const handleRejectAll = useCallback(async () => {
-    const pendingIds = members
-      .filter((m) => m.approvalStatus === "pending")
-      .map((m) => m.id);
+    try {
+      const pendingIds = members
+        .filter((m) => m.approvalStatus === "pending")
+        .map((m) => m.id);
 
-    for (const id of pendingIds) {
-      await rejectMemberReg(id);
+      for (const id of pendingIds) {
+        await rejectMemberReg(id);
+      }
+
+      await refreshMembers();
+      toast.success(`Đã từ chối ${pendingIds.length} thành viên`);
+    } catch (error) {
+      toast.error("Không thể từ chối tất cả: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
-
-    await refreshMembers();
   }, [members, refreshMembers]);
 
   const handleAddCourse = useCallback((c: string) => {
