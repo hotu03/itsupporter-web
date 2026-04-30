@@ -7,7 +7,56 @@ import type { Machine } from "../../../data/machines";
 import type { Customer } from "../../../data/customers";
 import type { Transaction } from "../../../data/finance";
 import type { Member } from "../../../data/members";
+import { normalizeDate } from "../../../utils/dateUtils";
 
+// ─── Date filter types ────────────────────────────────────────────────────────
+export type DateFilterType = "today" | "month" | "range";
+
+export interface DateFilter {
+  type: DateFilterType;
+  startDate?: string; // yyyy-MM-dd
+  endDate?: string;    // yyyy-MM-dd
+}
+
+function getTodayDate(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
+function getMonthRange(): { start: string; end: string } {
+  const now = new Date();
+  const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const end = now.toISOString().split("T")[0];
+  return { start, end };
+}
+
+function filterByDate<T>(
+  items: T[],
+  dateGetter: (item: T) => string | undefined,
+  filter: DateFilter
+): T[] {
+  if (filter.type === "today") {
+    const today = getTodayDate();
+    return items.filter(item => normalizeDate(dateGetter(item)) === today);
+  }
+  if (filter.type === "month") {
+    const { start, end } = getMonthRange();
+    return items.filter(item => {
+      const nd = normalizeDate(dateGetter(item));
+      if (!nd) return false;
+      return nd >= start && nd <= end;
+    });
+  }
+  if (filter.type === "range" && filter.startDate && filter.endDate) {
+    return items.filter(item => {
+      const nd = normalizeDate(dateGetter(item));
+      if (!nd) return false;
+      return nd >= filter.startDate! && nd <= filter.endDate!;
+    });
+  }
+  return items;
+}
+
+// ─── Stats interfaces ─────────────────────────────────────────────────────────
 export interface MachineStats {
   total: number;
   complete: number;
@@ -73,57 +122,58 @@ export interface DashboardData {
   recentTransactions: Transaction[];
 }
 
-function computeMachineStats(machines: Machine[]): MachineStats {
+// ─── Compute functions ─────────────────────────────────────────────────────────
+function getMachineDateKey(m: Machine): string | undefined {
+  // Online machines: use approvedAt (date admin approved), fallback to dropOffTime or time
+  // Offline machines: use dropOffTime (date customer brought machine)
+  if (m.registrationType === "online") {
+    return m.approvedAt ?? m.dropOffTime ?? m.time;
+  }
+  return m.dropOffTime ?? m.time;
+}
+
+function computeMachineStats(machines: Machine[], filter: DateFilter): MachineStats {
+  const filtered = filterByDate(machines, getMachineDateKey, filter);
   return {
-    total: machines.length,
-    complete: machines.filter(m => m.status === "COMPLETE").length,
-    running: machines.filter(m => m.status === "RUNNING").length,
-    waiting: machines.filter(m => m.status === "WAITING").length,
-    retesting: machines.filter(m => m.status === "RETESTING").length,
-    returning: machines.filter(m => m.status === "RETURNING").length,
-    returned: machines.filter(m => m.status === "RETURNED").length,
+    total: filtered.length,
+    complete: filtered.filter(m => m.status === "COMPLETE").length,
+    running: filtered.filter(m => m.status === "RUNNING").length,
+    waiting: filtered.filter(m => m.status === "WAITING").length,
+    retesting: filtered.filter(m => m.status === "RETESTING").length,
+    returning: filtered.filter(m => m.status === "RETURNING").length,
+    returned: filtered.filter(m => m.status === "RETURNED").length,
   };
 }
 
-function computeFinanceStats(transactions: Transaction[]): FinanceStats {
-  const totalRevenue = transactions
+function computeFinanceStats(transactions: Transaction[], filter: DateFilter): FinanceStats {
+  const filtered = filterByDate(transactions, t => t.date, filter);
+  const totalRevenue = filtered
     .filter(t => t.paymentStatus === "paid")
     .reduce((sum, t) => sum + t.amount, 0);
-
-  const pendingRevenue = transactions
+  const pendingRevenue = filtered
     .filter(t => t.paymentStatus === "pending")
     .reduce((sum, t) => sum + t.amount, 0);
-
   return {
     totalRevenue,
     pendingRevenue,
-    totalTransactions: transactions.length,
-    paidCount: transactions.filter(t => t.amount > 0 && t.paymentStatus === "paid").length,
-    freeCount: transactions.filter(t => t.paymentStatus === "free" || t.amount === 0).length,
-    pendingCount: transactions.filter(t => t.paymentStatus === "pending").length,
+    totalTransactions: filtered.length,
+    paidCount: filtered.filter(t => t.amount > 0 && t.paymentStatus === "paid").length,
+    freeCount: filtered.filter(t => t.paymentStatus === "free" || t.amount === 0).length,
+    pendingCount: filtered.filter(t => t.paymentStatus === "pending").length,
   };
 }
 
 function computeRevenueTrend(transactions: Transaction[]): RevenueTrendItem[] {
   const now = new Date();
   const months: RevenueTrendItem[] = [];
-
-  // Build last 6 months
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const monthLabel = `T${d.getMonth() + 1}`;
-
     const monthTx = transactions.filter(t => t.date && t.date.startsWith(monthKey) && t.paymentStatus === "paid");
     const revenue = monthTx.reduce((sum, t) => sum + t.amount, 0);
-
-    months.push({
-      month: monthLabel,
-      revenue,
-      transactions: monthTx.length,
-    });
+    months.push({ month: monthLabel, revenue, transactions: monthTx.length });
   }
-
   return months;
 }
 
@@ -139,7 +189,7 @@ function computePersonnelStats(members: Member[]) {
   };
 }
 
-export function useDashboardData(): DashboardData {
+export function useDashboardData(dateFilter: DateFilter = { type: "today" }): DashboardData {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -161,9 +211,9 @@ export function useDashboardData(): DashboardData {
     loadData();
   }, []);
 
-  // Re-compute whenever any data changes
-  const machineStats = useMemo(() => computeMachineStats(machines), [machines]);
-  const financeStats = useMemo(() => computeFinanceStats(transactions), [transactions]);
+  // Re-compute whenever any data or filter changes
+  const machineStats = useMemo(() => computeMachineStats(machines, dateFilter), [machines, dateFilter]);
+  const financeStats = useMemo(() => computeFinanceStats(transactions, dateFilter), [transactions, dateFilter]);
   const revenueTrend = useMemo(() => computeRevenueTrend(transactions), [transactions]);
   const personnelStats = useMemo(() => computePersonnelStats(members), [members]);
 

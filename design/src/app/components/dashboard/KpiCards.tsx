@@ -7,13 +7,14 @@ import {
   UserCircle,
   Users,
 } from "lucide-react";
-import type { MachineStats, FinanceStats } from "./hooks/useDashboardData";
+import type { MachineStats, FinanceStats, DateFilter } from "./hooks/useDashboardData";
 
 interface KpiCardsProps {
   machineStats: MachineStats;
   financeStats: FinanceStats;
   customerStats: { total: number; totalRepairs: number; totalPoints: number };
   personnelStats: { totalApproved: number; active: number; pending: number };
+  dateFilter: DateFilter;
 }
 
 function formatCurrencyShort(amount: number) {
@@ -51,16 +52,29 @@ function StatCard({
   );
 }
 
-export function KpiCards({ machineStats, financeStats, customerStats, personnelStats }: KpiCardsProps) {
+export function KpiCards({ machineStats, financeStats, customerStats, personnelStats, dateFilter }: KpiCardsProps) {
   const completionRate = machineStats.total > 0
     ? Math.round(((machineStats.complete + machineStats.returned) / machineStats.total) * 100)
     : 0;
+
+  // Dynamic labels based on filter type
+  const machineLabel = dateFilter.type === "today"
+    ? "Tổng máy hôm nay"
+    : dateFilter.type === "month"
+      ? "Tổng máy tháng này"
+      : "Tổng máy";
+
+  const revenueLabel = dateFilter.type === "today"
+    ? "Doanh thu hôm nay"
+    : dateFilter.type === "month"
+      ? "Doanh thu tháng này"
+      : "Doanh thu";
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
       <StatCard
         icon={Monitor}
-        label="Tổng máy hôm nay"
+        label={machineLabel}
         value={machineStats.total}
         sub={`${machineStats.running} đang sửa · ${machineStats.complete} xong`}
         color="bg-orange-500"
@@ -81,7 +95,7 @@ export function KpiCards({ machineStats, financeStats, customerStats, personnelS
       />
       <StatCard
         icon={DollarSign}
-        label="Doanh thu tháng"
+        label={revenueLabel}
         value={formatCurrencyShort(financeStats.totalRevenue)}
         sub={`Chờ: ${formatCurrencyShort(financeStats.pendingRevenue)}`}
         color="bg-emerald-500"

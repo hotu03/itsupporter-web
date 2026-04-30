@@ -35,6 +35,7 @@ export interface Machine {
   testerAfter: string;
   registrationType: "online" | "in-person";
   isApproved?: boolean;
+  approvedAt?: string; // ISO timestamp when admin approved online registration
   machineCondition?: string;
   needs?: string;
   checklistBefore?: boolean[];

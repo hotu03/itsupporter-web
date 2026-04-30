@@ -1,9 +1,9 @@
-import { Search, Bell } from "lucide-react";
+import { Search, Bell, Calendar } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import { ChevronDown, LogOut, UserCircle } from "lucide-react";
-import { useDashboardData } from "../components/dashboard/hooks/useDashboardData";
+import { useDashboardData, DateFilter } from "../components/dashboard/hooks/useDashboardData";
 import { KpiCards } from "../components/dashboard/KpiCards";
 import { WorkflowSteps } from "../components/dashboard/WorkflowSteps";
 import { RevenueChart } from "../components/dashboard/RevenueChart";
@@ -14,11 +14,22 @@ import { TopCustomers } from "../components/dashboard/TopCustomers";
 import { RecentMachines } from "../components/dashboard/RecentMachines";
 import { PendingApprovalBanner } from "../components/dashboard/PendingApprovalBanner";
 
+function getDefaultDate(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Date filter state
+  const [dateFilter, setDateFilter] = useState<DateFilter>({ type: "today" });
+  const [showDateRange, setShowDateRange] = useState(false);
+  const [rangeStart, setRangeStart] = useState(getDefaultDate());
+  const [rangeEnd, setRangeEnd] = useState(getDefaultDate());
+
   const {
     machineStats,
     financeStats,
@@ -31,7 +42,7 @@ export default function Dashboard() {
     customerStats,
     recentMachines,
     recentTransactions,
-  } = useDashboardData();
+  } = useDashboardData(dateFilter);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -59,13 +70,87 @@ export default function Dashboard() {
     navigate("/");
   };
 
+  const handleFilterChange = (type: "today" | "month" | "range") => {
+    if (type === "range") {
+      setShowDateRange(true);
+      setDateFilter({ type: "range", startDate: rangeStart, endDate: rangeEnd });
+    } else {
+      setShowDateRange(false);
+      setDateFilter({ type });
+    }
+  };
+
+  const handleRangeApply = () => {
+    setDateFilter({ type: "range", startDate: rangeStart, endDate: rangeEnd });
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header */}
       <header className="sticky top-0 z-20 bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-        <h1 className="text-orange-500" style={{ fontSize: "1.1rem", fontWeight: 700 }}>
-          Dashboard
-        </h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-orange-500" style={{ fontSize: "1.1rem", fontWeight: 700 }}>
+            Dashboard
+          </h1>
+          {/* Date Filter Controls */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => handleFilterChange("today")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                dateFilter.type === "today"
+                  ? "bg-orange-500 text-white"
+                  : "text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              Hôm nay
+            </button>
+            <button
+              onClick={() => handleFilterChange("month")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                dateFilter.type === "month"
+                  ? "bg-orange-500 text-white"
+                  : "text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              Tháng này
+            </button>
+            <button
+              onClick={() => handleFilterChange("range")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                dateFilter.type === "range"
+                  ? "bg-orange-500 text-white"
+                  : "text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              <Calendar size={12} />
+              Tùy chọn
+            </button>
+          </div>
+          {/* Date Range Picker */}
+          {showDateRange && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={rangeStart}
+                onChange={(e) => setRangeStart(e.target.value)}
+                className="text-xs border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-orange-400"
+              />
+              <span className="text-gray-400 text-xs">đến</span>
+              <input
+                type="date"
+                value={rangeEnd}
+                onChange={(e) => setRangeEnd(e.target.value)}
+                className="text-xs border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-orange-400"
+              />
+              <button
+                onClick={handleRangeApply}
+                className="px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-md hover:bg-orange-600 transition-colors"
+              >
+                Áp dụng
+              </button>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <div className="relative hidden sm:block">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -149,6 +234,7 @@ export default function Dashboard() {
           financeStats={financeStats}
           customerStats={customerStats}
           personnelStats={personnelStats}
+          dateFilter={dateFilter}
         />
 
         {/* Machine Workflow 5 Steps */}
