@@ -31,6 +31,20 @@ export function MachineRow({ machine, stt, onClick, onApprove, onDelete, deletin
       // Error handled by parent
     }
   };
+
+  // Format expired datetime like "2026-05-01T10:30" → "10:30 AM | 1/5/2026"
+  const formatExpired = (expired: string) => {
+    if (!expired) return "—";
+    const parts = expired.split("T");
+    if (parts.length !== 2) return expired;
+    const datePart = parts[0];
+    const timePart = parts[1].substring(0, 5);
+    const [year, month, day] = datePart.split("-");
+    const h = parseInt(timePart.split(":")[0], 10);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hour12 = h % 12 || 12;
+    return `${hour12}:${timePart.split(":")[1]} ${ampm} | ${parseInt(day, 10)}/${month}/${year}`;
+  };
   return (
     <tr
       className="bg-white border-b border-gray-100 hover:bg-orange-50/50 cursor-pointer transition-colors group"
@@ -51,7 +65,11 @@ export function MachineRow({ machine, stt, onClick, onApprove, onDelete, deletin
         <p className="text-gray-400 text-[11px]">{machine.time}</p>
       </td>
       <td className="px-4 py-3 text-sm text-gray-700">{machine.phone}</td>
-      <td className="px-4 py-3 text-xs text-gray-500">{machine.expired}</td>
+      <td className="px-4 py-3 text-xs">
+        <span className="text-orange-600 font-semibold bg-orange-50 px-1.5 py-0.5 rounded">
+          {formatExpired(machine.expired)}
+        </span>
+      </td>
       <td className="px-4 py-3">
         <p className="text-gray-600 text-xs leading-snug line-clamp-2 max-w-[200px]">{machine.description}</p>
       </td>

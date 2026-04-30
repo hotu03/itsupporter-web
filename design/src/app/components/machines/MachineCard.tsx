@@ -32,6 +32,20 @@ export function MachineCard({ machine, stt, onClick, onApprove, onDelete, deleti
     }
   };
 
+  // Format expired datetime like "2026-05-01T10:30" → "10:30 AM | 1/5/2026"
+  const formatExpired = (expired: string) => {
+    if (!expired) return "—";
+    const parts = expired.split("T");
+    if (parts.length !== 2) return expired;
+    const datePart = parts[0];
+    const timePart = parts[1].substring(0, 5);
+    const [year, month, day] = datePart.split("-");
+    const h = parseInt(timePart.split(":")[0], 10);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hour12 = h % 12 || 12;
+    return `${hour12}:${timePart.split(":")[1]} ${ampm} | ${parseInt(day, 10)}/${month}/${year}`;
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col gap-2 hover:shadow-md hover:border-orange-300 transition-all group relative">
       <div onClick={onClick} className="cursor-pointer">
@@ -103,8 +117,8 @@ export function MachineCard({ machine, stt, onClick, onApprove, onDelete, deleti
         <p className="text-gray-600 text-xs leading-snug line-clamp-2">{machine.description}</p>
 
         {/* Expired */}
-        <p className="text-orange-500 text-xs font-semibold">
-          Expired: {machine.expired}
+        <p className="text-orange-600 text-xs font-bold bg-orange-50 px-2 py-1 rounded-md">
+          Hạn: {formatExpired(machine.expired)}
         </p>
 
         {/* Category */}

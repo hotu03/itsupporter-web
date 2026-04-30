@@ -369,9 +369,38 @@ export default function Machines() {
       return;
     }
 
+    const machineToApprove = machines.find(m => m.id === id);
+    if (!machineToApprove) {
+      toast.error("Không tìm thấy máy này.");
+      return;
+    }
+
+    // Check if machine has appointmentTime or dropOffTime for date comparison
+    const scheduledDateStr = machineToApprove.appointmentTime || machineToApprove.dropOffTime;
+    const scheduledDate = scheduledDateStr ? parseMachineDate(scheduledDateStr) : null;
+    const today = new Date().toISOString().split("T")[0];
+
+    // Early approval: scheduled date is in the future (not today)
+    if (scheduledDate && scheduledDate > today) {
+      const formattedScheduled = scheduledDate.split("-").reverse().join("/");
+      if (!window.confirm(
+        `⚠️ Cảnh báo duyệt sớm!\n\nNgày sửa được đăng ký: ${formattedScheduled}\nNgày hôm nay: ${today.split("-").reverse().join("/")}\n\nBạn đang duyệt SỚM hơn ngày đăng ký. Hóa đơn và giao dịch sẽ được ghi nhận vào ngày hôm nay.\n\nXác nhận duyệt sớm?`
+      )) {
+        return;
+      }
+    }
+
+    // Late approval: scheduled date is in the past (before today)
+    if (scheduledDate && scheduledDate < today) {
+      const formattedScheduled = scheduledDate.split("-").reverse().join("/");
+      toast.error(
+        `Không thể duyệt máy!\n\nNgày sửa đăng ký: ${formattedScheduled}\nNgày hôm nay: ${today.split("-").reverse().join("/")}\n\nHãy sửa thông tin ngày sửa chữa (appointmentTime) trong chi tiết máy và duyệt lại.`
+      );
+      return;
+    }
+
     if (!window.confirm("Xác nhận khách hàng đã đưa máy đến và duyệt vào hệ thống quản lý chính?")) return;
 
-    const machineToApprove = machines.find(m => m.id === id);
     const previousMachines = machines;
     const now = new Date();
     const intakeTime = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) + " " + now.toLocaleDateString("vi-VN").replace(/\//g, "/");
@@ -515,6 +544,14 @@ export default function Machines() {
           )}
         </button>
       </div>
+
+      {viewMode === "online" && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center gap-2">
+          <span className="text-amber-600 text-sm">
+            💡 Nhắc nhở: Hãy duyệt máy đúng ngày đăng ký sửa chữa. Ví dụ: máy đăng ký <strong>1/5/2026</strong> thì duyệt vào ngày <strong>1/5/2026</strong> để đảm bảo hóa đơn và giao dịch ghi nhận đúng ngày.
+          </span>
+        </div>
+      )}
 
       <div className="bg-white border-b border-gray-200 px-6 py-2.5 flex items-center gap-3">
         <p className="text-gray-700 text-sm font-semibold shrink-0">
