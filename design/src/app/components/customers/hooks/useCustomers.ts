@@ -9,8 +9,8 @@ import {
 } from "../../../data/firestoreCustomers";
 import {
   getFirestoreDiscounts,
-  updateFirestoreDiscount,
 } from "../../../data/firestoreDiscounts";
+import { addFirestoreRedeemedVoucher, isFirestoreVoucherRedeemedByCustomerEmail } from "../../../data/firestoreRedeemedVouchers";
 import {
   getFirestoreCustomerPointHistory,
   addFirestorePointHistory,
@@ -312,12 +312,30 @@ export function useCustomers(): UseCustomersReturn {
 
       const newPoints = selectedCustomer.points - (discount.pointsRequired || 0);
 
+      // Check if already redeemed to prevent double-redemption
+      const alreadyRedeemed = await isFirestoreVoucherRedeemedByCustomerEmail(
+        selectedCustomer.email || "", discount.code
+      );
+      if (alreadyRedeemed) {
+        toast.error("Khách hàng đã đổi mã này rồi");
+        return;
+      }
+
       setCustomers((prev) =>
         prev.map((c) =>
           c.phone === selectedCustomer.phone ? { ...c, points: newPoints } : c)
       );
 
-      await updateFirestoreDiscount(discount.id, { usageCount: discount.usageCount + 1 });
+      // Lưu voucher đã đổi vào redeemed_vouchers - KHÔNG tăng usageCount ở đây
+      await addFirestoreRedeemedVoucher({
+        customerPhone: selectedCustomer.phone,
+        customerEmail: selectedCustomer.email || "",
+        customerName: selectedCustomer.name,
+        voucherCode: discount.code,
+        voucherName: discount.description || discount.code,
+        pointsSpent: discount.pointsRequired || 0,
+        redeemedAt: new Date().toISOString(),
+      });
 
       await addFirestorePointHistory({
         customerPhone: selectedCustomer.phone,

@@ -8,7 +8,9 @@ import {
   getFirestoreCustomerRedeemedVouchersByEmail,
   isFirestoreVoucherRedeemedByCustomerEmail,
   addFirestoreRedeemedVoucher,
+  getCustomerVouchersWithStatus,
   type RedeemedVoucher,
+  type VoucherWithStatus,
 } from "../../../data/firestoreRedeemedVouchers";
 import type { Machine } from "../../../data/machines";
 import { toast } from "sonner";
@@ -19,6 +21,7 @@ export interface CustomerPortalData {
   pointHistory: PointHistory[];
   redeemableVouchers: DiscountCode[];
   redeemedVouchers: RedeemedVoucher[];
+  vouchersWithStatus: VoucherWithStatus[];
   invoices: Invoice[];
   loading: boolean;
 }
@@ -29,6 +32,7 @@ export function useCustomerPortal(email: string): CustomerPortalData {
   const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
   const [redeemableVouchers, setRedeemableVouchers] = useState<DiscountCode[]>([]);
   const [redeemedVouchers, setRedeemedVouchers] = useState<RedeemedVoucher[]>([]);
+  const [vouchersWithStatus, setVouchersWithStatus] = useState<VoucherWithStatus[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -79,6 +83,12 @@ export function useCustomerPortal(email: string): CustomerPortalData {
         const redeemedByEmail = await getFirestoreCustomerRedeemedVouchersByEmail(email);
         setRedeemedVouchers(redeemedByEmail);
 
+        // Get vouchers with status for display
+        if (foundCustomer.phone) {
+          const withStatus = await getCustomerVouchersWithStatus(foundCustomer.phone);
+          setVouchersWithStatus(withStatus);
+        }
+
         setLoading(false);
       } catch (err) {
         console.error("Error loading customer portal data:", err);
@@ -95,6 +105,7 @@ export function useCustomerPortal(email: string): CustomerPortalData {
     pointHistory,
     redeemableVouchers,
     redeemedVouchers,
+    vouchersWithStatus,
     invoices,
     loading,
   };

@@ -6,8 +6,12 @@ import {
   updateFirestoreMember,
   deleteFirestoreMember,
 } from "../../../data/firestoreMembers";
+import {
+  getFirestoreCourses,
+  addFirestoreCourse,
+  deleteFirestoreCourse,
+} from "../../../data/firestoreCourses";
 import type { Member } from "../../../data/members";
-import { COURSES_DEFAULT } from "../../../data/members";
 import {
   approveAndLinkMember,
   rejectMember as rejectMemberReg,
@@ -18,37 +22,31 @@ import {
 
 export function useMembers() {
   const [members, setMembers] = useState<Member[]>([]);
-  const [courses, setCourses] = useState<string[]>(COURSES_DEFAULT);
+  const [courses, setCourses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     linkExistingSeeds();
     async function loadData() {
       await syncMembersFromFirestore();
-      const firestoreMembers = await getFirestoreMembers();
+      const [firestoreMembers, firestoreCourses] = await Promise.all([
+        getFirestoreMembers(),
+        getFirestoreCourses(),
+      ]);
       setMembers(firestoreMembers);
-      const storedCourses = localStorage.getItem("its_member_courses");
-      if (storedCourses) {
-        try {
-          setCourses(JSON.parse(storedCourses));
-        } catch {
-          setCourses(COURSES_DEFAULT);
-        }
-      }
+      setCourses(firestoreCourses);
       setLoading(false);
     }
     void loadData();
   }, []);
 
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem("its_member_courses", JSON.stringify(courses));
-    }
-  }, [courses, loading]);
-
   const refreshMembers = useCallback(async () => {
-    const firestoreMembers = await getFirestoreMembers();
+    const [firestoreMembers, firestoreCourses] = await Promise.all([
+      getFirestoreMembers(),
+      getFirestoreCourses(),
+    ]);
     setMembers(firestoreMembers);
+    setCourses(firestoreCourses);
   }, []);
 
   const handleAddMember = useCallback(async (member: Omit<Member, "id">) => {
@@ -175,12 +173,24 @@ export function useMembers() {
     }
   }, [members, refreshMembers]);
 
-  const handleAddCourse = useCallback((c: string) => {
-    setCourses((prev) => [...prev, c]);
+  const handleAddCourse = useCallback(async (c: string) => {
+    try {
+      await addFirestoreCourse(c);
+      setCourses(prev => prev.includes(c) ? prev : [...prev, c]);
+      toast.success("Thêm khóa thành công");
+    } catch (error) {
+      toast.error("Không thể thêm khóa: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
+    }
   }, []);
 
-  const handleDeleteCourse = useCallback((c: string) => {
-    setCourses((prev) => prev.filter((x) => x !== c));
+  const handleDeleteCourse = useCallback(async (c: string) => {
+    try {
+      await deleteFirestoreCourse(c);
+      setCourses(prev => prev.filter(x => x !== c));
+      toast.success("Xóa khóa thành công");
+    } catch (error) {
+      toast.error("Không thể xóa khóa: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
+    }
   }, []);
 
   return {

@@ -14,7 +14,8 @@ import { deleteMachineWithRelatedData } from "../data/firestoreDeleteMachine";
 import { addFirestoreInvoice } from "../data/firestoreInvoices";
 import { addFirestoreTransaction, updateFirestoreTransactionByMachineId } from "../data/firestoreTransactions";
 import { addFirestorePointHistoryEarnOnce } from "../data/firestorePoints";
-import { consumeFirestoreDiscountOnSubmit } from "../data/firestoreDiscounts";
+import { consumeFirestoreDiscountOnSubmit, getFirestoreDiscountByCode } from "../data/firestoreDiscounts";
+import { applyRedeemedVoucherToMachine } from "../data/firestoreRedeemedVouchers";
 import { calculatePoints } from "../data/points";
 import { createFirebaseCustomer, sendCustomerPasswordReset } from "../data/firebase-auth";
 import { getServicePrice } from "../data/services";
@@ -248,10 +249,28 @@ export default function Machines() {
         const newMachine = { ...machine, id, stt: computedStt };
         setMachines([newMachine, ...machines]);
 
-        // Consume discount code usage for in-person registration
+        // Apply discount code - redeemable vouchers use the new voucher-in-account flow
         if (machine.discountCode && machine.discountAmount && machine.discountAmount > 0) {
-          const discountOpId = buildOperationId("inperson-discount");
-          await consumeFirestoreDiscountOnSubmit(machine.discountCode, discountOpId);
+          const discount = await getFirestoreDiscountByCode(machine.discountCode);
+          if (discount?.isRedeemable) {
+            // Redeemable: use voucher-in-account flow (only for identified customers)
+            if (machine.phone !== "—" && machine.customerName !== "Khách hàng") {
+              const discountOpId = buildOperationId("inperson-discount");
+              const result = await applyRedeemedVoucherToMachine(
+                machine.phone,
+                machine.discountCode,
+                id,
+                discountOpId
+              );
+              if (!result.success) {
+                toast.error(result.error || "Không thể áp dụng voucher");
+              }
+            }
+          } else {
+            // Non-redeemable: use old direct consumption flow
+            const discountOpId = buildOperationId("inperson-discount");
+            await consumeFirestoreDiscountOnSubmit(machine.discountCode, discountOpId);
+          }
         }
 
         if (machine.registrationType === "in-person") {

@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Gift, Copy, Check } from "lucide-react";
 import type { Customer } from "../../data/customers";
 import type { DiscountCode } from "../../data/discounts";
-import type { RedeemedVoucher } from "../../data/redeemed-vouchers";
+import type { RedeemedVoucher, VoucherWithStatus } from "../../data/firestoreRedeemedVouchers";
 import type { PointHistory } from "../../data/points";
 
 interface ProfileTabProps {
   customer: Customer;
   redeemableVouchers: DiscountCode[];
   redeemedVouchers: RedeemedVoucher[];
+  vouchersWithStatus: VoucherWithStatus[];
   pointHistory: PointHistory[];
   onRedeem: (voucher: DiscountCode) => void;
 }
@@ -17,6 +18,7 @@ export function ProfileTab({
   customer,
   redeemableVouchers,
   redeemedVouchers,
+  vouchersWithStatus,
   pointHistory,
   onRedeem,
 }: ProfileTabProps) {
@@ -155,6 +157,63 @@ export function ProfileTab({
           </div>
         )}
       </div>
+
+      {/* Redeemed Vouchers with Status */}
+      {vouchersWithStatus.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+          <h3 className="font-semibold text-gray-900 mb-4">Voucher của tôi</h3>
+          <div className="space-y-3">
+            {vouchersWithStatus.map((voucher) => {
+              const isAvailable = voucher.status === 'available';
+              return (
+                <div
+                  key={voucher.id}
+                  className={`border rounded-lg p-4 flex items-center justify-between transition-colors ${
+                    isAvailable
+                      ? "border-green-300 bg-green-50"
+                      : "border-red-200 bg-red-50"
+                  }`}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span
+                        className="font-bold text-orange-600 select-all cursor-pointer"
+                        onClick={() => handleCopyCode(voucher.voucherCode)}
+                      >
+                        {voucher.voucherCode}
+                      </span>
+                      <button
+                        onClick={() => handleCopyCode(voucher.voucherCode)}
+                        className="p-1 hover:bg-orange-100 rounded transition-colors"
+                        title="Sao chép mã"
+                      >
+                        {copiedCode === voucher.voucherCode ? (
+                          <Check className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Copy className="w-4 h-4 text-orange-600" />
+                        )}
+                      </button>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        isAvailable
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      }`}>
+                        {voucher.statusLabel}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600">{voucher.voucherName}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {voucher.usedAt
+                        ? `Đã dùng: ${new Date(voucher.usedAt).toLocaleDateString("vi-VN")}`
+                        : `Đổi ngày: ${new Date(voucher.redeemedAt).toLocaleDateString("vi-VN")}`}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Point History */}
       <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">

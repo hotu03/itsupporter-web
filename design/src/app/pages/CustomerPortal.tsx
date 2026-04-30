@@ -36,6 +36,7 @@ export default function CustomerPortal() {
     pointHistory,
     redeemableVouchers,
     redeemedVouchers,
+    vouchersWithStatus,
     invoices,
     loading,
   } = useCustomerPortal(email);
@@ -126,6 +127,7 @@ export default function CustomerPortal() {
               customer={customer}
               redeemableVouchers={redeemableVouchers}
               redeemedVouchers={redeemedVouchers}
+              vouchersWithStatus={vouchersWithStatus}
               pointHistory={pointHistory}
               onRedeem={handleRedeem}
             />
