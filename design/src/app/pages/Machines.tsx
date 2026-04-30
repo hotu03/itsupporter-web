@@ -20,6 +20,7 @@ import { createFirebaseCustomer, sendCustomerPasswordReset } from "../data/fireb
 import { getServicePrice } from "../data/services";
 import { getFirestoreMembers } from "../data/firestoreMembers";
 import { getErrorMessage } from "../utils/errors";
+import { normalizeDate, extractTime } from "../utils/dateUtils";
 import type { Member } from "../data/members";
 import { CreateDrawer } from "../components/machines/CreateDrawer";
 import { MachineCard } from "../components/machines/MachineCard";
@@ -168,15 +169,23 @@ export default function Machines() {
           ? machine.additionalServices.join(", ")
           : (machine.description || "Dịch vụ khác");
 
+        const txDate = normalizeDate(machine.dropOffTime) ?? new Date().toISOString().split('T')[0];
         await updateFirestoreTransactionByMachineId(String(machine.id), {
           paymentStatus: machine.paymentStatus,
           discountCode: machine.discountCode,
           discountAmount: machine.discountAmount || 0,
           service: serviceNames,
           amount: machine.finalAmount || 0,
+          date: txDate,
           operationId,
           source: "edit",
         });
+
+        const dropDate = normalizeDate(machine.dropOffTime);
+        const dropTime = extractTime(machine.dropOffTime);
+        const createdAtDate = dropDate
+          ? new Date(dropDate).toLocaleDateString("vi-VN")
+          : new Date().toLocaleDateString("vi-VN");
 
         await addFirestoreInvoice({
           machineId: machine.id,
@@ -191,8 +200,8 @@ export default function Machines() {
           warranty: machine.warranty,
           charger: machine.charger,
           password: machine.password,
-          createdAt: new Date().toLocaleDateString("vi-VN"),
-          createdTime: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+          createdAt: createdAtDate,
+          createdTime: dropTime,
           dropOffTime: machine.dropOffTime || "",
           appointmentTime: machine.appointmentTime,
           serviceAmount: machine.serviceAmount || 0,
@@ -246,7 +255,6 @@ export default function Machines() {
         }
 
         if (machine.registrationType === "in-person") {
-          const now = new Date();
           const operationId = buildOperationId("inperson");
           const invoiceServices = await Promise.all(
             (machine.additionalServices || []).map(async (name) => ({
@@ -254,6 +262,12 @@ export default function Machines() {
               price: await getServicePrice(name),
             })),
           );
+
+          const inpersonDropDate = normalizeDate(machine.dropOffTime);
+          const inpersonDropTime = extractTime(machine.dropOffTime);
+          const inpersonCreatedAt = inpersonDropDate
+            ? new Date(inpersonDropDate).toLocaleDateString("vi-VN")
+            : new Date().toLocaleDateString("vi-VN");
 
           await addFirestoreInvoice({
             machineId: id,
@@ -268,8 +282,8 @@ export default function Machines() {
             warranty: machine.warranty,
             charger: machine.charger,
             password: machine.password,
-            createdAt: now.toLocaleDateString("vi-VN"),
-            createdTime: now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+            createdAt: inpersonCreatedAt,
+            createdTime: inpersonDropTime,
             dropOffTime: machine.dropOffTime,
             appointmentTime: machine.appointmentTime,
             serviceAmount: machine.serviceAmount || 0,
@@ -327,6 +341,7 @@ export default function Machines() {
           const serviceNames = machine.additionalServices?.length
             ? machine.additionalServices.join(", ")
             : (machine.description || "Dịch vụ khác");
+          const inpersonTxDate = normalizeDate(machine.dropOffTime) ?? new Date().toISOString().split('T')[0];
           await addFirestoreTransaction({
             machineId: id,
             customerName: machine.customerName,
@@ -334,7 +349,7 @@ export default function Machines() {
             service: serviceNames,
             amount: machine.finalAmount || 0,
             paymentStatus: (machine.finalAmount || 0) === 0 ? "free" : (machine.paymentStatus || "pending"),
-            date: new Date().toISOString().split('T')[0],
+            date: inpersonTxDate,
             discountCode: machine.discountCode || "",
             discountAmount: machine.discountAmount || 0,
             operationId,
