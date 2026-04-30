@@ -43,8 +43,10 @@ export async function getFirestoreMachineById(id: string): Promise<Machine | nul
 
 // Add new machine
 export async function addFirestoreMachine(machine: Omit<Machine, 'id'>): Promise<string> {
+  // Destructure to exclude id - Firestore auto-generates the doc ID
+  const { id: _id, ...machineData } = machine;
   const docRef = await addDoc(collection(db, COLLECTION_NAME), {
-    ...machine,
+    ...machineData,
     createdAt: new Date().toISOString(),
   });
   return docRef.id;
