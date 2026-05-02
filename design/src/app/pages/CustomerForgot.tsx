@@ -59,7 +59,7 @@ export default function CustomerForgot() {
   };
 
   const handleBack = () => {
-    navigate("/customer/login");
+    navigate("/login");
   };
 
   if (sent) {

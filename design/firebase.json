@@ -1,16 +1,32 @@
 {
-  "hosting": {
-    "public": "dist",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [{
-      "source": "**",
-      "destination": "/index.html"
-    }]
-  },
+  "hosting": [
+    {
+      "site": "itsupporter-tech",
+      "public": "dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [{
+        "source": "**",
+        "destination": "/index.html"
+      }]
+    },
+    {
+      "site": "itsupport-tech-customers",
+      "public": "dist-customer",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [{
+        "source": "**",
+        "destination": "/customer-index.html"
+      }]
+    }
+  ],
   "database": {
     "rules": "database.rules.json"
   }

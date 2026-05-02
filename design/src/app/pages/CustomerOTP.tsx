@@ -15,7 +15,7 @@ export default function CustomerOTP() {
   // Redirect if no email
   useEffect(() => {
     if (!email) {
-      navigate("/customer/login");
+      navigate("/login");
     }
   }, [email, navigate]);
 
@@ -43,7 +43,7 @@ export default function CustomerOTP() {
 
       // Navigate to customer portal
       setTimeout(() => {
-        navigate("/customer/portal");
+        navigate("/portal");
       }, 500);
     } else {
       setError("Mã OTP không chính xác");
@@ -64,7 +64,7 @@ export default function CustomerOTP() {
   };
 
   const handleBack = () => {
-    navigate("/customer/login");
+    navigate("/login");
   };
 
   if (!email) return null;

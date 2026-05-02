@@ -30,7 +30,7 @@ export default function CustomerSetPassword() {
     } else {
       // No valid reset code - redirect to login
       toast.error("Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn");
-      navigate("/customer/login");
+      navigate("/login");
     }
   }, [searchParams, navigate]);
 
@@ -65,7 +65,7 @@ export default function CustomerSetPassword() {
       setSuccess(true);
 
       setTimeout(() => {
-        navigate("/customer/login");
+        navigate("/login");
       }, 2000);
     } catch (err: any) {
       if (err.code === 'auth/expired-action-code') {
@@ -82,7 +82,7 @@ export default function CustomerSetPassword() {
   };
 
   const handleBack = () => {
-    navigate("/customer/login");
+    navigate("/login");
   };
 
   if (success) {

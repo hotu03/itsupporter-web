@@ -1,5 +1,22 @@
 {
   "projects": {
     "default": "itsupporter-tech"
-  }
+  },
+  "targets": {
+    "itsupporter-tech": {
+      "hosting": {
+        "customer": [
+          "customer-itsupporter"
+        ]
+      }
+    },
+    "itsupport-tech-customers": {
+      "hosting": {
+        "customer": [
+          "itsupport-tech-customers"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

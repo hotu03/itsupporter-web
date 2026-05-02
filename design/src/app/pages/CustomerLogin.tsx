@@ -65,7 +65,7 @@ export default function CustomerLogin() {
       }
 
       toast.success("Đăng nhập thành công!");
-      navigate("/customer/portal");
+      navigate("/portal");
     } catch (err: unknown) {
       const authError = err as { code?: string };
       if (authError.code === 'auth/user-not-found' || authError.code === 'auth/wrong-password' || authError.code === 'auth/invalid-credential') {

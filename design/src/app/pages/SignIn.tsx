@@ -100,7 +100,7 @@ export default function SignIn() {
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab("customer")}
+                onClick={() => window.open("https://itsupport-tech-customers.web.app/login", "_blank")}
                 className={`flex items-center justify-center gap-2 py-3 px-4 rounded-full font-semibold text-sm transition-all duration-200 ${
                   activeTab === "customer"
                     ? "bg-orange-500 text-white shadow-lg"
@@ -289,7 +289,7 @@ export default function SignIn() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => navigate("/customer/login")}
+                    onClick={() => window.open("https://itsupport-tech-customers.web.app/login", "_blank")}
                     className="w-full bg-white text-gray-700 font-semibold px-6 py-3 rounded-full hover:bg-gray-100 transition-all border-2 border-gray-300 hover:border-orange-400 inline-flex items-center justify-center gap-2 group"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
