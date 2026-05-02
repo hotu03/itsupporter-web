@@ -12,16 +12,16 @@
 
 IT Supporter bao gồm **2 ứng dụng web** được triển khai trên Firebase Hosting:
 
-| Ứng dụng | URL | Mục đích |
-|----------|-----|----------|
-| **Staff App** | https://itsupporter-tech.web.app | Quản lý khách hàng, máy, nhân sự, tài chính, hóa đơn |
-| **Customer App** | https://itsupport-tech-customers.web.app | Tra cứu trạng thái máy, xem điểm tích lũy, đổi voucher |
+| Ứng dụng | URL | Firebase Project | Mục đích |
+|----------|-----|-------------------|----------|
+| **Staff App** | https://itsupporter-tech.web.app | `itsupporter-tech` | Quản lý khách hàng, máy, nhân sự, tài chính, hóa đơn |
+| **Customer App** | https://itsupport-tech-customers.web.app | `itsupport-tech-customers` | Tra cứu trạng thái máy, xem điểm tích lũy, đổi voucher |
 
 ### Kiến trúc
 
 - **Frontend:** React 18 + TypeScript + Vite + TailwindCSS
 - **Backend:** Firebase (Authentication + Firestore + Hosting)
-- **2 Firebase Projects:** Staff Auth và Customer Auth **tách biệt nhau** nhưng dùng chung Firestore database
+- **2 Firebase Projects:** Staff Auth và Customer Auth **tách biệt nhau** nhưng dùng chung Firestore database `itsupporter-tech`
 
 ---
 
@@ -98,6 +98,260 @@ d:/itsupporter/
 
 ---
 
+## Firebase Configuration — Hướng dẫn chi tiết
+
+Hệ thống sử dụng **3 Firebase services** với **2 Firebase Projects** có vai trò khác nhau:
+
+| Service | Firebase Project | Vai trò |
+|---------|------------------|---------|
+| **Firebase Auth** | `itsupporter-tech` | Staff authentication |
+| **Firebase Auth** | `itsupport-tech-customers` | Customer authentication |
+| **Firestore Database** | `itsupporter-tech` | Lưu trữ tất cả data (customers, machines, vouchers...) |
+
+### Bước 1: Tạo Firebase Projects
+
+Truy cập [Firebase Console](https://console.firebase.google.com/) và tạo **2 projects**:
+
+1. **`itsupporter-tech`** — Project cho Staff (Auth + Firestore + Hosting)
+2. **`itsupport-tech-customers`** — Project cho Customer (Auth + Hosting)
+
+> **Lưu ý quan trọng:** Tên hosting sites phải trùng với tên Firebase project (không dấu, gạch ngang thay khoảng trắng).
+
+### Bước 2: Bật Firebase Authentication
+
+#### Staff Project (`itsupporter-tech`)
+
+1. Mở **Build > Authentication > Get started**
+2. Tab **Sign-in method**:
+   - Bật **Email/Password** — đặt email/password là providers đầu tiên
+   - Bật **Google** — chọn email của bạn làm project support email
+
+#### Customer Project (`itsupport-tech-customers`)
+
+1. Mở **Build > Authentication > Get started**
+2. Tab **Sign-in method**:
+   - Bật **Email/Password**
+   - Bật **Google**
+
+### Bước 3: Cấu hình Firestore Database
+
+**Chỉ tạo Firestore trên project `itsupporter-tech`** (project còn lại không cần Firestore).
+
+1. Mở **Build > Firestore Database > Create database**
+2. Chọn region gần nhất (VD: `asia-southeast1` cho Việt Nam)
+3. Chọn **Start in production mode** (hoặc test mode nếu dev)
+4. Bắt đầu với các rules mặc định — sẽ cấu hình chi tiết ở bước Security Rules
+
+### Bước 4: Cấu hình Firestore Security Rules
+
+Trong **Firestore > Rules**, thay thế bằng rules phù hợp:
+
+#### Rules cho Collection `customers`
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Staff: full access
+    match /customers/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Machines: staff full access
+    match /machines/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Members: staff full access
+    match /members/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Invoices: staff full access
+    match /invoices/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Transactions: staff full access
+    match /transactions/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Discounts: staff full access
+    match /discounts/{document} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+#### Rules cho Customer-facing collections (point_history, redeemed_vouchers)
+
+```javascript
+    // Point history: allow read by authenticated users, write by staff
+    match /point_history/{document} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Redeemed vouchers: allow read by authenticated users, write by staff
+    match /redeemed_vouchers/{document} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Services
+    match /services/{document} {
+      allow read, write: if request.auth != null;
+    }
+```
+
+### Bước 5: Cấu hình Firebase Hosting
+
+#### Project `itsupporter-tech`
+
+1. **Build > Hosting > Get started**
+2. Làm theo hướng dẫn cài `firebase-tools`: `npm install -g firebase-tools`
+3. Login: `firebase login`
+4. Init: `firebase init hosting` trong thư mục `design/`
+5. Chọn project `itsupporter-tech`
+6. Đặt `public directory` là `dist`
+7. Configure as single-page app: **Yes**
+8. Set up automatic builds: **No** (build thủ công với pnpm)
+
+#### Project `itsupport-tech-customers`
+
+1. Thêm site mới trong Firebase Console: **Build > Hosting > Add another site**
+2. Đặt tên site: `itsupport-tech-customers`
+3. Sau khi init project đầu tiên, chạy `firebase init hosting` lại và chọn **Add another site**
+4. Đặt `public directory` cho site này là `dist-customer`
+5. Configure as single-page app: **Yes** — trỏ đến `customer-index.html`
+
+### Bước 6: Lấy Firebase Config
+
+#### Staff Project Config
+
+1. Firebase Console → Project Settings → General → **Your apps**
+2. Click **Web** (</>) icon
+3. Register app với nickname: `IT Supporter Staff`
+4. Copy object `firebaseConfig`:
+
+```javascript
+const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "itsupporter-tech.firebaseapp.com",
+  projectId: "itsupporter-tech",
+  storageBucket: "itsupporter-tech.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abc123"
+};
+```
+
+#### Customer Project Config
+
+1. Làm tương tự với project `itsupport-tech-customers`
+2. Copy config của project customer
+
+### Bước 7: Tạo file `.env`
+
+Tạo file `design/.env` cho staff app:
+
+```env
+VITE_FIREBASE_API_KEY=AIzaSy...          # Từ staff project (itsupporter-tech)
+VITE_FIREBASE_AUTH_DOMAIN=itsupporter-tech.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=itsupporter-tech
+VITE_FIREBASE_STORAGE_BUCKET=itsupporter-tech.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:abc123
+```
+
+> **Lưu ý:** Staff app dùng config của project `itsupporter-tech` (nơi chứa Firestore).
+
+Tạo file `design/.env.customer` cho customer app (nếu cần build riêng):
+
+```env
+VITE_FIREBASE_API_KEY=AIzaSy...          # Từ customer project (itsupport-tech-customers)
+VITE_FIREBASE_AUTH_DOMAIN=itsupport-tech-customers.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=itsupport-tech-customers
+VITE_FIREBASE_STORAGE_BUCKET=itsupport-tech-customers.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=987654321
+VITE_FIREBASE_APP_ID=1:987654321:web:xyz789
+```
+
+### Bước 8: Cấu hình Google Sign-In (OAuth Consent Screen)
+
+#### Staff Project
+
+1. **APIs & Services > OAuth consent screen**
+2. Chọn **External**
+3. App name: `IT Supporter Staff`
+4. Email hỗ trợ: email của bạn
+5. **Scopes**: email, profile
+6. **Test users**: thêm email test để tránh bị block khi chưa publish
+
+#### Customer Project
+
+1. Làm tương tự
+2. App name: `IT Supporter Customer`
+
+### Bước 9: Cập nhật `firebase.json`
+
+Kiểm tra `firebase.json` đã đúng cấu hình 2 sites:
+
+```json
+{
+  "hosting": [
+    {
+      "site": "itsupporter-tech",
+      "public": "dist",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [{
+        "source": "**",
+        "destination": "/index.html"
+      }]
+    },
+    {
+      "site": "itsupport-tech-customers",
+      "public": "dist-customer",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [{
+        "source": "**",
+        "destination": "/customer-index.html"
+      }]
+    }
+  ]
+}
+```
+
+### Bước 10: Build và Deploy
+
+```bash
+cd design
+
+# Cài đặt dependencies
+pnpm install
+
+# Build staff app → output: dist/
+pnpm build
+
+# Build customer app → output: dist-customer/
+pnpm build:customer
+
+# Deploy cả 2 lên Firebase Hosting
+firebase deploy --only hosting
+```
+
+### Kiểm tra sau khi deploy
+
+| URL | Kiểm tra |
+|-----|----------|
+| https://itsupporter-tech.web.app | Staff login → Dashboard, Customers, Machines |
+| https://itsupporter-tech.web.app/signin | Staff sign-in page |
+| https://itsupport-tech-customers.web.app | Customer login page |
+| https://itsupport-tech-customers.web.app/portal | Customer portal (redirect về login nếu chưa đăng nhập) |
+
+---
+
 ## Bảo mật
 
 - **Phân tách Auth:** Staff và Customer dùng 2 Firebase Auth project riêng biệt
@@ -124,6 +378,32 @@ pnpm build:customer
 # Deploy lên Firebase
 firebase deploy --only hosting
 ```
+
+---
+
+## Troubleshooting thường gặp
+
+### Lỗi "Permission denied" khi đọc Firestore
+
+- Kiểm tra Firestore rules đã cho phép read/write
+- Kiểm tra user đã đăng nhập (request.auth != null)
+
+### Lỗi Google Sign-In không hoạt động
+
+- Kiểm tra OAuth consent screen đã được configure đúng
+- Kiểm tra email test đã được thêm vào test users
+- Kiểm tra redirect URI trong Google Cloud Console
+
+### Customer không thấy máy của mình
+
+- Kiểm tra `customerEmail` trong machine document match với email đã đăng nhập
+- Kiểm tra queries dùng email làm primary filter tại Firestore level
+
+### Deploy thất bại
+
+- Kiểm tra đã chạy `firebase login` chưa
+- Kiểm tra quyền access (phải là Owner hoặc Editor của Firebase project)
+- Kiểm tra `public` directory có tồn tại và có file `index.html`
 
 ---
 
