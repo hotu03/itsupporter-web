@@ -146,6 +146,14 @@ export default function CustomerSignup() {
         toast.success("Đăng ký thành công!");
         navigate("/portal");
       } else {
+        // Check if email already exists in Firestore before creating auth account
+        const existingCustomer = await getFirestoreCustomerByEmail(formData.email.trim().toLowerCase());
+        if (existingCustomer) {
+          setErrors({ email: "Email này đã được đăng ký. Vui lòng đăng nhập hoặc sử dụng email khác." });
+          setLoading(false);
+          return;
+        }
+
         // Email/password registration
         const { createFirebaseCustomer } = await import("../data/firebase-auth");
         await createFirebaseCustomer(formData.email.trim().toLowerCase(), formData.password);

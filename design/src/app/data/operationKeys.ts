@@ -21,11 +21,18 @@ export function normalizeEmailKey(email: string | undefined): string {
 }
 
 export function buildCustomerDocumentId(input: CustomerIdentityInput): string {
+  // Email is the primary key - if email exists, use it
+  if (input.email?.trim()) {
+    return `cust_email_${normalizeEmailKey(input.email)}`;
+  }
+
+  // Fallback to phone only if email is not available
   if (input.phone?.trim()) {
     return `cust_phone_${normalizePhoneKey(input.phone)}`;
   }
 
-  return `cust_email_${normalizeEmailKey(input.email)}`;
+  // Should not happen in practice - both email and phone are required for customers
+  return `cust_unknown_${normalizePhoneKey(input.phone) || normalizeEmailKey(input.email) || 'unknown'}`;
 }
 
 export function buildTransactionDocumentId(machineId: string): string {
