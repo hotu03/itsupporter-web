@@ -327,7 +327,7 @@ export function useCustomers(): UseCustomersReturn {
       );
 
       // Lưu voucher đã đổi vào redeemed_vouchers - KHÔNG tăng usageCount ở đây
-      await addFirestoreRedeemedVoucher({
+      const saveVoucherData = {
         customerPhone: selectedCustomer.phone,
         customerEmail: selectedCustomer.email || "",
         customerName: selectedCustomer.name,
@@ -335,7 +335,9 @@ export function useCustomers(): UseCustomersReturn {
         voucherName: discount.description || discount.code,
         pointsSpent: discount.pointsRequired || 0,
         redeemedAt: new Date().toISOString(),
-      });
+      };
+      console.log('[DEBUG handleRedeem] Saving voucher data:', JSON.stringify(saveVoucherData));
+      await addFirestoreRedeemedVoucher(saveVoucherData);
 
       await addFirestorePointHistory({
         customerPhone: selectedCustomer.phone,

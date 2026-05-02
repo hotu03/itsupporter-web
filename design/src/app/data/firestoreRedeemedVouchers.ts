@@ -29,8 +29,10 @@ export async function addFirestoreRedeemedVoucher(voucher: Omit<RedeemedVoucher,
 }
 
 export async function getFirestoreCustomerRedeemedVouchers(customerPhone: string): Promise<RedeemedVoucher[]> {
+  console.log('[DEBUG getFirestoreCustomerRedeemedVouchers] phone:', customerPhone);
   const q = query(collection(db, COLLECTION_NAME), where('customerPhone', '==', customerPhone));
   const snapshot = await getDocs(q);
+  console.log('[DEBUG getFirestoreCustomerRedeemedVouchers] found:', snapshot.size, 'vouchers');
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as RedeemedVoucher));
 }
 
@@ -82,7 +84,9 @@ export interface VoucherWithStatus extends RedeemedVoucher {
 
 // Get all vouchers for a customer with their status
 export async function getCustomerVouchersWithStatus(customerPhone: string): Promise<VoucherWithStatus[]> {
+  console.log('[DEBUG getCustomerVouchersWithStatus] phone:', customerPhone);
   const vouchers = await getFirestoreCustomerRedeemedVouchers(customerPhone);
+  console.log('[DEBUG getCustomerVouchersWithStatus] vouchers found:', vouchers.length);
   const results: VoucherWithStatus[] = [];
 
   for (const voucher of vouchers) {
@@ -220,5 +224,92 @@ export async function applyRedeemedVoucherToMachine(
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Không thể áp dụng voucher' };
+  }
+}
+
+// Refund expired unused voucher - returns floor(pointsSpent * 2/3) points to customer
+export async function refundExpiredVoucher(
+  voucherId: string,
+  customerPhone: string
+): Promise<{ success: boolean; refundPoints?: number; error?: string }> {
+  const voucherRef = doc(db, COLLECTION_NAME, voucherId);
+  const customerRef = doc(db, 'customers', customerPhone);
+
+  try {
+    const result = await runTransaction(db, async (transaction) => {
+      const voucherSnap = await transaction.get(voucherRef);
+
+      if (!voucherSnap.exists()) {
+        return { success: false, error: 'Voucher không tồn tại' };
+      }
+
+      const voucherData = voucherSnap.data();
+
+      // Verify voucher belongs to this customer
+      if (voucherData.customerPhone !== customerPhone) {
+        return { success: false, error: 'Không có quyền hoàn điểm voucher này' };
+      }
+
+      // Only refund if voucher was never used
+      if (voucherData.usedAt) {
+        return { success: false, error: 'Voucher đã được sử dụng, không thể hoàn điểm' };
+      }
+
+      // Check if voucher is expired by checking validUntil on the discount
+      const discountQ = query(
+        collection(db, DISCOUNTS_COLLECTION),
+        where('code', '==', voucherData.voucherCode)
+      );
+      const discountSnap = await getDocs(discountQ);
+
+      if (!discountSnap.empty) {
+        const discountData = discountSnap.docs[0].data();
+        const validUntil = new Date(discountData.validUntil || 0);
+        const now = new Date();
+
+        if (now <= validUntil) {
+          return { success: false, error: 'Voucher chưa hết hạn, không thể hoàn điểm' };
+        }
+      }
+
+      // Calculate refund: floor(pointsSpent * 2/3)
+      const pointsSpent = voucherData.pointsSpent || 0;
+      const refundPoints = Math.floor(pointsSpent * (2 / 3));
+
+      if (refundPoints <= 0) {
+        return { success: false, error: 'Không có điểm để hoàn' };
+      }
+
+      // Update customer points
+      const customerSnap = await transaction.get(customerRef);
+      if (customerSnap.exists()) {
+        const currentPoints = customerSnap.data().points || 0;
+        transaction.update(customerRef, {
+          points: currentPoints + refundPoints,
+        });
+      }
+
+      // Delete the voucher entry
+      transaction.delete(voucherRef);
+
+      // Add point history entry
+      const historyRef = doc(collection(db, 'point_history'));
+      transaction.set(historyRef, {
+        customerPhone: voucherData.customerPhone,
+        customerEmail: voucherData.customerEmail || '',
+        customerName: voucherData.customerName,
+        type: 'earn',
+        points: refundPoints,
+        date: new Date().toISOString(),
+        description: `Hoàn tiền voucher ${voucherData.voucherCode}`,
+        relatedId: voucherId,
+      });
+
+      return { success: true, refundPoints };
+    });
+
+    return result;
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Không thể hoàn điểm' };
   }
 }

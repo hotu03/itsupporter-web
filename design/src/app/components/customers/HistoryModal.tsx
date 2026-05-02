@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { X, History, Star, TrendingUp, Gift } from "lucide-react";
+import { X, History, Star, TrendingUp, Gift, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import type { Customer } from "../../data/customers";
 import { getFirestoreCustomerPointHistory, type PointHistory } from "../../data/firestorePoints";
-import { getCustomerVouchersWithStatus, type VoucherWithStatus } from "../../data/firestoreRedeemedVouchers";
+import { getCustomerVouchersWithStatus, refundExpiredVoucher, type VoucherWithStatus } from "../../data/firestoreRedeemedVouchers";
 
 interface HistoryModalProps {
   customer: Customer | null;
@@ -15,6 +16,29 @@ export function HistoryModal({ customer, isOpen, onClose }: HistoryModalProps) {
   const [vouchers, setVouchers] = useState<VoucherWithStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'points' | 'vouchers'>('points');
+  const [refundingId, setRefundingId] = useState<string | null>(null);
+
+  const handleRefund = async (voucher: VoucherWithStatus, customerPhone: string) => {
+    const refundAmount = Math.floor(voucher.pointsSpent * (2 / 3));
+    if (!confirm(`Hoàn ${refundAmount} điểm cho voucher ${voucher.voucherCode}?`)) return;
+
+    setRefundingId(voucher.id);
+    try {
+      const result = await refundExpiredVoucher(voucher.id, customerPhone);
+      if (result.success) {
+        toast.success(`Đã hoàn ${result.refundPoints} điểm cho voucher ${voucher.voucherCode}`);
+        // Refresh vouchers
+        const updated = await getCustomerVouchersWithStatus(customerPhone);
+        setVouchers(updated);
+      } else {
+        toast.error(result.error || 'Không thể hoàn điểm');
+      }
+    } catch (error) {
+      toast.error('Không thể hoàn điểm: ' + (error instanceof Error ? error.message : 'Lỗi không xác định'));
+    } finally {
+      setRefundingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen || !customer) return;
@@ -167,6 +191,7 @@ export function HistoryModal({ customer, isOpen, onClose }: HistoryModalProps) {
             <div className="space-y-3">
               {vouchers.map((voucher) => {
                 const isAvailable = voucher.status === 'available';
+                const isRefundable = voucher.status === 'expired';
                 return (
                   <div
                     key={voucher.id}
@@ -196,6 +221,16 @@ export function HistoryModal({ customer, isOpen, onClose }: HistoryModalProps) {
                           : `Đổi: ${new Date(voucher.redeemedAt).toLocaleDateString("vi-VN")}`}
                       </p>
                     </div>
+                    {isRefundable && (
+                      <button
+                        onClick={() => handleRefund(voucher, customer.phone)}
+                        disabled={refundingId === voucher.id}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <RefreshCw size={12} className={refundingId === voucher.id ? "animate-spin" : ""} />
+                        Hoàn {Math.floor(voucher.pointsSpent * (2/3))} điểm
+                      </button>
+                    )}
                   </div>
                 );
               })}
