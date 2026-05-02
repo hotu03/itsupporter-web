@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Laptop, Calendar, X } from "lucide-react";
 import CustomerMachineCard from "../CustomerMachineCard";
 import type { Machine } from "../../data/machines";
+import { Pagination, usePagination } from "../Pagination";
 
 interface MachinesTabProps {
   machines: Machine[];
@@ -11,6 +12,7 @@ interface MachinesTabProps {
 export function MachinesTab({ machines }: MachinesTabProps) {
   const navigate = useNavigate();
   const [filterDate, setFilterDate] = useState<string>("");
+  const pagination = usePagination(5);
 
   const filteredMachines = filterDate
     ? machines.filter((machine) => {
@@ -18,6 +20,10 @@ export function MachinesTab({ machines }: MachinesTabProps) {
         return machineDate === filterDate;
       })
     : machines;
+
+  useEffect(() => {
+    pagination.resetPage();
+  }, [filterDate]);
 
   if (machines.length === 0) {
     return (
@@ -76,10 +82,18 @@ export function MachinesTab({ machines }: MachinesTabProps) {
 
       {/* Machine List */}
       <div className="grid gap-4">
-        {filteredMachines.map((machine) => (
+        {pagination.paginate(filteredMachines).map((machine) => (
           <CustomerMachineCard key={machine.id} machine={machine} />
         ))}
       </div>
+
+      <Pagination
+        total={filteredMachines.length}
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        onPageChange={pagination.handlePageChange}
+        onPageSizeChange={pagination.handlePageSizeChange}
+      />
 
       {/* Add new machine CTA */}
       <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl p-6 border-2 border-dashed border-orange-300 hover:border-orange-400 transition-all">

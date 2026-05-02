@@ -80,6 +80,9 @@ export type VoucherStatus = 'available' | 'used' | 'expired' | 'out_of_uses';
 export interface VoucherWithStatus extends RedeemedVoucher {
   status: VoucherStatus;
   statusLabel: string;
+  discountPercent?: number;
+  maxDiscount?: number;
+  validUntil?: string;
 }
 
 // Get all vouchers for a customer with their status
@@ -104,31 +107,46 @@ export async function getCustomerVouchersWithStatus(customerPhone: string): Prom
 
     const discountData = discountSnap.docs[0].data();
     const now = new Date();
+    // Set validUntil to end of day (23:59:59.999) for accurate expiration check
     const validUntil = new Date(discountData.validUntil || 0);
+    validUntil.setHours(23, 59, 59, 999);
+    console.log('[DEBUG getCustomerVouchersWithStatus] discount validUntil:', discountData.validUntil, 'now:', now.toISOString(), 'isExpired:', now > validUntil);
     const usageCount = discountData.usageCount || 0;
     const usageLimit = discountData.usageLimit || 0;
 
     if (voucher.usedAt) {
       results.push({
         ...voucher,
+        discountPercent: discountData.discountPercent,
+        maxDiscount: discountData.maxDiscount,
+        validUntil: discountData.validUntil,
         status: 'used',
         statusLabel: 'Đã sử dụng',
       });
     } else if (usageCount >= usageLimit) {
       results.push({
         ...voucher,
+        discountPercent: discountData.discountPercent,
+        maxDiscount: discountData.maxDiscount,
+        validUntil: discountData.validUntil,
         status: 'out_of_uses',
         statusLabel: 'Đã hết lượt sử dụng',
       });
     } else if (now > validUntil) {
       results.push({
         ...voucher,
+        discountPercent: discountData.discountPercent,
+        maxDiscount: discountData.maxDiscount,
+        validUntil: discountData.validUntil,
         status: 'expired',
         statusLabel: 'Đã hết hạn',
       });
     } else {
       results.push({
         ...voucher,
+        discountPercent: discountData.discountPercent,
+        maxDiscount: discountData.maxDiscount,
+        validUntil: discountData.validUntil,
         status: 'available',
         statusLabel: 'Còn dùng được',
       });
@@ -167,7 +185,9 @@ export async function applyRedeemedVoucherToMachine(
 
   const now = new Date();
   const validFrom = new Date(discountData.validFrom || 0);
+  validFrom.setHours(0, 0, 0, 0);
   const validUntil = new Date(discountData.validUntil || 0);
+  validUntil.setHours(23, 59, 59, 999);
   const usageCount = discountData.usageCount || 0;
   const usageLimit = discountData.usageLimit || 0;
 
@@ -265,6 +285,7 @@ export async function refundExpiredVoucher(
       if (!discountSnap.empty) {
         const discountData = discountSnap.docs[0].data();
         const validUntil = new Date(discountData.validUntil || 0);
+        validUntil.setHours(23, 59, 59, 999);
         const now = new Date();
 
         if (now <= validUntil) {

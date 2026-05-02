@@ -68,18 +68,11 @@ export function useCustomerPortal(email: string): CustomerPortalData {
         });
         setPointHistory(combinedHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
-        // Get redeemable vouchers
-        const allDiscounts = await getFirestoreDiscounts();
-        const redeemable = allDiscounts.filter(
-          (d) => d.isRedeemable && d.pointsRequired && d.pointsRequired <= foundCustomer.points
-        );
-        setRedeemableVouchers(redeemable);
-
         // Get customer's invoices (by email or phone)
         const invoicesByEmail = await getFirestoreInvoicesByEmail(email);
         setInvoices(invoicesByEmail);
 
-        // Get redeemed vouchers (by email or phone)
+        // Get redeemed vouchers (by email or phone) - needed for filtering redeemable
         const redeemedByEmail = await getFirestoreCustomerRedeemedVouchersByEmail(email);
         setRedeemedVouchers(redeemedByEmail);
 
@@ -88,6 +81,23 @@ export function useCustomerPortal(email: string): CustomerPortalData {
           const withStatus = await getCustomerVouchersWithStatus(foundCustomer.phone);
           setVouchersWithStatus(withStatus);
         }
+
+        // Get redeemable vouchers (exclude already redeemed codes AND expired vouchers)
+        const allDiscounts = await getFirestoreDiscounts();
+        const redeemedCodes = new Set(redeemedByEmail.map((rv) => rv.voucherCode.toUpperCase()));
+        const now = new Date();
+        const redeemable = allDiscounts.filter((d) => {
+          const voucherValidUntil = new Date(d.validUntil);
+          voucherValidUntil.setHours(23, 59, 59, 999);
+          return (
+            d.isRedeemable &&
+            d.pointsRequired &&
+            d.pointsRequired <= foundCustomer.points &&
+            !redeemedCodes.has(d.code.toUpperCase()) &&
+            voucherValidUntil > now
+          );
+        });
+        setRedeemableVouchers(redeemable);
 
         setLoading(false);
       } catch (err) {

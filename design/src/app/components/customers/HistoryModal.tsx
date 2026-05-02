@@ -191,7 +191,15 @@ export function HistoryModal({ customer, isOpen, onClose }: HistoryModalProps) {
             <div className="space-y-3">
               {vouchers.map((voucher) => {
                 const isAvailable = voucher.status === 'available';
-                const isRefundable = voucher.status === 'expired';
+                const refundAmount = Math.floor(voucher.pointsSpent * (2/3));
+                const isRefundable = voucher.status === 'expired' && refundAmount > 0;
+                console.log('[DEBUG voucher]', JSON.stringify({
+                  code: voucher.voucherCode,
+                  status: voucher.status,
+                  pointsSpent: voucher.pointsSpent,
+                  refundAmount,
+                  isRefundable
+                }));
                 return (
                   <div
                     key={voucher.id}
@@ -228,7 +236,7 @@ export function HistoryModal({ customer, isOpen, onClose }: HistoryModalProps) {
                         className="flex items-center gap-1 px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <RefreshCw size={12} className={refundingId === voucher.id ? "animate-spin" : ""} />
-                        Hoàn {Math.floor(voucher.pointsSpent * (2/3))} điểm
+                        Hoàn {refundAmount} điểm
                       </button>
                     )}
                   </div>

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FileText, Calendar, X, Gift } from "lucide-react";
 import { type Invoice, formatCurrency } from "../../data/invoices";
+import { Pagination, usePagination } from "../Pagination";
 
 interface InvoicesTabProps {
   invoices: Invoice[];
@@ -8,6 +9,7 @@ interface InvoicesTabProps {
 
 export function InvoicesTab({ invoices }: InvoicesTabProps) {
   const [filterDate, setFilterDate] = useState<string>("");
+  const pagination = usePagination(5);
 
   const filteredInvoices = filterDate
     ? invoices.filter((invoice) => {
@@ -19,6 +21,10 @@ export function InvoicesTab({ invoices }: InvoicesTabProps) {
   const sortedInvoices = [...filteredInvoices].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
+
+  useEffect(() => {
+    pagination.resetPage();
+  }, [filterDate]);
 
   if (invoices.length === 0) {
     return (
@@ -72,7 +78,7 @@ export function InvoicesTab({ invoices }: InvoicesTabProps) {
 
       {/* Invoice List */}
       <div className="space-y-4">
-        {sortedInvoices.map((invoice) => (
+        {pagination.paginate(sortedInvoices).map((invoice) => (
           <div
             key={invoice.id}
             className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow"
@@ -189,6 +195,13 @@ export function InvoicesTab({ invoices }: InvoicesTabProps) {
           </div>
         ))}
       </div>
+      <Pagination
+        total={sortedInvoices.length}
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        onPageChange={pagination.handlePageChange}
+        onPageSizeChange={pagination.handlePageSizeChange}
+      />
     </div>
   );
 }
