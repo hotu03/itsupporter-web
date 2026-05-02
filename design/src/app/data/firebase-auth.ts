@@ -7,6 +7,8 @@ import {
   updatePassword,
   onAuthStateChanged,
   signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  signInWithPopup,
   type User,
 } from 'firebase/auth';
 import { customerAuth } from '../utils/firebase';
@@ -60,4 +62,23 @@ export function onAuthStateChange(callback: (user: User | null) => void): () => 
 // Get current user (synchronous, may be null)
 export function getCurrentUser(): User | null {
   return customerAuth.currentUser;
+}
+
+// Google Sign-In for customers
+export interface GoogleSignInResult {
+  email: string;
+  uid: string;
+  name?: string;
+}
+
+const googleProvider = new GoogleAuthProvider();
+
+export async function signInWithGoogle(): Promise<GoogleSignInResult> {
+  const result = await signInWithPopup(customerAuth, googleProvider);
+  const user = result.user;
+  return {
+    email: user.email || '',
+    uid: user.uid,
+    name: user.displayName || undefined,
+  };
 }

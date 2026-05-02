@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
-import { getFirestoreMachines } from "../../../data/firestoreMachines";
+import { getFirestoreMachinesByEmail } from "../../../data/firestoreMachines";
 import { getFirestoreCustomerByEmail, updateFirestoreCustomer, type Customer } from "../../../data/firestoreCustomers";
-import { getFirestoreCustomerPointHistoryByEmail, getFirestoreCustomerPointHistory, addFirestorePointHistory, type PointHistory } from "../../../data/firestorePoints";
+import { getFirestoreCustomerPointHistoryByEmail, addFirestorePointHistory, type PointHistory } from "../../../data/firestorePoints";
 import { getFirestoreDiscounts, type DiscountCode } from "../../../data/firestoreDiscounts";
 import { getFirestoreInvoicesByEmail, type Invoice } from "../../../data/firestoreInvoices";
 import {
   getFirestoreCustomerRedeemedVouchersByEmail,
   isFirestoreVoucherRedeemedByCustomerEmail,
   addFirestoreRedeemedVoucher,
-  getCustomerVouchersWithStatus,
+  getCustomerVouchersWithStatusByEmail,
   type RedeemedVoucher,
   type VoucherWithStatus,
 } from "../../../data/firestoreRedeemedVouchers";
@@ -52,21 +52,13 @@ export function useCustomerPortal(email: string): CustomerPortalData {
         }
         setCustomer(foundCustomer);
 
-        // Get customer's machines
-        const allMachines = await getFirestoreMachines();
-        const customerMachines = allMachines.filter((m) => m.phone === foundCustomer.phone);
+        // Get customer's machines (filtered by email at Firestore level)
+        const customerMachines = await getFirestoreMachinesByEmail(email);
         setMachines(customerMachines);
 
-        // Get point history (by email or fallback to phone)
+        // Get point history (by email only - email is the primary key)
         const historyByEmail = await getFirestoreCustomerPointHistoryByEmail(email);
-        const historyByPhone = await getFirestoreCustomerPointHistory(foundCustomer.phone);
-        const combinedHistory = [...historyByEmail];
-        historyByPhone.forEach((h) => {
-          if (!combinedHistory.find((c) => c.id === h.id)) {
-            combinedHistory.push(h);
-          }
-        });
-        setPointHistory(combinedHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        setPointHistory(historyByEmail.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
         // Get customer's invoices (by email or phone)
         const invoicesByEmail = await getFirestoreInvoicesByEmail(email);
@@ -76,11 +68,9 @@ export function useCustomerPortal(email: string): CustomerPortalData {
         const redeemedByEmail = await getFirestoreCustomerRedeemedVouchersByEmail(email);
         setRedeemedVouchers(redeemedByEmail);
 
-        // Get vouchers with status for display
-        if (foundCustomer.phone) {
-          const withStatus = await getCustomerVouchersWithStatus(foundCustomer.phone);
-          setVouchersWithStatus(withStatus);
-        }
+        // Get vouchers with status for display (filtered by email at Firestore level)
+        const withStatus = await getCustomerVouchersWithStatusByEmail(email);
+        setVouchersWithStatus(withStatus);
 
         // Get redeemable vouchers (exclude already redeemed codes AND expired vouchers)
         const allDiscounts = await getFirestoreDiscounts();

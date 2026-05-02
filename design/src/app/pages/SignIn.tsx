@@ -254,7 +254,7 @@ export default function SignIn() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => navigate("/dang-ky-dich-vu")}
+                    onClick={() => window.open("https://itsupport-tech-customers.web.app/signup", "_blank")}
                     className="w-full bg-white text-orange-600 font-bold px-6 py-3 rounded-full hover:bg-orange-50 transition-all shadow-lg hover:shadow-xl inline-flex items-center justify-center gap-2 group"
                   >
                     Đăng ký ngay

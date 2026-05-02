@@ -156,6 +156,75 @@ export async function getCustomerVouchersWithStatus(customerPhone: string): Prom
   return results;
 }
 
+// Get all vouchers for a customer by email with their status (SECURE - filtered at Firestore level)
+export async function getCustomerVouchersWithStatusByEmail(customerEmail: string): Promise<VoucherWithStatus[]> {
+  console.log('[DEBUG getCustomerVouchersWithStatusByEmail] email:', customerEmail);
+  const vouchers = await getFirestoreCustomerRedeemedVouchersByEmail(customerEmail);
+  console.log('[DEBUG getCustomerVouchersWithStatusByEmail] vouchers found:', vouchers.length);
+  const results: VoucherWithStatus[] = [];
+
+  for (const voucher of vouchers) {
+    const discountQ = query(collection(db, DISCOUNTS_COLLECTION), where('code', '==', voucher.voucherCode));
+    const discountSnap = await getDocs(discountQ);
+
+    if (discountSnap.empty) {
+      results.push({
+        ...voucher,
+        status: 'expired',
+        statusLabel: 'Mã không tồn tại',
+      });
+      continue;
+    }
+
+    const discountData = discountSnap.docs[0].data();
+    const now = new Date();
+    const validUntil = new Date(discountData.validUntil || 0);
+    validUntil.setHours(23, 59, 59, 999);
+    const usageCount = discountData.usageCount || 0;
+    const usageLimit = discountData.usageLimit || 0;
+
+    if (voucher.usedAt) {
+      results.push({
+        ...voucher,
+        discountPercent: discountData.discountPercent,
+        maxDiscount: discountData.maxDiscount,
+        validUntil: discountData.validUntil,
+        status: 'used',
+        statusLabel: 'Đã sử dụng',
+      });
+    } else if (usageCount >= usageLimit) {
+      results.push({
+        ...voucher,
+        discountPercent: discountData.discountPercent,
+        maxDiscount: discountData.maxDiscount,
+        validUntil: discountData.validUntil,
+        status: 'out_of_uses',
+        statusLabel: 'Đã hết lượt sử dụng',
+      });
+    } else if (now > validUntil) {
+      results.push({
+        ...voucher,
+        discountPercent: discountData.discountPercent,
+        maxDiscount: discountData.maxDiscount,
+        validUntil: discountData.validUntil,
+        status: 'expired',
+        statusLabel: 'Đã hết hạn',
+      });
+    } else {
+      results.push({
+        ...voucher,
+        discountPercent: discountData.discountPercent,
+        maxDiscount: discountData.maxDiscount,
+        validUntil: discountData.validUntil,
+        status: 'available',
+        statusLabel: 'Còn dùng được',
+      });
+    }
+  }
+
+  return results;
+}
+
 // Apply redeemed voucher to a machine - validates and updates usageCount
 export async function applyRedeemedVoucherToMachine(
   customerPhone: string,

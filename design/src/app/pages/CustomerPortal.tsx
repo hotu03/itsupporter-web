@@ -13,22 +13,17 @@ export default function CustomerPortal() {
 
   useEffect(() => {
     const auth = sessionStorage.getItem("customer_auth");
-    if (!auth) {
-      navigate("/customer/login");
-      return;
-    }
+    if (!auth) return;
 
     try {
       const { email: authEmail } = JSON.parse(auth);
-      if (!authEmail) {
-        navigate("/customer/login");
-        return;
+      if (authEmail) {
+        setEmail(authEmail);
       }
-      setEmail(authEmail);
     } catch {
-      navigate("/customer/login");
+      // ProtectedRoute will redirect if needed
     }
-  }, [navigate]);
+  }, []);
 
   const {
     customer,
@@ -50,7 +45,7 @@ export default function CustomerPortal() {
 
   const handleLogout = () => {
     sessionStorage.removeItem("customer_auth");
-    navigate("/customer/login");
+    navigate("/login");
   };
 
   if (loading) {

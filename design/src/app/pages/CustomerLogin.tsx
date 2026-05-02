@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
 import { getFirestoreCustomerByEmail, updateFirestoreCustomer } from "../data/firestoreCustomers";
-import { signInCustomer } from "../data/firebase-auth";
+import { signInCustomer, signInWithGoogle } from "../data/firebase-auth";
 import { toast } from "sonner";
 
 export default function CustomerLogin() {
@@ -13,6 +13,20 @@ export default function CustomerLogin() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const auth = sessionStorage.getItem("customer_auth");
+    if (auth) {
+      try {
+        const { email } = JSON.parse(auth);
+        if (email) {
+          navigate("/portal");
+        }
+      } catch {
+        sessionStorage.removeItem("customer_auth");
+      }
+    }
+  }, [navigate]);
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,6 +101,49 @@ export default function CustomerLogin() {
     setStep("email");
     setPassword("");
     setError("");
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await signInWithGoogle();
+
+      // Check if customer exists in Firestore
+      const existingCustomer = await getFirestoreCustomerByEmail(result.email);
+
+      if (!existingCustomer) {
+        setError("Tài khoản Google chưa được đăng ký. Vui lòng đăng ký trước.");
+        return;
+      }
+
+      // Update last login
+      if (existingCustomer.id) {
+        await updateFirestoreCustomer(String(existingCustomer.id), {
+          lastLoginAt: new Date().toISOString(),
+        });
+      }
+
+      sessionStorage.setItem(
+        "customer_auth",
+        JSON.stringify({ email: result.email, timestamp: Date.now() })
+      );
+
+      toast.success("Đăng nhập thành công!");
+      navigate("/portal");
+    } catch (err: unknown) {
+      const authError = err as { code?: string };
+      if (authError.code === "auth/popup-closed-by-user") {
+        // User closed popup - do nothing
+      } else if (authError.code === "auth/account-exists-with-different-credential") {
+        setError("Email này đã được đăng ký với phương thức khác");
+      } else {
+        setError("Đăng nhập Google thất bại. Vui lòng thử lại.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (step === "password") {
@@ -189,7 +246,7 @@ export default function CustomerLogin() {
             {/* Forgot password link */}
             <div className="mt-4 text-center">
               <button
-                onClick={() => navigate("/customer/forgot")}
+                onClick={() => navigate("/forgot")}
                 className="text-sm text-orange-600 hover:text-orange-700 underline"
               >
                 Quên mật khẩu?
@@ -251,11 +308,40 @@ export default function CustomerLogin() {
               <ArrowRight className="w-5 h-5" />
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-gray-200"></div>
+            <span className="text-gray-400 text-xs">hoặc</span>
+            <div className="flex-1 h-px bg-gray-200"></div>
+          </div>
+
+          {/* Google Sign-In */}
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border-2 border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-50"
+          >
+            <svg width="20" height="20" viewBox="0 0 48 48" fill="none">
+              <path d="M43.611 20.083H42V20H24v8h11.303C33.927 32.657 29.418 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039L37.618 9.39C34.21 6.226 29.337 4 24 4 12.954 4 4 12.954 4 24s8.954 20 20 20 20-8.954 20-20c0-1.341-.138-2.65-.389-3.917z" fill="#FFC107"/>
+              <path d="M6.306 14.691L11.09 18.307C12.419 14.914 15.927 12 20 12c3.059 0 5.842 1.154 7.961 3.039L33.618 9.39C30.21 6.226 25.337 4 20 4 14.21 4 9.157 7.166 6.306 14.691z" fill="#FF3D00"/>
+              <path d="M24 44c5.166 0 9.86-1.977 13.409-5.192L32.73 35.109C30.745 36.647 28.484 37.5 26 37.5 20.635 37.5 16.142 34.202 14.74 29.604L9.886 33.37C12.653 39.411 17.941 44 24 44z" fill="#4CAF50"/>
+              <path d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l4.677 3.899C39.35 35.19 44 30.183 44 24c0-1.341-.138-2.65-.389-3.917z" fill="#1976D2"/>
+            </svg>
+            <span className="text-gray-700 font-medium">Đăng nhập với Google</span>
+          </button>
         </div>
 
         {/* Footer note */}
         <p className="text-center text-sm text-gray-500 mt-6">
-          Chưa có tài khoản? Liên hệ cửa hàng để đăng ký dịch vụ
+          Chưa có tài khoản?{" "}
+          <button
+            onClick={() => navigate("/signup")}
+            className="text-orange-500 font-semibold hover:text-orange-600"
+          >
+            Đăng ký ngay
+          </button>
         </p>
       </div>
     </div>
