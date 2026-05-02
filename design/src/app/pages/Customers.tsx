@@ -27,6 +27,8 @@ export default function Customers() {
     filteredCustomers,
     pagedCustomers,
     stats,
+    page,
+    pageSize,
     setSearchQuery,
     setStartDate,
     setEndDate,
@@ -41,9 +43,16 @@ export default function Customers() {
     handleDelete,
     handleRedeem,
     setFormData,
+    setPage,
+    setPageSize,
   } = useCustomers();
 
-  const { page, pageSize, handlePageChange, handlePageSizeChange } = usePagination(10);
+  const { handlePageChange } = usePagination(pageSize);
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
 
   if (loading) {
     return (
